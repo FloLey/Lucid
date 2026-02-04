@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import sessions, stage1, stage2, stage3, stage4, chat, export
+from app.routes import sessions, stage1, stage2, stage3, stage4, chat, export, fonts
 
 app = FastAPI(
     title="Lucid API",
@@ -28,6 +28,7 @@ app.include_router(stage3.router, prefix="/api/stage3", tags=["stage3"])
 app.include_router(stage4.router, prefix="/api/stage4", tags=["stage4"])
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
+app.include_router(fonts.router, prefix="/api/fonts", tags=["fonts"])
 
 
 @app.get("/")
