@@ -1,0 +1,37 @@
+{
+  "name": "Lucid Development Environment",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "frontend",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "forwardPorts": [5173, 8000],
+
+  "portsAttributes": {
+    "5173": {
+      "label": "Lucid Frontend",
+      "onAutoForward": "openBrowser"
+    },
+    "8000": {
+      "label": "Lucid API (Swagger)",
+      "onAutoForward": "ignore"
+    }
+  },
+
+  "postCreateCommand": "cp .env.example .env && cd backend && pip install -r requirements.txt",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-vscode.live-server",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "tamasfe.even-better-toml"
+      ]
+    }
+  }
+}

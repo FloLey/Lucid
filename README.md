@@ -16,7 +16,21 @@ Lucid is a containerized web application that turns your ideas into beautiful 4:
 - **Style Presets**: Modern, Bold, Elegant, Minimal, and Impact styles
 - **Export**: Download as ZIP with all slides and metadata
 
-## Quick Start (Docker)
+## Quick Start
+
+### Option 1: GitHub Codespaces (Recommended)
+
+Click the button below to open a fully configured development environment in the cloud:
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/YOUR_ORG/Lucid)
+
+The Codespace will automatically:
+- Build both backend and frontend containers
+- Download fonts during build
+- Forward ports 5173 (frontend) and 8000 (API)
+- Open the app in your browser
+
+### Option 2: Local Docker
 
 ```bash
 # Clone and start
@@ -29,6 +43,32 @@ docker-compose up --build
 ```
 
 The app will be available at `http://localhost:5173`.
+
+## Environment Variables
+
+### Setting Up Secrets for Codespaces
+
+To use the Gemini AI features in GitHub Codespaces:
+
+1. Navigate to your repository on GitHub
+2. Go to **Settings** → **Secrets and variables** → **Codespaces**
+3. Click **New repository secret**
+4. Add secret:
+   - **Name:** `GEMINI_API_KEY`
+   - **Value:** Your Google Gemini API key
+
+The secret will be automatically injected into your Codespace environment.
+
+### Local Development
+
+For local development, create a `.env` file in the project root:
+
+```bash
+cp .env.example .env
+# Edit .env and add your GEMINI_API_KEY
+```
+
+**Note:** The app works without an API key using mock responses, which is useful for UI development.
 
 ## Tech Stack
 
@@ -150,6 +190,8 @@ Full CRUD operations for each stage. See `/api/docs` when running.
 
 ```
 Lucid/
+├── .devcontainer/          # GitHub Codespaces configuration
+│   └── devcontainer.json
 ├── docker-compose.yml      # Container orchestration
 ├── .env.example            # Environment template
 ├── backend/
