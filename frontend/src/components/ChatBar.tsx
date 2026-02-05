@@ -4,6 +4,7 @@ import { sendChatMessage } from '../services/api';
 
 interface ChatBarProps {
   sessionId: string;
+  currentStage: number;
   isOpen: boolean;
   onToggle: () => void;
   updateSession: (session: Session) => void;
@@ -16,19 +17,75 @@ interface ChatMessage {
   toolCalled?: string;
 }
 
-export default function ChatBar({ sessionId, isOpen, onToggle, updateSession }: ChatBarProps) {
+// Stage-specific commands for autocomplete
+const STAGE_COMMANDS: Record<number, { command: string; description: string }[]> = {
+  1: [
+    { command: '/next', description: 'Advance to Stage 2' },
+    { command: '/generate', description: 'Generate slides from draft' },
+    { command: '/regen slide', description: 'Regenerate a specific slide' },
+  ],
+  2: [
+    { command: '/back', description: 'Go back to Stage 1' },
+    { command: '/next', description: 'Advance to Stage 3' },
+    { command: '/generate', description: 'Generate image prompts' },
+    { command: '/regen prompt', description: 'Regenerate a specific prompt' },
+  ],
+  3: [
+    { command: '/back', description: 'Go back to Stage 2' },
+    { command: '/next', description: 'Advance to Stage 4' },
+    { command: '/generate', description: 'Generate background images' },
+    { command: '/regen image', description: 'Regenerate a specific image' },
+  ],
+  4: [
+    { command: '/back', description: 'Go back to Stage 3' },
+    { command: '/style modern', description: 'Apply modern preset' },
+    { command: '/style bold', description: 'Apply bold preset' },
+    { command: '/style elegant', description: 'Apply elegant preset' },
+    { command: '/style minimal', description: 'Apply minimal preset' },
+    { command: '/style impact', description: 'Apply impact preset' },
+    { command: '/export', description: 'Export carousel as ZIP' },
+  ],
+};
+
+export default function ChatBar({ sessionId, currentStage, isOpen, onToggle, updateSession }: ChatBarProps) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [filteredCommands, setFilteredCommands] = useState<{ command: string; description: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Handle autocomplete trigger
+  useEffect(() => {
+    if (input.startsWith('/')) {
+      const commands = STAGE_COMMANDS[currentStage] || [];
+      const query = input.toLowerCase();
+      const filtered = commands.filter((c) =>
+        c.command.toLowerCase().startsWith(query)
+      );
+      setFilteredCommands(filtered);
+      setShowAutocomplete(filtered.length > 0);
+    } else {
+      setShowAutocomplete(false);
+    }
+  }, [input, currentStage]);
+
+  const handleCommandSelect = (command: string) => {
+    setInput(command + ' ');
+    setShowAutocomplete(false);
+    inputRef.current?.focus();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
+
+    setShowAutocomplete(false);
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -75,7 +132,7 @@ export default function ChatBar({ sessionId, isOpen, onToggle, updateSession }: 
             <div className="space-y-3">
               {messages.length === 0 ? (
                 <div className="text-center text-gray-400 text-sm py-4">
-                  Type a message or use commands like <code className="bg-gray-100 px-1 rounded">/next</code> or <code className="bg-gray-100 px-1 rounded">/regen slide 2</code>
+                  Type a message or use commands like <code className="bg-gray-100 px-1 rounded">/next</code> or <code className="bg-gray-100 px-1 rounded">/back</code>
                 </div>
               ) : (
                 messages.map((msg) => (
@@ -106,7 +163,26 @@ export default function ChatBar({ sessionId, isOpen, onToggle, updateSession }: 
         </div>
       )}
 
-      <div className="bg-white border-t border-gray-200">
+      <div className="bg-white border-t border-gray-200 relative">
+        {/* Autocomplete dropdown */}
+        {showAutocomplete && (
+          <div className="absolute bottom-full left-0 right-0 bg-white border border-gray-200 rounded-t-lg shadow-lg max-h-48 overflow-y-auto">
+            <div className="container mx-auto px-4">
+              {filteredCommands.map((cmd) => (
+                <button
+                  key={cmd.command}
+                  type="button"
+                  onClick={() => handleCommandSelect(cmd.command)}
+                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left border-b border-gray-100 last:border-0"
+                >
+                  <code className="text-lucid-600 font-mono">{cmd.command}</code>
+                  <span className="text-gray-500 text-sm">{cmd.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="container mx-auto px-4 py-3">
           <form onSubmit={handleSubmit} className="flex items-center gap-3">
             <button
@@ -118,10 +194,11 @@ export default function ChatBar({ sessionId, isOpen, onToggle, updateSession }: 
             </button>
 
             <input
+              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type a command or ask for help..."
+              placeholder="Type / for commands or ask for help..."
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500 focus:border-transparent"
               disabled={loading}
             />

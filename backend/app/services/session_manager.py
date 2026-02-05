@@ -1,16 +1,67 @@
-"""Session management service."""
+"""Session management service with JSON file persistence."""
 
+import json
+import os
+from pathlib import Path
 from typing import Dict, Optional
 from datetime import datetime
 
 from app.models.session import SessionState
 
+# Path for session persistence (in project root for Docker volume mount)
+SESSIONS_FILE = Path(__file__).parent.parent.parent / "sessions_db.json"
+
 
 class SessionManager:
-    """Manages in-memory session state for all users."""
+    """
+    Manages session state with JSON file persistence.
+
+    Persistence allows sessions to survive Docker hot-reloads during development,
+    so developers can edit code and continue working on the same session.
+    """
 
     def __init__(self):
         self._sessions: Dict[str, SessionState] = {}
+        self._load_from_file()
+
+    def _load_from_file(self):
+        """Load sessions from JSON file on startup."""
+        if not SESSIONS_FILE.exists():
+            return
+
+        try:
+            with open(SESSIONS_FILE, "r") as f:
+                data = json.load(f)
+
+            for session_id, session_data in data.items():
+                try:
+                    session = SessionState.model_validate(session_data)
+                    self._sessions[session_id] = session
+                except Exception as e:
+                    # Skip invalid session data
+                    print(f"Warning: Failed to load session {session_id}: {e}")
+
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Warning: Failed to load sessions file: {e}")
+
+    def _save_to_file(self):
+        """Save all sessions to JSON file."""
+        try:
+            data = {}
+            for session_id, session in self._sessions.items():
+                # Use Pydantic's model_dump with mode='json' for serialization
+                data[session_id] = session.model_dump(mode='json')
+
+            # Write atomically by writing to temp file first
+            temp_file = SESSIONS_FILE.with_suffix('.tmp')
+            with open(temp_file, "w") as f:
+                json.dump(data, f, indent=2, default=str)
+
+            # Rename temp file to actual file
+            temp_file.rename(SESSIONS_FILE)
+
+        except IOError as e:
+            print(f"Warning: Failed to save sessions file: {e}")
 
     @property
     def sessions(self) -> Dict[str, SessionState]:
@@ -24,6 +75,7 @@ class SessionManager:
 
         session = SessionState(session_id=session_id)
         self._sessions[session_id] = session
+        self._save_to_file()
         return session
 
     def get_session(self, session_id: str) -> Optional[SessionState]:
@@ -34,12 +86,14 @@ class SessionManager:
         """Update a session's state."""
         session.update_timestamp()
         self._sessions[session.session_id] = session
+        self._save_to_file()
         return session
 
     def delete_session(self, session_id: str) -> bool:
         """Delete a session."""
         if session_id in self._sessions:
             del self._sessions[session_id]
+            self._save_to_file()
             return True
         return False
 
@@ -52,6 +106,20 @@ class SessionManager:
         if session.current_stage < 4:
             session.current_stage += 1
             session.update_timestamp()
+            self._save_to_file()
+
+        return session
+
+    def previous_stage(self, session_id: str) -> Optional[SessionState]:
+        """Go back to previous stage (bi-directional navigation)."""
+        session = self.get_session(session_id)
+        if not session:
+            return None
+
+        if session.current_stage > 1:
+            session.current_stage -= 1
+            session.update_timestamp()
+            self._save_to_file()
 
         return session
 
@@ -64,12 +132,19 @@ class SessionManager:
         if 1 <= stage <= 4:
             session.current_stage = stage
             session.update_timestamp()
+            self._save_to_file()
 
         return session
 
     def clear_all(self):
         """Clear all sessions (for testing)."""
         self._sessions.clear()
+        # Also remove the file
+        if SESSIONS_FILE.exists():
+            try:
+                SESSIONS_FILE.unlink()
+            except IOError:
+                pass
 
 
 # Global session manager instance

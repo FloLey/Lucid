@@ -24,6 +24,11 @@ export const advanceStage = async (sessionId: string): Promise<Session> => {
   return response.data.session;
 };
 
+export const previousStage = async (sessionId: string): Promise<Session> => {
+  const response = await api.post('/sessions/previous-stage', { session_id: sessionId });
+  return response.data.session;
+};
+
 // Stage 1 APIs
 export const generateSlideTexts = async (
   sessionId: string,

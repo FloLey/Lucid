@@ -36,8 +36,7 @@ def session_with_slides():
 @pytest.fixture
 def mock_gemini():
     """Mock the Gemini service."""
-    async def mock_generate_json(*args, **kwargs):
-        prompt = args[0] if args else kwargs.get("prompt", "")
+    async def mock_generate_json(prompt, *args, **kwargs):
         # Default routing response
         return {
             "tool": None,

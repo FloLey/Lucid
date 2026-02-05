@@ -47,6 +47,15 @@ async def next_stage(request: StageAdvanceRequest):
     return {"session": session.model_dump()}
 
 
+@router.post("/previous-stage")
+async def previous_stage(request: StageAdvanceRequest):
+    """Go back to the previous stage."""
+    session = session_manager.previous_stage(request.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"session": session.model_dump()}
+
+
 @router.post("/{session_id}/stage/{stage}")
 async def go_to_stage(session_id: str, stage: int):
     """Go to a specific stage."""

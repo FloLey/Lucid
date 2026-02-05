@@ -10,6 +10,7 @@ interface Stage2Props {
   setError: (error: string | null) => void;
   updateSession: (session: Session) => void;
   onNext: () => void;
+  onBack: () => void;
 }
 
 export default function Stage2({
@@ -20,6 +21,7 @@ export default function Stage2({
   setError,
   updateSession,
   onNext,
+  onBack,
 }: Stage2Props) {
   const [styleInstructions, setStyleInstructions] = useState(
     session?.image_style_instructions || ''
@@ -113,7 +115,15 @@ export default function Stage2({
       {/* Right Column - Image Prompts */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Image Prompts</h2>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onBack}
+              className="px-3 py-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              ← Back
+            </button>
+            <h2 className="text-lg font-semibold text-gray-900">Image Prompts</h2>
+          </div>
           {hasPrompts && (
             <button
               onClick={onNext}

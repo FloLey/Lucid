@@ -18,6 +18,7 @@ function App() {
     setError,
     updateSession,
     advanceStage,
+    previousStage,
     startNewSession,
   } = useSession();
 
@@ -34,6 +35,7 @@ function App() {
       setError,
       updateSession,
       onNext: advanceStage,
+      onBack: previousStage,
     };
 
     switch (currentStage) {
@@ -80,6 +82,7 @@ function App() {
 
       <ChatBar
         sessionId={sessionId}
+        currentStage={currentStage}
         isOpen={chatOpen}
         onToggle={() => setChatOpen(!chatOpen)}
         updateSession={updateSession}

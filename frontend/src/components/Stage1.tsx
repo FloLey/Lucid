@@ -10,6 +10,7 @@ interface Stage1Props {
   setError: (error: string | null) => void;
   updateSession: (session: Session) => void;
   onNext: () => void;
+  onBack: () => void;
 }
 
 export default function Stage1({

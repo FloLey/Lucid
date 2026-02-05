@@ -10,6 +10,7 @@ interface Stage4Props {
   setError: (error: string | null) => void;
   updateSession: (session: Session) => void;
   onNext: () => void;
+  onBack: () => void;
 }
 
 export default function Stage4({
@@ -19,6 +20,7 @@ export default function Stage4({
   setLoading,
   setError,
   updateSession,
+  onBack,
 }: Stage4Props) {
   const [selectedSlide, setSelectedSlide] = useState(0);
   const [presets, setPresets] = useState<Record<string, unknown>>({});
@@ -73,11 +75,19 @@ export default function Stage4({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Typography & Layout</h2>
-          <p className="text-sm text-gray-500">
-            Apply text styling to your carousel slides
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="px-3 py-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            ← Back
+          </button>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Typography & Layout</h2>
+            <p className="text-sm text-gray-500">
+              Apply text styling to your carousel slides
+            </p>
+          </div>
         </div>
         <div className="flex gap-3">
           <button

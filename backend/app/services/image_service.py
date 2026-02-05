@@ -29,8 +29,8 @@ class ImageService:
 
             if GEMINI_API_KEY:
                 genai.configure(api_key=GEMINI_API_KEY)
-                # Use imagen model for image generation
-                self._model = genai.ImageGenerationModel("imagen-3.0-generate-002")
+                # Use Gemini 2.5 Flash Image for generation (2026 standard)
+                self._model = genai.ImageGenerationModel("gemini-2.5-flash-image")
                 self._configured = True
             else:
                 logger.info("No API key, using placeholder images")

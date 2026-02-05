@@ -39,7 +39,7 @@ class GeminiService:
         if genai and GEMINI_API_KEY:
             try:
                 genai.configure(api_key=GEMINI_API_KEY)
-                self._model = genai.GenerativeModel("gemini-1.5-flash")
+                self._model = genai.GenerativeModel("gemini-3-flash-preview")
                 self._configured = True
             except Exception as e:
                 logger.warning(f"Failed to configure Gemini: {e}")
@@ -70,7 +70,7 @@ class GeminiService:
 
             if system_instruction:
                 model = genai.GenerativeModel(
-                    "gemini-1.5-flash",
+                    "gemini-3-flash-preview",
                     system_instruction=system_instruction,
                 )
             else:

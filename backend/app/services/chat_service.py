@@ -11,36 +11,80 @@ from app.services.stage1_service import stage1_service
 from app.services.stage2_service import stage2_service
 from app.services.stage3_service import stage3_service
 from app.services.stage4_service import stage4_service
+from app.services.export_service import export_service
 
 logger = logging.getLogger(__name__)
 
 
-TOOL_ROUTING_PROMPT = """You are an AI assistant for Lucid, a carousel creation tool.
+# Tools allowed per stage - prevents hallucinations and logic errors
+STAGE_ALLOWED_TOOLS = {
+    1: {"generate_slides", "regenerate_slide", "update_slide", "next_stage", "go_to_stage", "back_stage"},
+    2: {"generate_prompts", "regenerate_prompt", "update_prompt", "next_stage", "go_to_stage", "back_stage"},
+    3: {"generate_images", "regenerate_image", "next_stage", "go_to_stage", "back_stage"},
+    4: {"apply_styles", "update_style", "apply_preset", "export", "go_to_stage", "back_stage"},
+}
+
+# Human-friendly tool descriptions per stage
+STAGE_TOOL_DESCRIPTIONS = {
+    1: """
+1. generate_slides - Generate slide texts from draft
+2. regenerate_slide - Regenerate a single slide's text
+3. update_slide - Update a slide's text manually
+4. next_stage - Advance to Stage 2
+5. back_stage - Go to previous stage""",
+    2: """
+1. generate_prompts - Generate image prompts from slide texts
+2. regenerate_prompt - Regenerate a single slide's image prompt
+3. update_prompt - Update a slide's image prompt manually
+4. next_stage - Advance to Stage 3
+5. back_stage - Go back to Stage 1""",
+    3: """
+1. generate_images - Generate background images
+2. regenerate_image - Regenerate a single slide's background image
+3. next_stage - Advance to Stage 4
+4. back_stage - Go back to Stage 2""",
+    4: """
+1. apply_styles - Apply text styling to images
+2. update_style - Update styling for a slide
+3. apply_preset - Apply a style preset (modern, bold, elegant, minimal, impact)
+4. export - Export carousel as ZIP
+5. back_stage - Go back to Stage 3""",
+}
+
+# Error messages for tools used in wrong stage
+STAGE_ERROR_MESSAGES = {
+    "generate_images": "Please advance to Stage 3 to generate images. Use /next to proceed.",
+    "apply_styles": "Please advance to Stage 4 to apply styles. Use /next to proceed.",
+    "generate_prompts": "Please advance to Stage 2 to generate image prompts. Use /next to proceed.",
+    "export": "Please advance to Stage 4 to export your carousel. Use /next to proceed.",
+}
+
+
+def get_routing_prompt(current_stage: int) -> str:
+    """Generate stage-scoped routing prompt with only allowed tools."""
+    tool_descriptions = STAGE_TOOL_DESCRIPTIONS.get(current_stage, "")
+
+    return f"""You are an AI assistant for Lucid, a carousel creation tool.
 Your job is to interpret user commands and route them to the appropriate tool.
 
-Available tools:
-1. next_stage - Advance to the next stage
-2. go_to_stage - Go to a specific stage (1-4)
-3. generate_slides - Generate slide texts from draft (Stage 1)
-4. regenerate_slide - Regenerate a single slide's text
-5. update_slide - Update a slide's text manually
-6. generate_prompts - Generate image prompts from slide texts (Stage 2)
-7. regenerate_prompt - Regenerate a single slide's image prompt
-8. update_prompt - Update a slide's image prompt manually
-9. generate_images - Generate background images (Stage 3)
-10. regenerate_image - Regenerate a single slide's background image
-11. apply_styles - Apply text styling to images (Stage 4)
-12. update_style - Update styling for a slide
-13. apply_preset - Apply a style preset to slides
+The user is currently in Stage {current_stage}.
 
-User message: {message}
+Available tools for this stage:
+{tool_descriptions}
+
+Navigation:
+- next_stage - Advance to the next stage (if available)
+- go_to_stage - Go to a specific stage (1-4)
+- back_stage - Go to the previous stage
+
+User message: {{message}}
 
 Analyze the user's intent and respond with a JSON object:
-{{
+{{{{
     "tool": "tool_name",
-    "params": {{}},
+    "params": {{{{}}}},
     "response": "A brief response to the user"
-}}
+}}}}
 
 For tool params:
 - slide_index: 0-based index (when user says "slide 3", use index 2)
@@ -49,27 +93,60 @@ For tool params:
 - preset: one of "modern", "bold", "elegant", "minimal", "impact"
 
 If the message is just a greeting or general question, respond with:
-{{
+{{{{
     "tool": null,
     "response": "Your helpful response"
-}}
+}}}}
+
+IMPORTANT: Only use tools listed above. Do not suggest tools from other stages.
 
 Respond with valid JSON only.
 """
 
 
 class ChatService:
-    """Service for chat-based command interface."""
+    """Service for chat-based command interface with stage-scoped tool validation."""
 
     # Regex patterns for explicit commands
     COMMAND_PATTERNS = {
         r"^/next$": ("next_stage", {}),
+        r"^/back$": ("back_stage", {}),
         r"^/stage\s+(\d)$": ("go_to_stage", lambda m: {"stage": int(m.group(1))}),
         r"^/regen\s+slide\s+(\d+)$": ("regenerate_slide", lambda m: {"slide_index": int(m.group(1)) - 1}),
         r"^/regen\s+prompt\s+(\d+)$": ("regenerate_prompt", lambda m: {"slide_index": int(m.group(1)) - 1}),
         r"^/regen\s+image\s+(\d+)$": ("regenerate_image", lambda m: {"slide_index": int(m.group(1)) - 1}),
         r"^/apply\s+preset\s+(\w+)$": ("apply_preset", lambda m: {"preset": m.group(1)}),
+        r"^/style\s+(\w+)$": ("apply_preset", lambda m: {"preset": m.group(1)}),
+        r"^/generate$": ("auto_generate", {}),
+        r"^/export$": ("export", {}),
     }
+
+    def _validate_tool_for_stage(self, tool: str, current_stage: int) -> Optional[str]:
+        """
+        Validate if a tool can be used in the current stage.
+
+        Returns error message if invalid, None if valid.
+        """
+        allowed_tools = STAGE_ALLOWED_TOOLS.get(current_stage, set())
+
+        # Navigation tools are always allowed
+        if tool in {"next_stage", "go_to_stage", "back_stage"}:
+            return None
+
+        # Auto-generate maps to the appropriate tool for the current stage
+        if tool == "auto_generate":
+            return None
+
+        if tool not in allowed_tools:
+            # Get a friendly error message
+            error = STAGE_ERROR_MESSAGES.get(
+                tool,
+                f"The '{tool}' command is not available in Stage {current_stage}. "
+                f"Available commands: {', '.join(sorted(allowed_tools))}"
+            )
+            return error
+
+        return None
 
     async def process_message(
         self,
@@ -85,12 +162,14 @@ class ChatService:
                 "tool_called": None,
             }
 
+        current_stage = session.current_stage
+
         # Check for explicit commands first
         tool, params = self._parse_explicit_command(message)
 
         if not tool:
-            # Use LLM for natural language routing
-            tool, params, response = await self._route_with_llm(message)
+            # Use LLM for natural language routing with stage-scoped prompt
+            tool, params, response = await self._route_with_llm(message, current_stage)
 
             if not tool:
                 return {
@@ -101,6 +180,26 @@ class ChatService:
                 }
         else:
             response = None
+
+        # Validate tool is allowed in current stage
+        validation_error = self._validate_tool_for_stage(tool, current_stage)
+        if validation_error:
+            return {
+                "success": False,
+                "response": validation_error,
+                "tool_called": tool,
+                "session": session.model_dump(),
+            }
+
+        # Handle auto_generate - map to appropriate tool for current stage
+        if tool == "auto_generate":
+            stage_tools = {
+                1: "generate_slides",
+                2: "generate_prompts",
+                3: "generate_images",
+                4: "apply_styles",
+            }
+            tool = stage_tools.get(current_stage, tool)
 
         # Execute the tool
         result = await self._execute_tool(session_id, tool, params)
@@ -130,9 +229,13 @@ class ChatService:
     async def _route_with_llm(
         self,
         message: str,
+        current_stage: int = 1,
     ) -> Tuple[Optional[str], Dict[str, Any], str]:
-        """Use LLM to route natural language commands."""
-        prompt = TOOL_ROUTING_PROMPT.format(message=message)
+        """Use LLM to route natural language commands with stage-scoped tools."""
+        # Generate stage-specific routing prompt
+        routing_prompt = get_routing_prompt(current_stage)
+        prompt = routing_prompt.format(message=message)
+
         result = await gemini_service.generate_json(prompt)
 
         tool = result.get("tool")
@@ -154,6 +257,10 @@ class ChatService:
             if tool == "next_stage":
                 session = session_manager.advance_stage(session_id)
                 response = f"Advanced to Stage {session.current_stage}" if session else "Failed"
+
+            elif tool == "back_stage":
+                session = session_manager.previous_stage(session_id)
+                response = f"Returned to Stage {session.current_stage}" if session else "Failed"
 
             elif tool == "go_to_stage":
                 stage = params.get("stage", 1)
@@ -227,6 +334,14 @@ class ChatService:
                 style = presets.get(preset, presets["modern"])
                 session = stage4_service.apply_style_to_all(session_id, style)
                 response = f"Applied '{preset}' preset to all slides"
+
+            elif tool == "export":
+                session = session_manager.get_session(session_id)
+                if session:
+                    # Generate the ZIP but respond with download instructions
+                    response = "Your carousel is ready! Click the Export button to download your ZIP file."
+                else:
+                    response = "No session found for export."
 
             else:
                 return {

@@ -59,6 +59,19 @@ export function useSession() {
     }
   }, [sessionId]);
 
+  const previousStage = useCallback(async () => {
+    if (!sessionId) return;
+    setLoading(true);
+    try {
+      const sess = await api.previousStage(sessionId);
+      setSession(sess);
+    } catch (err) {
+      setError('Failed to go back');
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
   const startNewSession = useCallback(async () => {
     const id = uuidv4();
     localStorage.setItem(SESSION_KEY, id);
@@ -81,6 +94,7 @@ export function useSession() {
     updateSession,
     refreshSession,
     advanceStage,
+    previousStage,
     startNewSession,
   };
 }

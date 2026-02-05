@@ -15,31 +15,34 @@ class TestFontManager:
         assert fm._font_cache == {}
         assert fm._available_fonts is None
 
-    def test_font_mappings_structure(self):
-        """Test that font mappings have correct structure."""
+    def test_weight_patterns_structure(self):
+        """Test that weight patterns are correctly defined."""
         fm = FontManager()
-        for family, weights in fm.FONT_MAPPINGS.items():
-            assert isinstance(family, str)
-            assert isinstance(weights, dict)
-            for weight, filename in weights.items():
-                assert isinstance(weight, int)
-                assert isinstance(filename, str)
-                assert filename.endswith((".ttf", ".otf"))
+        assert fm.WEIGHT_PATTERNS["regular"] == 400
+        assert fm.WEIGHT_PATTERNS["bold"] == 700
+        assert fm.WEIGHT_PATTERNS["thin"] == 100
 
-    def test_find_closest_weight(self):
-        """Test finding closest available weight."""
+    def test_parse_weight_from_filename(self):
+        """Test parsing weight from font filenames."""
         fm = FontManager()
-        # Inter has weights: 400, 500, 600, 700
-        assert fm._find_closest_weight("Inter", 400) == 400
-        assert fm._find_closest_weight("Inter", 700) == 700
-        assert fm._find_closest_weight("Inter", 450) == 400  # Closer to 400
-        assert fm._find_closest_weight("Inter", 650) == 600  # Closer to 600
-        assert fm._find_closest_weight("Inter", 800) == 700  # Beyond max
+        assert fm._parse_weight_from_filename("Inter-Regular.ttf") == 400
+        assert fm._parse_weight_from_filename("Inter-Bold.ttf") == 700
+        assert fm._parse_weight_from_filename("Roboto-Light.ttf") == 300
+        assert fm._parse_weight_from_filename("Font-500.ttf") == 500
 
-    def test_find_closest_weight_unknown_family(self):
-        """Test fallback for unknown font family."""
+    def test_parse_family_from_filename(self):
+        """Test parsing family name from font filenames."""
         fm = FontManager()
-        assert fm._find_closest_weight("Unknown Font", 700) == 400
+        assert fm._parse_family_from_filename("Inter-Regular.ttf") == "Inter"
+        assert fm._parse_family_from_filename("Roboto-Bold.ttf") == "Roboto"
+        assert fm._parse_family_from_filename("PlayfairDisplay-Regular.ttf") == "PlayfairDisplay"
+
+    def test_normalize_family_name(self):
+        """Test family name normalization."""
+        fm = FontManager()
+        assert fm._normalize_family_name("inter") == "Inter"
+        assert fm._normalize_family_name("playfair display") == "Playfair"
+        assert fm._normalize_family_name("playfairdisplay") == "Playfair"
 
     def test_get_available_fonts_returns_list(self):
         """Test that get_available_fonts returns a list."""
@@ -82,6 +85,23 @@ class TestFontManager:
         if isinstance(font1, ImageFont.FreeTypeFont):
             assert font1 is font2
 
+    def test_get_font_weights(self):
+        """Test getting available weights for a family."""
+        fm = FontManager()
+        weights = fm.get_font_weights("Inter")
+        assert isinstance(weights, list)
+        # Should have at least default weight
+        assert len(weights) >= 1
+
+    def test_refresh(self):
+        """Test refreshing the font index."""
+        fm = FontManager()
+        fonts_before = fm.get_available_fonts()
+        fm.refresh()
+        fonts_after = fm.get_available_fonts()
+        # Should still work after refresh
+        assert isinstance(fonts_after, list)
+
     def test_global_font_manager(self):
         """Test the global font manager instance."""
         assert font_manager is not None
@@ -112,5 +132,4 @@ class TestFontRoutes:
         assert response.status_code == 200
         data = response.json()
         assert "mappings" in data
-        assert "Inter" in data["mappings"]
-        assert "Roboto" in data["mappings"]
+        assert isinstance(data["mappings"], dict)

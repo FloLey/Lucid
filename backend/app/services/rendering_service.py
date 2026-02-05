@@ -57,6 +57,41 @@ class RenderingService:
             return (r, g, b, a)
         return (255, 255, 255, 255)
 
+    def _fits_dimensions(
+        self,
+        text: str,
+        style: TextStyle,
+        draw: ImageDraw.ImageDraw,
+        font_size: int,
+        box_width: int,
+        box_height: int,
+    ) -> Tuple[bool, List[str]]:
+        """
+        Check if text at given font size fits within dimensions.
+
+        Returns (fits, lines) tuple.
+        """
+        font = font_manager.get_font(
+            style.font_family,
+            style.font_weight,
+            font_size,
+        )
+
+        # Wrap text with current font size
+        lines = self._wrap_text(text, font, box_width, draw)
+
+        # Check if we exceed max lines
+        if len(lines) > style.max_lines:
+            lines = lines[:style.max_lines]
+            lines[-1] = lines[-1].rstrip() + "..."
+
+        # Calculate total text height
+        line_height = font_size * style.line_spacing
+        total_height = line_height * len(lines)
+
+        fits = total_height <= box_height
+        return fits, lines
+
     def _calculate_auto_font_size(
         self,
         text: str,
@@ -65,38 +100,48 @@ class RenderingService:
         box_width: int,
         box_height: int,
     ) -> Tuple[int, List[str]]:
-        """Calculate optimal font size that fits text in box."""
-        font_size = style.font_size_px
-        min_font_size = 16
+        """
+        Calculate optimal font size using binary search algorithm.
 
-        while font_size >= min_font_size:
-            font = font_manager.get_font(
-                style.font_family,
-                style.font_weight,
-                font_size,
+        Binary search is O(log n) compared to linear O(n) approach.
+        Guaranteed to find best fit in ~7 iterations (log2(128)).
+        """
+        min_size = 12
+        max_size = style.font_size_px
+
+        # Edge case: if max is less than min
+        if max_size < min_size:
+            max_size = min_size
+
+        best_size = min_size
+        best_lines: List[str] = []
+
+        low = min_size
+        high = max_size
+
+        while low <= high:
+            mid = (low + high) // 2
+            fits, lines = self._fits_dimensions(
+                text, style, draw, mid, box_width, box_height
             )
 
-            # Wrap text with current font size
-            lines = self._wrap_text(text, font, box_width, draw)
+            if fits:
+                # This size works, try larger
+                best_size = mid
+                best_lines = lines
+                low = mid + 1
+            else:
+                # Too big, try smaller
+                high = mid - 1
 
-            # Limit lines to max_lines
-            if len(lines) > style.max_lines:
-                lines = lines[:style.max_lines]
-                lines[-1] = lines[-1] + "..."
+        # If no size worked, use minimum
+        if not best_lines:
+            _, best_lines = self._fits_dimensions(
+                text, style, draw, min_size, box_width, box_height
+            )
+            best_size = min_size
 
-            # Calculate total text height
-            line_height = font_size * style.line_spacing
-            total_height = line_height * len(lines)
-
-            if total_height <= box_height:
-                return font_size, lines
-
-            font_size -= 2
-
-        # Return minimum size if nothing fits
-        font = font_manager.get_font(style.font_family, style.font_weight, min_font_size)
-        lines = self._wrap_text(text, font, box_width, draw)
-        return min_font_size, lines[:style.max_lines]
+        return best_size, best_lines
 
     def render_text_on_image(
         self,
