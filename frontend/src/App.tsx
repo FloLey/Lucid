@@ -45,8 +45,10 @@ function App() {
         return <Stage2 {...commonProps} />;
       case 4:
         return <Stage3 {...commonProps} />;
-      case 5:
-        return <Stage4 {...commonProps} />;
+      case 5: {
+        const { onNext: _, ...stage4Props } = commonProps;
+        return <Stage4 {...stage4Props} />;
+      }
       default:
         return <Stage1 {...commonProps} />;
     }

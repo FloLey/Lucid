@@ -10,7 +10,6 @@ interface Stage4Props {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   updateSession: (session: Session) => void;
-  onNext: () => void;
   onBack: () => void;
 }
 
