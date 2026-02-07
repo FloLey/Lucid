@@ -1,5 +1,5 @@
-# Lucid Frontend - Node 25
-FROM node:25-alpine
+# Lucid Frontend - Node 22 LTS
+FROM node:22-alpine
 
 WORKDIR /app
 
