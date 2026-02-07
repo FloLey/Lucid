@@ -70,9 +70,9 @@ class TestSessionManager:
         """Test advancing past max stage."""
         session_manager.clear_all()
         session = session_manager.create_session("test-006")
-        session.current_stage = 4
+        session.current_stage = 5
         session = session_manager.advance_stage("test-006")
-        assert session.current_stage == 4  # Should not go past 4
+        assert session.current_stage == 5  # Should not go past 5
 
     def test_go_to_stage(self):
         """Test going to a specific stage."""
@@ -146,5 +146,5 @@ class TestSessionRoutes:
     def test_go_to_invalid_stage_route(self, client):
         """Test going to an invalid stage."""
         client.post("/api/sessions/create", json={"session_id": "api-test-006"})
-        response = client.post("/api/sessions/api-test-006/stage/5")
+        response = client.post("/api/sessions/api-test-006/stage/6")
         assert response.status_code == 400

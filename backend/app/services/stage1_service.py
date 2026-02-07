@@ -15,11 +15,13 @@ SLIDE_GENERATION_PROMPT = """You are an expert content strategist helping create
 
 Given a draft text, create {num_slides} slide texts that:
 1. Transform the rough draft into clear, engaging messages
-2. Each slide should have a single focused message
+2. Each slide body should be substantial and detailed — aim for 40-60 words per slide body
 3. Use conversational, engaging language
 4. Maintain logical flow between slides
 5. First slide should hook the reader
 6. Last slide should have a clear call-to-action
+
+{language_instruction}
 
 {title_instruction}
 
@@ -46,6 +48,7 @@ class Stage1Service:
         num_slides: int = 5,
         include_titles: bool = True,
         additional_instructions: Optional[str] = None,
+        language: str = "English",
     ) -> Optional[SessionState]:
         """Generate slide texts from a draft."""
         session = session_manager.get_session(session_id)
@@ -57,8 +60,11 @@ class Stage1Service:
         session.num_slides = num_slides
         session.include_titles = include_titles
         session.additional_instructions = additional_instructions
+        session.language = language
 
         # Build prompt
+        language_instruction = f"Write ALL slide content in {language}."
+
         title_instruction = (
             "Each slide MUST have both a title and body."
             if include_titles
@@ -85,6 +91,7 @@ class Stage1Service:
 
         prompt = SLIDE_GENERATION_PROMPT.format(
             num_slides=num_slides,
+            language_instruction=language_instruction,
             title_instruction=title_instruction,
             additional_instructions=additional,
             draft=draft_text,
@@ -136,12 +143,14 @@ class Stage1Service:
             num_slides=session.num_slides,
             include_titles=session.include_titles,
             additional_instructions=session.additional_instructions,
+            language=session.language,
         )
 
     async def regenerate_slide_text(
         self,
         session_id: str,
         slide_index: int,
+        instruction: Optional[str] = None,
     ) -> Optional[SessionState]:
         """Regenerate a single slide text."""
         session = session_manager.get_session(session_id)
@@ -160,9 +169,13 @@ class Stage1Service:
             next_slide = session.slides[slide_index + 1]
             next_context = f"Next slide: {next_slide.text.get_full_text()}"
 
+        instruction_text = f"\nSpecific instruction: {instruction}" if instruction else ""
+
         prompt = f"""Rewrite slide {slide_index + 1} of {len(session.slides)} for a carousel.
 
-Original draft context: {session.draft_text[:500]}...
+Write ALL content in {session.language}.
+
+Original draft context: {session.draft_text}
 
 {prev_context}
 {next_context}
@@ -173,6 +186,8 @@ Create a fresh take on this slide that:
 1. Maintains the core message
 2. Flows well with surrounding slides
 3. Uses engaging language
+4. Has a substantial body text of 40-60 words
+{instruction_text}
 
 {"Include both title and body." if session.include_titles else "Only provide body text."}
 

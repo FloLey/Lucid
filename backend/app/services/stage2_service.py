@@ -30,7 +30,6 @@ Create {num_prompts} image prompts, one for each slide.
 
 Respond with a JSON object:
 {{
-    "shared_prefix": "A brief description of the shared visual style",
     "prompts": ["prompt for slide 1", "prompt for slide 2", ...]
 }}
 
@@ -78,10 +77,6 @@ class Stage2Service:
         )
 
         result = await gemini_service.generate_json(prompt)
-
-        # Store shared prefix
-        if result.get("shared_prefix"):
-            session.shared_prompt_prefix = result["shared_prefix"]
 
         # Update slide prompts
         prompts = result.get("prompts", [])

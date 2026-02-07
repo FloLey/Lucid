@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any, Tuple
 from app.services.gemini_service import gemini_service
 from app.services.session_manager import session_manager
 from app.services.stage1_service import stage1_service
+from app.services.stage_style_service import stage_style_service
 from app.services.stage2_service import stage2_service
 from app.services.stage3_service import stage3_service
 from app.services.stage4_service import stage4_service
@@ -19,9 +20,10 @@ logger = logging.getLogger(__name__)
 # Tools allowed per stage - prevents hallucinations and logic errors
 STAGE_ALLOWED_TOOLS = {
     1: {"generate_slides", "regenerate_slide", "update_slide", "next_stage", "go_to_stage", "back_stage"},
-    2: {"generate_prompts", "regenerate_prompt", "update_prompt", "next_stage", "go_to_stage", "back_stage"},
-    3: {"generate_images", "regenerate_image", "next_stage", "go_to_stage", "back_stage"},
-    4: {"apply_styles", "update_style", "apply_preset", "export", "go_to_stage", "back_stage"},
+    2: {"generate_style_proposals", "select_style_proposal", "next_stage", "go_to_stage", "back_stage"},
+    3: {"generate_prompts", "regenerate_prompt", "update_prompt", "next_stage", "go_to_stage", "back_stage"},
+    4: {"generate_images", "regenerate_image", "next_stage", "go_to_stage", "back_stage"},
+    5: {"apply_styles", "update_style", "export", "go_to_stage", "back_stage"},
 }
 
 # Human-friendly tool descriptions per stage
@@ -33,30 +35,35 @@ STAGE_TOOL_DESCRIPTIONS = {
 4. next_stage - Advance to Stage 2
 5. back_stage - Go to previous stage""",
     2: """
+1. generate_style_proposals - Generate visual style proposals with previews
+2. select_style_proposal - Select a style proposal by index
+3. next_stage - Advance to Stage 3
+4. back_stage - Go back to Stage 1""",
+    3: """
 1. generate_prompts - Generate image prompts from slide texts
 2. regenerate_prompt - Regenerate a single slide's image prompt
 3. update_prompt - Update a slide's image prompt manually
-4. next_stage - Advance to Stage 3
-5. back_stage - Go back to Stage 1""",
-    3: """
+4. next_stage - Advance to Stage 4
+5. back_stage - Go back to Stage 2""",
+    4: """
 1. generate_images - Generate background images
 2. regenerate_image - Regenerate a single slide's background image
-3. next_stage - Advance to Stage 4
-4. back_stage - Go back to Stage 2""",
-    4: """
+3. next_stage - Advance to Stage 5
+4. back_stage - Go back to Stage 3""",
+    5: """
 1. apply_styles - Apply text styling to images
 2. update_style - Update styling for a slide
-3. apply_preset - Apply a style preset (modern, bold, elegant, minimal, impact)
-4. export - Export carousel as ZIP
-5. back_stage - Go back to Stage 3""",
+3. export - Export carousel as ZIP
+4. back_stage - Go back to Stage 4""",
 }
 
 # Error messages for tools used in wrong stage
 STAGE_ERROR_MESSAGES = {
-    "generate_images": "Please advance to Stage 3 to generate images. Use /next to proceed.",
-    "apply_styles": "Please advance to Stage 4 to apply styles. Use /next to proceed.",
-    "generate_prompts": "Please advance to Stage 2 to generate image prompts. Use /next to proceed.",
-    "export": "Please advance to Stage 4 to export your carousel. Use /next to proceed.",
+    "generate_style_proposals": "Please advance to Stage 2 to generate style proposals. Use /next to proceed.",
+    "generate_prompts": "Please advance to Stage 3 to generate image prompts. Use /next to proceed.",
+    "generate_images": "Please advance to Stage 4 to generate images. Use /next to proceed.",
+    "apply_styles": "Please advance to Stage 5 to apply styles. Use /next to proceed.",
+    "export": "Please advance to Stage 5 to export your carousel. Use /next to proceed.",
 }
 
 
@@ -74,7 +81,7 @@ Available tools for this stage:
 
 Navigation:
 - next_stage - Advance to the next stage (if available)
-- go_to_stage - Go to a specific stage (1-4)
+- go_to_stage - Go to a specific stage (1-5)
 - back_stage - Go to the previous stage
 
 User message: {{message}}
@@ -88,10 +95,9 @@ Analyze the user's intent and respond with a JSON object:
 
 For tool params:
 - slide_index: 0-based index (when user says "slide 3", use index 2)
+- instruction: optional specific instruction for regeneration (e.g. "make it more punchy", "add a question")
 - text/body/title: string content
 - style: object with style properties
-- preset: one of "modern", "bold", "elegant", "minimal", "impact"
-
 If the message is just a greeting or general question, respond with:
 {{{{
     "tool": null,
@@ -115,8 +121,6 @@ class ChatService:
         r"^/regen\s+slide\s+(\d+)$": ("regenerate_slide", lambda m: {"slide_index": int(m.group(1)) - 1}),
         r"^/regen\s+prompt\s+(\d+)$": ("regenerate_prompt", lambda m: {"slide_index": int(m.group(1)) - 1}),
         r"^/regen\s+image\s+(\d+)$": ("regenerate_image", lambda m: {"slide_index": int(m.group(1)) - 1}),
-        r"^/apply\s+preset\s+(\w+)$": ("apply_preset", lambda m: {"preset": m.group(1)}),
-        r"^/style\s+(\w+)$": ("apply_preset", lambda m: {"preset": m.group(1)}),
         r"^/generate$": ("auto_generate", {}),
         r"^/export$": ("export", {}),
     }
@@ -195,9 +199,10 @@ class ChatService:
         if tool == "auto_generate":
             stage_tools = {
                 1: "generate_slides",
-                2: "generate_prompts",
-                3: "generate_images",
-                4: "apply_styles",
+                2: "generate_style_proposals",
+                3: "generate_prompts",
+                4: "generate_images",
+                5: "apply_styles",
             }
             tool = stage_tools.get(current_stage, tool)
 
@@ -269,7 +274,8 @@ class ChatService:
 
             elif tool == "regenerate_slide":
                 slide_index = params.get("slide_index", 0)
-                session = await stage1_service.regenerate_slide_text(session_id, slide_index)
+                instruction = params.get("instruction")
+                session = await stage1_service.regenerate_slide_text(session_id, slide_index, instruction=instruction)
                 response = f"Regenerated slide {slide_index + 1}"
 
             elif tool == "update_slide":
@@ -281,6 +287,19 @@ class ChatService:
                     body=params.get("body"),
                 )
                 response = f"Updated slide {slide_index + 1}"
+
+            elif tool == "generate_style_proposals":
+                num = params.get("num_proposals", 3)
+                instructions = params.get("additional_instructions")
+                session = await stage_style_service.generate_proposals(
+                    session_id, num_proposals=num, additional_instructions=instructions,
+                )
+                response = f"Generated {num} style proposals"
+
+            elif tool == "select_style_proposal":
+                proposal_index = params.get("proposal_index", 0)
+                session = stage_style_service.select_proposal(session_id, proposal_index)
+                response = f"Selected style proposal {proposal_index + 1}"
 
             elif tool == "generate_prompts":
                 session = await stage2_service.generate_all_prompts(
@@ -321,19 +340,6 @@ class ChatService:
                 style = params.get("style", {})
                 session = stage4_service.update_style(session_id, slide_index, style)
                 response = f"Updated style for slide {slide_index + 1}"
-
-            elif tool == "apply_preset":
-                preset = params.get("preset", "modern")
-                presets = {
-                    "modern": {"font_family": "Inter", "font_weight": 700, "stroke": {"enabled": True, "width_px": 2}},
-                    "bold": {"font_family": "Oswald", "font_weight": 700, "font_size_px": 80},
-                    "elegant": {"font_family": "Playfair Display", "shadow": {"enabled": True}},
-                    "minimal": {"font_family": "Roboto", "font_weight": 400, "alignment": "left"},
-                    "impact": {"font_family": "Montserrat", "font_weight": 700, "text_color": "#FFFF00"},
-                }
-                style = presets.get(preset, presets["modern"])
-                session = stage4_service.apply_style_to_all(session_id, style)
-                response = f"Applied '{preset}' preset to all slides"
 
             elif tool == "export":
                 session = session_manager.get_session(session_id)

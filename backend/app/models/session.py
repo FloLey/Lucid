@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.models.slide import Slide
+from app.models.style_proposal import StyleProposal
 
 
 class SessionState(BaseModel):
@@ -15,15 +16,20 @@ class SessionState(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Stage tracking
-    current_stage: int = Field(default=1, ge=1, le=4)
+    current_stage: int = Field(default=1, ge=1, le=5)
 
     # Stage 1 inputs
     draft_text: str = Field(default="", description="Original draft text")
     num_slides: int = Field(default=5, ge=1, le=20)
     include_titles: bool = Field(default=True)
     additional_instructions: Optional[str] = Field(default=None)
+    language: str = Field(default="English", description="Language for generated content")
 
-    # Stage 2 inputs
+    # Stage 2 (Style) data
+    style_proposals: List[StyleProposal] = Field(default_factory=list)
+    selected_style_proposal_index: Optional[int] = Field(default=None)
+
+    # Stage 3 inputs
     image_style_instructions: Optional[str] = Field(default=None)
     shared_prompt_prefix: Optional[str] = Field(default=None)
 

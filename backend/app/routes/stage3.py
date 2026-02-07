@@ -32,9 +32,12 @@ class SetImageRequest(BaseModel):
 @router.post("/generate")
 async def generate_all_images(request: GenerateImagesRequest):
     """Generate images for all slides."""
-    session = await stage3_service.generate_all_images(
-        session_id=request.session_id,
-    )
+    try:
+        session = await stage3_service.generate_all_images(
+            session_id=request.session_id,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     if not session:
         raise HTTPException(status_code=404, detail="Session not found or no slides")
     return {"session": session.model_dump()}
@@ -43,10 +46,13 @@ async def generate_all_images(request: GenerateImagesRequest):
 @router.post("/regenerate")
 async def regenerate_image(request: RegenerateImageRequest):
     """Regenerate image for a single slide."""
-    session = await stage3_service.regenerate_image(
-        session_id=request.session_id,
-        slide_index=request.slide_index,
-    )
+    try:
+        session = await stage3_service.regenerate_image(
+            session_id=request.session_id,
+            slide_index=request.slide_index,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     if not session:
         raise HTTPException(status_code=404, detail="Session or slide not found")
     return {"session": session.model_dump()}

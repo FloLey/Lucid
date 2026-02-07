@@ -52,13 +52,8 @@ class SessionManager:
                 # Use Pydantic's model_dump with mode='json' for serialization
                 data[session_id] = session.model_dump(mode='json')
 
-            # Write atomically by writing to temp file first
-            temp_file = SESSIONS_FILE.with_suffix('.tmp')
-            with open(temp_file, "w") as f:
+            with open(SESSIONS_FILE, "w") as f:
                 json.dump(data, f, indent=2, default=str)
-
-            # Rename temp file to actual file
-            temp_file.rename(SESSIONS_FILE)
 
         except IOError as e:
             print(f"Warning: Failed to save sessions file: {e}")
@@ -103,7 +98,7 @@ class SessionManager:
         if not session:
             return None
 
-        if session.current_stage < 4:
+        if session.current_stage < 5:
             session.current_stage += 1
             session.update_timestamp()
             self._save_to_file()
@@ -129,7 +124,7 @@ class SessionManager:
         if not session:
             return None
 
-        if 1 <= stage <= 4:
+        if 1 <= stage <= 5:
             session.current_stage = stage
             session.update_timestamp()
             self._save_to_file()

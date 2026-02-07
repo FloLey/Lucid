@@ -15,10 +15,12 @@ FONTS = {
         "repo": "rsms/inter",
         "branch": "master",
         "path": "docs/font-files",
-        "files": [
+        "source_file": "InterVariable.ttf",
+        "save_as": [
             ("Inter-Regular.ttf", 400),
             ("Inter-Bold.ttf", 700),
-        ]
+        ],
+        "files": [],
     },
     "Roboto": {
         "repo": "googlefonts/roboto",
@@ -48,9 +50,9 @@ FONTS = {
         ]
     },
     "Playfair": {
-        "repo": "clauseggers/Playfair",
+        "repo": "technext/cozastore",
         "branch": "master",
-        "path": "fonts/ttf",
+        "path": "fonts/PlayfairDisplay",
         "files": [
             ("PlayfairDisplay-Regular.ttf", 400),
             ("PlayfairDisplay-Bold.ttf", 700),
@@ -60,16 +62,16 @@ FONTS = {
 
 # Fallback URLs using Google Fonts API static CDN
 FALLBACK_URLS = {
-    "Inter-Regular.ttf": "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.ttf",
-    "Inter-Bold.ttf": "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hjp-Ek-_EeA.ttf",
+    "Inter-Regular.ttf": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf",
+    "Inter-Bold.ttf": "https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf",
     "Roboto-Regular.ttf": "https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Me5Q.ttf",
     "Roboto-Bold.ttf": "https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlvAw.ttf",
     "Montserrat-Regular.ttf": "https://fonts.gstatic.com/s/montserrat/v26/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCtr6Ew-.ttf",
     "Montserrat-Bold.ttf": "https://fonts.gstatic.com/s/montserrat/v26/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCuM70w-.ttf",
     "Oswald-Regular.ttf": "https://fonts.gstatic.com/s/oswald/v53/TK3_WkUHHAIjg75cFRf3bXL8LICs1_FvsUZiYA.ttf",
     "Oswald-Bold.ttf": "https://fonts.gstatic.com/s/oswald/v53/TK3_WkUHHAIjg75cFRf3bXL8LICs1xZosUZiYA.ttf",
-    "PlayfairDisplay-Regular.ttf": "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvXDXbtM.ttf",
-    "PlayfairDisplay-Bold.ttf": "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKeFunDXbtM.ttf",
+    "PlayfairDisplay-Regular.ttf": "https://fonts.gstatic.com/s/playfairdisplay/v40/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvUDQ.ttf",
+    "PlayfairDisplay-Bold.ttf": "https://fonts.gstatic.com/s/playfairdisplay/v40/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKeiukDQ.ttf",
 }
 
 
@@ -108,6 +110,53 @@ def download_fonts():
 
     for family, config in FONTS.items():
         print(f"\n[{family}]")
+
+        # Handle variable fonts: download one source file, save as multiple
+        if "source_file" in config and "save_as" in config:
+            save_targets = config["save_as"]
+            all_cached = all(
+                (fonts_dir / fn).exists() and (fonts_dir / fn).stat().st_size > 1000
+                for fn, _ in save_targets
+            )
+            if all_cached:
+                for fn, _ in save_targets:
+                    print(f"  ✓ {fn} (cached)")
+                    downloaded += 1
+                continue
+
+            source = config["source_file"]
+            github_url = (
+                f"https://raw.githubusercontent.com/{config['repo']}/"
+                f"{config['branch']}/{config['path']}/{source}"
+            )
+            tmp_dest = fonts_dir / source
+            print(f"  Downloading {source}...")
+            ok = download_file(github_url, tmp_dest)
+
+            if ok:
+                print(f"  ✓ {source}")
+                data = tmp_dest.read_bytes()
+                for fn, _ in save_targets:
+                    (fonts_dir / fn).write_bytes(data)
+                    print(f"  ✓ {fn} (from {source})")
+                    downloaded += 1
+                tmp_dest.unlink()
+                continue
+
+            # Variable font download failed, try individual fallbacks
+            for fn, _ in save_targets:
+                if fn in FALLBACK_URLS:
+                    print(f"  Trying fallback for {fn}...")
+                    if download_file(FALLBACK_URLS[fn], fonts_dir / fn):
+                        print(f"  ✓ {fn} (fallback)")
+                        downloaded += 1
+                    else:
+                        print(f"  ✗ {fn} - FAILED")
+                        failed += 1
+                else:
+                    print(f"  ✗ {fn} - FAILED")
+                    failed += 1
+            continue
 
         for filename, weight in config["files"]:
             dest = fonts_dir / filename
@@ -153,5 +202,5 @@ def download_fonts():
 
 
 if __name__ == "__main__":
-    success = download_fonts()
-    exit(0 if success else 1)
+    download_fonts()
+    exit(0)

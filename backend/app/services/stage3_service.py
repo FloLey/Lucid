@@ -1,5 +1,6 @@
 """Stage 3 service - Image prompts to Images transformation."""
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -28,12 +29,18 @@ class Stage3Service:
                 # Use a default prompt if not set
                 slide.image_prompt = f"Abstract professional background for slide {slide.index + 1}"
 
-        # Generate images for each slide
+        # Generate images for all slides in parallel
         shared_prefix = session.shared_prompt_prefix or ""
 
-        for slide in session.slides:
-            full_prompt = f"{shared_prefix} {slide.image_prompt}".strip()
-            slide.image_data = await image_service.generate_image(full_prompt)
+        full_prompts = [
+            f"{shared_prefix} {slide.image_prompt}".strip()
+            for slide in session.slides
+        ]
+        results = await asyncio.gather(
+            *(image_service.generate_image(prompt) for prompt in full_prompts)
+        )
+        for slide, image_data in zip(session.slides, results):
+            slide.image_data = image_data
 
         session_manager.update_session(session)
         return session

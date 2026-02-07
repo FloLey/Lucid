@@ -1,4 +1,4 @@
-"""Image generation service using Gemini Image API."""
+"""Image generation service using Gemini Nano Banana (google.genai)."""
 
 import base64
 import logging
@@ -7,70 +7,81 @@ from typing import Optional
 
 from PIL import Image
 
-from app.config import GEMINI_API_KEY, IMAGE_WIDTH, IMAGE_HEIGHT
+from app.config import GOOGLE_API_KEY, IMAGE_WIDTH, IMAGE_HEIGHT
 
 logger = logging.getLogger(__name__)
 
 
 class ImageService:
-    """Service for generating images using Gemini Image API."""
+    """Service for generating images using Gemini's native image generation."""
 
     def __init__(self):
-        self._model = None
+        self._client = None
         self._configured = False
 
     def _ensure_configured(self):
-        """Ensure Gemini Image API is configured."""
+        """Ensure google.genai client is configured."""
         if self._configured:
             return
 
         try:
-            import google.generativeai as genai
+            from google import genai
 
-            if GEMINI_API_KEY:
-                genai.configure(api_key=GEMINI_API_KEY)
-                # Use Gemini 2.5 Flash Image for generation (2026 standard)
-                self._model = genai.ImageGenerationModel("gemini-2.5-flash-image")
+            if GOOGLE_API_KEY:
+                self._client = genai.Client(api_key=GOOGLE_API_KEY)
                 self._configured = True
             else:
                 logger.info("No API key, using placeholder images")
         except Exception as e:
-            logger.warning(f"Cannot configure Gemini Image API: {e}")
+            logger.warning(f"Cannot configure google.genai: {e}")
 
     async def generate_image(self, prompt: str) -> str:
         """Generate an image from a prompt, return as base64."""
         self._ensure_configured()
 
-        if self._model:
+        if self._client:
             try:
-                # Add constraints to prompt
-                full_prompt = f"{prompt}. Aspect ratio 4:5 (vertical). No text or words in the image. High quality, suitable for social media carousel background."
+                from google.genai import types
 
-                response = self._model.generate_images(
-                    prompt=full_prompt,
-                    number_of_images=1,
-                    aspect_ratio="4:5",
+                full_prompt = (
+                    f"{prompt}. Aspect ratio 4:5 (vertical). "
+                    "No text or words in the image. "
+                    "High quality, suitable for social media carousel background."
                 )
 
-                if response.images:
-                    # Get the generated image
-                    image_bytes = response.images[0]._pil_image
-                    # Resize to exact dimensions
-                    image = image_bytes.resize((IMAGE_WIDTH, IMAGE_HEIGHT), Image.Resampling.LANCZOS)
-                    # Convert to base64
-                    buffer = BytesIO()
-                    image.save(buffer, format="PNG")
-                    return base64.b64encode(buffer.getvalue()).decode("utf-8")
+                response = self._client.models.generate_content(
+                    model="gemini-2.5-flash-image",
+                    contents=[full_prompt],
+                    config=types.GenerateContentConfig(
+                        response_modalities=["IMAGE"],
+                    ),
+                )
+
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data is not None:
+                        # Decode the image bytes
+                        image_bytes = part.inline_data.data
+                        image = Image.open(BytesIO(image_bytes))
+                        # Resize to exact dimensions
+                        image = image.resize(
+                            (IMAGE_WIDTH, IMAGE_HEIGHT), Image.Resampling.LANCZOS
+                        )
+                        buffer = BytesIO()
+                        image.save(buffer, format="PNG")
+                        return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+                raise Exception("No image returned in response")
 
             except Exception as e:
                 logger.error(f"Image generation failed: {e}")
+                raise Exception(f"Image generation failed: {e}")
 
-        # Return placeholder image
+        # No API key configured — return placeholder
         return self._generate_placeholder(prompt)
 
     def _generate_placeholder(self, prompt: str) -> str:
         """Generate a placeholder gradient image."""
-        from PIL import ImageDraw, ImageFont
+        from PIL import ImageDraw
 
         # Create gradient background
         image = Image.new("RGB", (IMAGE_WIDTH, IMAGE_HEIGHT))
@@ -109,6 +120,15 @@ class ImageService:
                     int((g + m) * 255),
                     int((b + m) * 255),
                 )
+
+        # Add "PLACEHOLDER" text
+        draw = ImageDraw.Draw(image)
+        draw.text(
+            (IMAGE_WIDTH // 2, IMAGE_HEIGHT // 2),
+            "PLACEHOLDER",
+            fill=(255, 255, 255, 180),
+            anchor="mm",
+        )
 
         # Convert to base64
         buffer = BytesIO()

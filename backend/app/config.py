@@ -4,7 +4,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables (check project root .env first, then backend/.env)
+load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 load_dotenv()
 
 # Base paths
@@ -16,7 +17,7 @@ OUTPUT_DIR = BASE_DIR / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 # API Keys
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 
 # Image settings
 IMAGE_WIDTH = 1080

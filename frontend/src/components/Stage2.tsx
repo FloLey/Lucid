@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Session } from '../types';
 import * as api from '../services/api';
+import { getErrorMessage } from '../utils/error';
 
 interface Stage2Props {
   sessionId: string;
@@ -35,7 +36,7 @@ export default function Stage2({
       const sess = await api.generatePrompts(sessionId, styleInstructions || undefined);
       updateSession(sess);
     } catch (err) {
-      setError('Failed to generate image prompts');
+      setError(getErrorMessage(err, 'Failed to generate image prompts'));
     } finally {
       setLoading(false);
     }
@@ -47,7 +48,7 @@ export default function Stage2({
       const sess = await api.regeneratePrompt(sessionId, index);
       updateSession(sess);
     } catch (err) {
-      setError('Failed to regenerate prompt');
+      setError(getErrorMessage(err, 'Failed to regenerate prompt'));
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ export default function Stage2({
       updateSession(sess);
       setEditingPrompt(null);
     } catch (err) {
-      setError('Failed to update prompt');
+      setError(getErrorMessage(err, 'Failed to update prompt'));
     }
   };
 
@@ -67,9 +68,9 @@ export default function Stage2({
   const hasPrompts = slides.some((s) => s.image_prompt);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0">
       {/* Left Column - Slide Texts */}
-      <div className="space-y-6">
+      <div className="space-y-6 overflow-y-auto min-h-0">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Slide Texts</h2>
 
@@ -113,8 +114,8 @@ export default function Stage2({
       </div>
 
       {/* Right Column - Image Prompts */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+      <div className="flex flex-col min-h-0">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
@@ -134,6 +135,7 @@ export default function Stage2({
           )}
         </div>
 
+        <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
         {session?.shared_prompt_prefix && (
           <div className="p-3 bg-lucid-50 rounded-lg">
             <span className="text-xs font-medium text-lucid-700">Shared Style:</span>
@@ -190,6 +192,7 @@ export default function Stage2({
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

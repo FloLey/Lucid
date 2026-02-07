@@ -17,6 +17,7 @@ class GenerateSlideTextsRequest(BaseModel):
     num_slides: int = Field(default=5, ge=1, le=20)
     include_titles: bool = Field(default=True)
     additional_instructions: Optional[str] = None
+    language: str = Field(default="English")
 
 
 class RegenerateSlideTextRequest(BaseModel):
@@ -24,6 +25,7 @@ class RegenerateSlideTextRequest(BaseModel):
 
     session_id: str
     slide_index: int = Field(ge=0)
+    instruction: Optional[str] = None
 
 
 class UpdateSlideTextRequest(BaseModel):
@@ -50,6 +52,7 @@ async def generate_slide_texts(request: GenerateSlideTextsRequest):
         num_slides=request.num_slides,
         include_titles=request.include_titles,
         additional_instructions=request.additional_instructions,
+        language=request.language,
     )
     if not session:
         raise HTTPException(status_code=500, detail="Failed to generate slide texts")
@@ -73,6 +76,7 @@ async def regenerate_slide_text(request: RegenerateSlideTextRequest):
     session = await stage1_service.regenerate_slide_text(
         session_id=request.session_id,
         slide_index=request.slide_index,
+        instruction=request.instruction,
     )
     if not session:
         raise HTTPException(status_code=404, detail="Session or slide not found")

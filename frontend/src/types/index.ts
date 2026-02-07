@@ -24,9 +24,11 @@ export interface TextStyle {
   font_family: string;
   font_weight: number;
   font_size_px: number;
+  body_font_size_px: number;
   text_color: string;
   alignment: 'left' | 'center' | 'right';
-  box: BoxStyle;
+  title_box: BoxStyle;
+  body_box: BoxStyle;
   line_spacing: number;
   stroke: StrokeStyle;
   shadow: ShadowStyle;
@@ -47,6 +49,13 @@ export interface Slide {
   final_image: string | null;
 }
 
+export interface StyleProposal {
+  index: number;
+  description: string;
+  image_prompt: string;
+  preview_image: string | null;
+}
+
 export interface Session {
   session_id: string;
   created_at: string;
@@ -56,6 +65,9 @@ export interface Session {
   num_slides: number;
   include_titles: boolean;
   additional_instructions: string | null;
+  language: string;
+  style_proposals: StyleProposal[];
+  selected_style_proposal_index: number | null;
   image_style_instructions: string | null;
   shared_prompt_prefix: string | null;
   slides: Slide[];

@@ -81,12 +81,6 @@ class TestChatService:
         assert tool == "regenerate_image"
         assert params == {"slide_index": 0}
 
-    def test_parse_apply_preset_command(self):
-        """Test parsing /apply preset command."""
-        tool, params = chat_service._parse_explicit_command("/apply preset bold")
-        assert tool == "apply_preset"
-        assert params == {"preset": "bold"}
-
     def test_parse_unknown_command(self):
         """Test parsing unknown command."""
         tool, params = chat_service._parse_explicit_command("Hello there")
@@ -164,7 +158,7 @@ class TestChatRoutes:
         data = response.json()
         assert "commands" in data
         assert "/next" in data["commands"]
-        assert "/stage <1-4>" in data["commands"]
+        assert "/stage <1-5>" in data["commands"]
 
     def test_placeholder_works(self, client):
         """Test that placeholder endpoint still works."""

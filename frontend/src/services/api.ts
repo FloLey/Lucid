@@ -29,13 +29,19 @@ export const previousStage = async (sessionId: string): Promise<Session> => {
   return response.data.session;
 };
 
+export const goToStage = async (sessionId: string, stage: number): Promise<Session> => {
+  const response = await api.post(`/sessions/${sessionId}/stage/${stage}`);
+  return response.data.session;
+};
+
 // Stage 1 APIs
 export const generateSlideTexts = async (
   sessionId: string,
   draftText: string,
   numSlides: number,
   includeTitles: boolean,
-  additionalInstructions?: string
+  additionalInstructions?: string,
+  language: string = 'English'
 ): Promise<Session> => {
   const response = await api.post('/stage1/generate', {
     session_id: sessionId,
@@ -43,17 +49,20 @@ export const generateSlideTexts = async (
     num_slides: numSlides,
     include_titles: includeTitles,
     additional_instructions: additionalInstructions,
+    language,
   });
   return response.data.session;
 };
 
 export const regenerateSlideText = async (
   sessionId: string,
-  slideIndex: number
+  slideIndex: number,
+  instruction?: string
 ): Promise<Session> => {
   const response = await api.post('/stage1/regenerate', {
     session_id: sessionId,
     slide_index: slideIndex,
+    instruction,
   });
   return response.data.session;
 };
@@ -73,7 +82,32 @@ export const updateSlideText = async (
   return response.data.session;
 };
 
-// Stage 2 APIs
+// Stage Style APIs
+export const generateStyleProposals = async (
+  sessionId: string,
+  numProposals: number = 3,
+  additionalInstructions?: string
+): Promise<Session> => {
+  const response = await api.post('/stage-style/generate', {
+    session_id: sessionId,
+    num_proposals: numProposals,
+    additional_instructions: additionalInstructions,
+  });
+  return response.data.session;
+};
+
+export const selectStyleProposal = async (
+  sessionId: string,
+  proposalIndex: number
+): Promise<Session> => {
+  const response = await api.post('/stage-style/select', {
+    session_id: sessionId,
+    proposal_index: proposalIndex,
+  });
+  return response.data.session;
+};
+
+// Stage 2 APIs (Prompts)
 export const generatePrompts = async (
   sessionId: string,
   styleInstructions?: string
@@ -156,9 +190,15 @@ export const updateStyle = async (
   return response.data.session;
 };
 
-export const getPresets = async (): Promise<Record<string, unknown>> => {
-  const response = await api.get('/stage4/presets');
-  return response.data.presets;
+export const applyStyleToAll = async (
+  sessionId: string,
+  style: Record<string, unknown>
+): Promise<Session> => {
+  const response = await api.post('/stage4/apply-style-all', {
+    session_id: sessionId,
+    style,
+  });
+  return response.data.session;
 };
 
 // Chat API

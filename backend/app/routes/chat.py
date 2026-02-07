@@ -39,11 +39,10 @@ async def list_commands():
     """List available slash commands."""
     commands = {
         "/next": "Advance to the next stage",
-        "/stage <1-4>": "Go to a specific stage",
+        "/stage <1-5>": "Go to a specific stage",
         "/regen slide <n>": "Regenerate text for slide n",
         "/regen prompt <n>": "Regenerate image prompt for slide n",
         "/regen image <n>": "Regenerate background image for slide n",
-        "/apply preset <name>": "Apply a style preset (modern, bold, elegant, minimal, impact)",
     }
     return {"commands": commands}
 

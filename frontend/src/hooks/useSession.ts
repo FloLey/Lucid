@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Session } from '../types';
 import * as api from '../services/api';
+import { getErrorMessage } from '../utils/error';
 
 const SESSION_KEY = 'lucid_session_id';
 
@@ -53,7 +54,7 @@ export function useSession() {
       const sess = await api.advanceStage(sessionId);
       setSession(sess);
     } catch (err) {
-      setError('Failed to advance stage');
+      setError(getErrorMessage(err, 'Failed to advance stage'));
     } finally {
       setLoading(false);
     }
@@ -66,7 +67,20 @@ export function useSession() {
       const sess = await api.previousStage(sessionId);
       setSession(sess);
     } catch (err) {
-      setError('Failed to go back');
+      setError(getErrorMessage(err, 'Failed to go back'));
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  const goToStage = useCallback(async (stage: number) => {
+    if (!sessionId) return;
+    setLoading(true);
+    try {
+      const sess = await api.goToStage(sessionId, stage);
+      setSession(sess);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to navigate to stage'));
     } finally {
       setLoading(false);
     }
@@ -80,7 +94,7 @@ export function useSession() {
       const sess = await api.createSession(id);
       setSession(sess);
     } catch (err) {
-      setError('Failed to create new session');
+      setError(getErrorMessage(err, 'Failed to create new session'));
     }
   }, []);
 
@@ -95,6 +109,7 @@ export function useSession() {
     refreshSession,
     advanceStage,
     previousStage,
+    goToStage,
     startNewSession,
   };
 }

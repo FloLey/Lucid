@@ -64,7 +64,7 @@ def mock_gemini():
             "font_size_px": 64,
             "text_color": "#FFFFFF",
             "alignment": "center",
-            "box": {
+            "title_box": {
                 "x_pct": 0.1,
                 "y_pct": 0.3,
                 "w_pct": 0.8,
@@ -229,22 +229,22 @@ class TestStage4Service:
         assert session.slides[0].style.text_color == "#FF0000"
         assert session.slides[0].style.alignment == "left"
 
-    def test_update_style_box(self, session_with_images):
-        """Test updating box style properties."""
+    def test_update_style_title_box(self, session_with_images):
+        """Test updating title_box style properties."""
         session = stage4_service.update_style(
             session_id="test-stage4",
             slide_index=0,
             style_updates={
-                "box": {
+                "title_box": {
                     "x_pct": 0.2,
                     "y_pct": 0.4,
                     "w_pct": 0.6,
                 },
             },
         )
-        assert session.slides[0].style.box.x_pct == 0.2
-        assert session.slides[0].style.box.y_pct == 0.4
-        assert session.slides[0].style.box.w_pct == 0.6
+        assert session.slides[0].style.title_box.x_pct == 0.2
+        assert session.slides[0].style.title_box.y_pct == 0.4
+        assert session.slides[0].style.title_box.w_pct == 0.6
 
     def test_update_style_stroke(self, session_with_images):
         """Test updating stroke style properties."""
@@ -272,8 +272,8 @@ class TestStage4Service:
         for slide in session.slides:
             assert slide.style.font_size_px == 80
 
-    def test_suggest_style(self, session_with_images, mock_gemini):
-        """Test AI style suggestion."""
+    def test_suggest_style(self, session_with_images):
+        """Test image-based style suggestion."""
         session = asyncio.get_event_loop().run_until_complete(
             stage4_service.suggest_style(
                 session_id="test-stage4",
@@ -281,8 +281,8 @@ class TestStage4Service:
             )
         )
         assert session is not None
-        # Should have updated style from mock
-        assert session.slides[0].style.font_family == "Montserrat"
+        # Should have updated style from image analysis
+        assert session.slides[0].style.font_family == "Inter"
 
 
 class TestStage4Routes:
@@ -330,16 +330,6 @@ class TestStage4Routes:
             },
         )
         assert response.status_code == 200
-
-    def test_get_presets_route(self, client):
-        """Test get presets endpoint."""
-        response = client.get("/api/stage4/presets")
-        assert response.status_code == 200
-        data = response.json()
-        assert "presets" in data
-        assert "modern" in data["presets"]
-        assert "bold" in data["presets"]
-        assert "elegant" in data["presets"]
 
     def test_placeholder_works(self, client):
         """Test that placeholder endpoint still works."""

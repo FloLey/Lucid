@@ -1,9 +1,11 @@
 """Main FastAPI application for Lucid."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from app.routes import sessions, stage1, stage2, stage3, stage4, chat, export, fonts
+from app.routes import sessions, stage1, stage_style, stage2, stage3, stage4, chat, export, fonts
+from app.services.gemini_service import GeminiError
 
 app = FastAPI(
     title="Lucid API",
@@ -23,12 +25,22 @@ app.add_middleware(
 # Include routers
 app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(stage1.router, prefix="/api/stage1", tags=["stage1"])
+app.include_router(stage_style.router, prefix="/api/stage-style", tags=["stage-style"])
 app.include_router(stage2.router, prefix="/api/stage2", tags=["stage2"])
 app.include_router(stage3.router, prefix="/api/stage3", tags=["stage3"])
 app.include_router(stage4.router, prefix="/api/stage4", tags=["stage4"])
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(fonts.router, prefix="/api/fonts", tags=["fonts"])
+
+
+@app.exception_handler(GeminiError)
+async def gemini_error_handler(request: Request, exc: GeminiError):
+    """Return a clear error when Gemini AI is unavailable or fails."""
+    return JSONResponse(
+        status_code=503,
+        content={"detail": str(exc)},
+    )
 
 
 @app.get("/")

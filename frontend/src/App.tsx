@@ -1,10 +1,9 @@
-import { useState } from 'react';
 import { useSession } from './hooks/useSession';
 import Stage1 from './components/Stage1';
+import StageStyle from './components/StageStyle';
 import Stage2 from './components/Stage2';
 import Stage3 from './components/Stage3';
 import Stage4 from './components/Stage4';
-import ChatBar from './components/ChatBar';
 import Header from './components/Header';
 import StageIndicator from './components/StageIndicator';
 
@@ -19,10 +18,9 @@ function App() {
     updateSession,
     advanceStage,
     previousStage,
+    goToStage,
     startNewSession,
   } = useSession();
-
-  const [chatOpen, setChatOpen] = useState(false);
 
   const currentStage = session?.current_stage ?? 1;
 
@@ -42,10 +40,12 @@ function App() {
       case 1:
         return <Stage1 {...commonProps} />;
       case 2:
-        return <Stage2 {...commonProps} />;
+        return <StageStyle {...commonProps} />;
       case 3:
-        return <Stage3 {...commonProps} />;
+        return <Stage2 {...commonProps} />;
       case 4:
+        return <Stage3 {...commonProps} />;
+      case 5:
         return <Stage4 {...commonProps} />;
       default:
         return <Stage1 {...commonProps} />;
@@ -53,12 +53,12 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <Header onNewSession={startNewSession} />
 
-      <StageIndicator currentStage={currentStage} />
+      <StageIndicator currentStage={currentStage} onStageClick={goToStage} />
 
-      <main className="flex-1 container mx-auto px-4 py-6">
+      <main className="flex-1 min-h-0 container mx-auto px-4 py-6 overflow-hidden">
         {error && (
           <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
             {error}
@@ -79,14 +79,6 @@ function App() {
           </div>
         )}
       </main>
-
-      <ChatBar
-        sessionId={sessionId}
-        currentStage={currentStage}
-        isOpen={chatOpen}
-        onToggle={() => setChatOpen(!chatOpen)}
-        updateSession={updateSession}
-      />
     </div>
   );
 }

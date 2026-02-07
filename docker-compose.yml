@@ -11,8 +11,8 @@ services:
       - ./backend/app:/app/app
       - ./backend/fonts:/app/fonts
       - ./backend/sessions_db.json:/app/sessions_db.json
-    environment:
-      - GEMINI_API_KEY  # Value pulled from shell environment (Codespaces secrets or local .env)
+    env_file:
+      - .env
     networks:
       - lucid-network
 
@@ -24,6 +24,8 @@ services:
       - "5173:5173"
     volumes:
       - ./frontend/src:/app/src
+    env_file:
+      - .env
     environment:
       - VITE_API_TARGET=http://backend:8000
     depends_on:

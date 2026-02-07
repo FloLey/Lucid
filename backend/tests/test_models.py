@@ -98,11 +98,11 @@ class TestTextStyle:
     def test_nested_styles(self):
         """Test nested box, stroke, shadow styles."""
         style = TextStyle(
-            box=BoxStyle(x_pct=0.2, y_pct=0.3),
+            title_box=BoxStyle(x_pct=0.2, y_pct=0.3),
             stroke=StrokeStyle(enabled=True, width_px=3),
             shadow=ShadowStyle(enabled=True),
         )
-        assert style.box.x_pct == 0.2
+        assert style.title_box.x_pct == 0.2
         assert style.stroke.enabled is True
         assert style.shadow.enabled is True
 

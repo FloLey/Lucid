@@ -27,22 +27,22 @@ const STAGE_COMMANDS: Record<number, { command: string; description: string }[]>
   2: [
     { command: '/back', description: 'Go back to Stage 1' },
     { command: '/next', description: 'Advance to Stage 3' },
-    { command: '/generate', description: 'Generate image prompts' },
-    { command: '/regen prompt', description: 'Regenerate a specific prompt' },
+    { command: '/generate', description: 'Generate style proposals' },
   ],
   3: [
     { command: '/back', description: 'Go back to Stage 2' },
     { command: '/next', description: 'Advance to Stage 4' },
-    { command: '/generate', description: 'Generate background images' },
-    { command: '/regen image', description: 'Regenerate a specific image' },
+    { command: '/generate', description: 'Generate image prompts' },
+    { command: '/regen prompt', description: 'Regenerate a specific prompt' },
   ],
   4: [
     { command: '/back', description: 'Go back to Stage 3' },
-    { command: '/style modern', description: 'Apply modern preset' },
-    { command: '/style bold', description: 'Apply bold preset' },
-    { command: '/style elegant', description: 'Apply elegant preset' },
-    { command: '/style minimal', description: 'Apply minimal preset' },
-    { command: '/style impact', description: 'Apply impact preset' },
+    { command: '/next', description: 'Advance to Stage 5' },
+    { command: '/generate', description: 'Generate background images' },
+    { command: '/regen image', description: 'Regenerate a specific image' },
+  ],
+  5: [
+    { command: '/back', description: 'Go back to Stage 4' },
     { command: '/export', description: 'Export carousel as ZIP' },
   ],
 };

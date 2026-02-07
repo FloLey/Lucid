@@ -59,8 +59,8 @@ async def previous_stage(request: StageAdvanceRequest):
 @router.post("/{session_id}/stage/{stage}")
 async def go_to_stage(session_id: str, stage: int):
     """Go to a specific stage."""
-    if not 1 <= stage <= 4:
-        raise HTTPException(status_code=400, detail="Stage must be between 1 and 4")
+    if not 1 <= stage <= 5:
+        raise HTTPException(status_code=400, detail="Stage must be between 1 and 5")
 
     session = session_manager.go_to_stage(session_id, stage)
     if not session:
