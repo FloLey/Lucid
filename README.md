@@ -24,9 +24,17 @@ Click the button below to open a fully configured development environment in the
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/FloLey/Lucid)
 
-The Codespace will automatically:
+Before creating the Codespace, add your Google API key as a **Codespaces secret** so AI features work out of the box:
+
+1. Go to [github.com/settings/codespaces](https://github.com/settings/codespaces)
+2. Under **Secrets**, click **New secret**
+3. **Name:** `GOOGLE_API_KEY`, **Value:** your key ([get one here](https://aistudio.google.com/apikey))
+4. Under **Repository access**, select the Lucid repository
+
+Then create the Codespace. It will automatically:
 - Build both backend and frontend containers
 - Download fonts during build
+- Inject your API key into the backend
 - Forward ports 5173 (frontend) and 8000 (API)
 - Open the app in your browser
 
