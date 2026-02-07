@@ -6,7 +6,7 @@ Lucid is a containerized web application that turns your ideas into beautiful 4:
 
 ## Features
 
-- **4-Stage Workflow**: Draft → Slide Texts → Image Prompts → Final Slides
+- **5-Stage Workflow**: Draft → Style → Image Prompts → Images → Design
 - **AI-Powered Generation**: Uses Gemini 3 Flash Preview for text and Gemini 2.5 Flash for images
 - **Typography Rendering**: PIL-based text rendering with binary search fitting algorithm
 - **Fuzzy Font Matching**: Intelligent font loading with weight approximation
@@ -22,7 +22,7 @@ Lucid is a containerized web application that turns your ideas into beautiful 4:
 
 Click the button below to open a fully configured development environment in the cloud:
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/YOUR_ORG/Lucid)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/FloLey/Lucid)
 
 The Codespace will automatically:
 - Build both backend and frontend containers
@@ -36,7 +36,7 @@ The Codespace will automatically:
 # Clone and start
 git clone <repo-url>
 cd Lucid
-cp .env.example .env  # Add your GEMINI_API_KEY if you have one
+cp .env.example .env  # Add your GOOGLE_API_KEY
 
 # Build and run (fonts download automatically)
 docker-compose up --build
@@ -44,31 +44,42 @@ docker-compose up --build
 
 The app will be available at `http://localhost:5173`.
 
-## Environment Variables
+## Setting Up Your Google API Key
 
-### Setting Up Secrets for Codespaces
+Lucid uses the Google Gemini API for text generation and image generation. You need a `GOOGLE_API_KEY` to enable AI features.
 
-To use the Gemini AI features in GitHub Codespaces:
+**Get a key:** Go to [Google AI Studio](https://aistudio.google.com/apikey) and create an API key.
 
-1. Navigate to your repository on GitHub
-2. Go to **Settings** → **Secrets and variables** → **Codespaces**
-3. Click **New repository secret**
-4. Add secret:
-   - **Name:** `GEMINI_API_KEY`
-   - **Value:** Your Google Gemini API key
+### GitHub Codespaces
 
-The secret will be automatically injected into your Codespace environment.
+Set the key as a Codespaces secret so it's automatically available in every Codespace:
 
-### Local Development
+1. Go to [github.com/settings/codespaces](https://github.com/settings/codespaces)
+2. Under **Secrets**, click **New secret**
+3. **Name:** `GOOGLE_API_KEY`, **Value:** your API key
+4. Under **Repository access**, select the Lucid repository
+5. Click **Add secret**
+6. Create (or rebuild) your Codespace — the key is injected automatically
 
-For local development, create a `.env` file in the project root:
+### Local Docker
+
+Create a `.env` file in the project root:
 
 ```bash
 cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
 ```
 
-**Note:** The app works without an API key using mock responses, which is useful for UI development.
+Then edit `.env` and fill in your key:
+
+```
+GOOGLE_API_KEY=your-api-key-here
+```
+
+Restart containers with `docker compose up` to pick up the change.
+
+### Without an API Key
+
+The app runs without an API key — image generation returns gradient placeholders and text generation is unavailable. This is useful for frontend/UI development.
 
 ## Tech Stack
 
@@ -104,8 +115,8 @@ pip install -r requirements.txt
 # Download fonts (required for typography)
 python download_fonts.py
 
-# Set Gemini API key (optional - mock responses work without it)
-export GEMINI_API_KEY="your-api-key"
+# Set Google API key (optional - placeholder images work without it)
+export GOOGLE_API_KEY="your-api-key"
 
 # Run the server
 uvicorn app.main:app --reload --port 8000
