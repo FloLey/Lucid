@@ -1,0 +1,30 @@
+"""Slide models."""
+
+from typing import Optional
+from pydantic import BaseModel, Field
+
+from app.models.style import TextStyle
+
+
+class SlideText(BaseModel):
+    """Text content for a slide."""
+
+    title: Optional[str] = Field(default=None, description="Optional slide title")
+    body: str = Field(default="", description="Main slide text content")
+
+    def get_full_text(self) -> str:
+        """Get combined title and body text for rendering."""
+        if self.title:
+            return f"{self.title}\n\n{self.body}"
+        return self.body
+
+
+class Slide(BaseModel):
+    """Complete slide with all stage data."""
+
+    index: int = Field(ge=0, description="Slide index (0-based)")
+    text: SlideText = Field(default_factory=SlideText)
+    image_prompt: Optional[str] = Field(default=None, description="Generated image prompt")
+    image_data: Optional[str] = Field(default=None, description="Base64 encoded background image")
+    style: TextStyle = Field(default_factory=TextStyle)
+    final_image: Optional[str] = Field(default=None, description="Base64 encoded final rendered image")

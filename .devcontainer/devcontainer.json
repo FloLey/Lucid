@@ -1,0 +1,31 @@
+{
+  "name": "Lucid Development Environment",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "frontend",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+  "forwardPorts": [5173, 8000],
+
+  "portsAttributes": {
+    "5173": {
+      "label": "Lucid Frontend",
+      "onAutoForward": "openBrowser"
+    },
+    "8000": {
+      "label": "Lucid API (Swagger)",
+      "onAutoForward": "ignore"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-vscode.live-server",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "tamasfe.even-better-toml"
+      ]
+    }
+  }
+}
