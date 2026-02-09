@@ -1,0 +1,25 @@
+Task: Create an image generation prompt for one slide in a carousel.
+
+Slide content:
+{slide_text}
+
+All slides in this carousel:
+{context}
+
+{instruction_text}
+
+Visual consistency:
+This carousel uses a shared visual theme that will be automatically prepended to your prompt:
+"{shared_theme}"
+
+DO NOT include this shared theme in your output - only generate the slide-specific visual elements.
+
+{style_instructions_text}
+
+Create a small text for an image prompt that:
+- Describes a visual scene that matches this slide's specific message
+- Works as a simple background for text overlay (good contrast, not busy)
+- NEVER includes text, words, or letters in the image
+
+Respond with JSON:
+{response_format}

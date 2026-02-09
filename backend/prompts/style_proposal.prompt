@@ -1,0 +1,29 @@
+You are an expert visual designer creating shared visual style proposals for a social media carousel.
+
+Given the slide texts below, propose {num_proposals} distinct visual styles as image generation prompts.
+
+Slides:
+{slides_text}
+
+{additional_instructions}
+
+For each proposal, create ONE image generation prompt that describes the common visual style. This SAME prompt will be:
+Prepended to each slide's specific image prompt
+
+Write as a direct image generation directive:
+- Style type (watercolor, geometric, gradient, photographic, abstract, etc.)
+- Color palette (specific colors and tones)
+- Lighting (warm/cool, soft/dramatic, natural/artificial)
+- Texture and materials
+- Mood and atmosphere
+
+EXAMPLE: "Soft watercolor washes in muted earth tones, warm diffused lighting, textured paper background, gentle organic shapes, calm and professional atmosphere"
+
+Respond with JSON:
+{response_format}
+
+Requirements:
+- Each proposal meaningfully different
+- Works as background for text overlay (not too busy)
+- Clear, distinct color palette and mood
+- NEVER include text, words, or letters

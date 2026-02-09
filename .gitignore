@@ -149,6 +149,9 @@ venv.bak/
 # Session persistence (local development)
 sessions_db.json
 
+# User configuration
+config.json
+
 # Node modules
 node_modules/
 

@@ -5,9 +5,10 @@ from pydantic import BaseModel, Field
 
 
 class StyleProposal(BaseModel):
-    """A style proposal with description and preview image."""
+    """A style proposal with common visual style prompt and preview image."""
 
     index: int = Field(description="Proposal index")
-    description: str = Field(description="Human-readable style description")
-    image_prompt: str = Field(default="", description="Image prompt used for preview generation")
+    description: str = Field(
+        description="Common visual style prompt (used for preview and prepended to all slides)"
+    )
     preview_image: Optional[str] = Field(default=None, description="Base64 preview image (display only)")

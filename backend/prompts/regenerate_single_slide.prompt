@@ -1,0 +1,23 @@
+Rewrite one slide in a carousel while keeping all other slides intact.
+
+Draft content (original topic):
+{draft_text}
+
+{language_instruction}
+
+All slides in this carousel:
+{all_slides_context}
+
+Slide to rewrite (marked above as "CURRENT SLIDE"):
+{current_text}
+
+{instruction_text}
+
+{title_instruction}
+
+Create a fresh take on this slide that:
+1. Maintains the core message
+2. Flows naturally with the surrounding slides
+
+Respond with JSON:
+{response_format}

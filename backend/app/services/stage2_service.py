@@ -1,6 +1,8 @@
 """Stage 2 service - Slide texts to Image prompts transformation."""
 
+import asyncio
 import logging
+from pathlib import Path
 from typing import Optional
 
 from app.models.session import SessionState
@@ -10,37 +12,20 @@ from app.services.session_manager import session_manager
 logger = logging.getLogger(__name__)
 
 
-IMAGE_PROMPT_GENERATION = """You are an expert visual designer creating image prompts for a social media carousel.
+def _load_prompt_file(filename: str) -> str:
+    """Load a prompt from the prompts directory."""
+    prompt_path = Path(__file__).parent.parent.parent / "prompts" / filename
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"Failed to load prompt file {filename}: {e}")
+        return ""
 
-Given slide texts and style instructions, create image prompts that:
-1. Capture the mood and emotion of each slide's message
-2. Maintain visual consistency across all slides
-3. Work well as backgrounds for text overlay
-4. Avoid busy or cluttered compositions that would interfere with text readability
-5. NEVER include text, words, or letters in the images
 
-Style instructions: {style_instructions}
-
-Shared visual theme: {shared_theme}
-
-Slides to create prompts for:
-{slides_text}
-
-Create {num_prompts} image prompts, one for each slide.
-
-Respond with a JSON object:
-{{
-    "prompts": ["prompt for slide 1", "prompt for slide 2", ...]
-}}
-
-Each prompt should be 1-2 sentences describing the visual scene. Include:
-- Main subject or scene
-- Color palette or mood
-- Lighting style
-- Any specific visual elements
-
-Remember: Images will have text overlaid, so backgrounds should be simple with good contrast areas.
-"""
+def _get_single_image_prompt() -> str:
+    """Get single image prompt generation prompt from file."""
+    return _load_prompt_file("generate_single_image_prompt.prompt")
 
 
 class Stage2Service:
@@ -51,7 +36,15 @@ class Stage2Service:
         session_id: str,
         image_style_instructions: Optional[str] = None,
     ) -> Optional[SessionState]:
-        """Generate image prompts for all slides."""
+        """Generate image prompts for all slides in parallel."""
+        # Load config for defaults
+        from app.services.config_manager import config_manager
+        config = config_manager.get_config()
+
+        # Fallback to config default if not provided
+        if image_style_instructions is None:
+            image_style_instructions = config.stage_instructions.stage2
+
         session = session_manager.get_session(session_id)
         if not session or not session.slides:
             return None
@@ -60,32 +53,49 @@ class Stage2Service:
         if image_style_instructions:
             session.image_style_instructions = image_style_instructions
 
-        # Build slides text for prompt
-        slides_text = "\n".join([
-            f"Slide {i + 1}: {slide.text.get_full_text()}"
-            for i, slide in enumerate(session.slides)
-        ])
-
         style_instructions = session.image_style_instructions or "Modern, professional, clean aesthetic"
         shared_theme = session.shared_prompt_prefix or "Consistent visual style throughout"
 
-        prompt = IMAGE_PROMPT_GENERATION.format(
-            style_instructions=style_instructions,
-            shared_theme=shared_theme,
-            slides_text=slides_text,
-            num_prompts=len(session.slides),
+        # Get prompt template for single slide generation
+        prompt_template = _get_single_image_prompt()
+
+        # Generate prompts for each slide in parallel
+        async def generate_single_prompt(slide_index: int) -> str:
+            """Generate prompt for a single slide."""
+            slide = session.slides[slide_index]
+
+            # Build context with all slides
+            context_parts = []
+            for i, s in enumerate(session.slides):
+                marker = " ← CURRENT SLIDE" if i == slide_index else ""
+                context_parts.append(f"Slide {i + 1}: {s.text.get_full_text()}{marker}")
+
+            context = "\n".join(context_parts)
+
+            # Format style instructions
+            style_instructions_text = f"Style instructions: {style_instructions}" if style_instructions else ""
+
+            # Build prompt for this specific slide
+            prompt = prompt_template.format(
+                slide_text=slide.text.get_full_text(),
+                shared_theme=shared_theme,
+                style_instructions_text=style_instructions_text,
+                context=context,
+                instruction_text="",
+                response_format='{"prompt": "your slide-specific image prompt here"}',
+            )
+
+            result = await gemini_service.generate_json(prompt)
+            return result.get("prompt", f"Abstract professional background for: {slide.text.body[:50]}")
+
+        # Generate all prompts in parallel
+        prompts = await asyncio.gather(
+            *(generate_single_prompt(i) for i in range(len(session.slides)))
         )
 
-        result = await gemini_service.generate_json(prompt)
-
         # Update slide prompts
-        prompts = result.get("prompts", [])
-        for i, slide in enumerate(session.slides):
-            if i < len(prompts):
-                slide.image_prompt = prompts[i]
-            else:
-                # Fallback prompt if not enough generated
-                slide.image_prompt = f"Abstract professional background for: {slide.text.body[:50]}"
+        for i, prompt in enumerate(prompts):
+            session.slides[i].image_prompt = prompt
 
         session_manager.update_session(session)
         return session
@@ -94,40 +104,42 @@ class Stage2Service:
         self,
         session_id: str,
         slide_index: int,
+        instruction: Optional[str] = None,
     ) -> Optional[SessionState]:
-        """Regenerate image prompt for a single slide."""
+        """Regenerate image prompt for a single slide using the same generation logic."""
         session = session_manager.get_session(session_id)
         if not session or slide_index >= len(session.slides):
             return None
 
         slide = session.slides[slide_index]
 
-        # Get context from surrounding slides
-        context_prompts = []
-        if slide_index > 0:
-            context_prompts.append(f"Previous slide prompt: {session.slides[slide_index - 1].image_prompt}")
-        if slide_index < len(session.slides) - 1:
-            context_prompts.append(f"Next slide prompt: {session.slides[slide_index + 1].image_prompt}")
+        # Build context with all slides
+        context_parts = []
+        for i, s in enumerate(session.slides):
+            marker = " ← REGENERATE THIS" if i == slide_index else ""
+            context_parts.append(f"Slide {i + 1}: {s.text.get_full_text()}{marker}")
 
-        context = "\n".join(context_prompts) if context_prompts else "This is a standalone slide."
+        context = "\n".join(context_parts)
 
-        prompt = f"""Create a new image prompt for slide {slide_index + 1} of {len(session.slides)}.
+        # Build instruction text
+        instruction_text = f"Additional instruction for this regeneration: {instruction}" if instruction else ""
 
-Slide text: {slide.text.get_full_text()}
+        # Reuse the same generation prompt
+        style_instructions = session.image_style_instructions or "Modern, professional, clean aesthetic"
+        shared_theme = session.shared_prompt_prefix or "Consistent visual style throughout"
 
-Shared visual style: {session.shared_prompt_prefix or 'Modern, professional aesthetic'}
+        style_instructions_text = f"Style instructions: {style_instructions}" if style_instructions else ""
 
-{context}
+        prompt_template = _get_single_image_prompt()
 
-Requirements:
-- Maintain visual consistency with other slides
-- Create a background suitable for text overlay
-- Simple composition, no text in image
-- Match the mood of the slide content
-
-Respond with JSON:
-{{"prompt": "your new image prompt here"}}
-"""
+        prompt = prompt_template.format(
+            slide_text=slide.text.get_full_text(),
+            shared_theme=shared_theme,
+            style_instructions_text=style_instructions_text,
+            context=context,
+            instruction_text=instruction_text,
+            response_format='{"prompt": "your slide-specific image prompt here"}',
+        )
 
         result = await gemini_service.generate_json(prompt)
 

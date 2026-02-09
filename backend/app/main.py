@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.routes import sessions, stage1, stage_style, stage2, stage3, stage4, chat, export, fonts
+from app.routes import sessions, stage1, stage_style, stage2, stage3, stage4, chat, export, fonts, config, prompts
 from app.services.gemini_service import GeminiError
 
 app = FastAPI(
@@ -39,6 +39,8 @@ app.include_router(stage4.router, prefix="/api/stage4", tags=["stage4"])
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(fonts.router, prefix="/api/fonts", tags=["fonts"])
+app.include_router(config.router, prefix="/api/config", tags=["config"])
+app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
 
 
 @app.exception_handler(GeminiError)

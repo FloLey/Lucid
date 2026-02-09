@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Session, ChatResponse } from '../types';
+import type { Session, ChatResponse, AppConfig, PromptsConfig } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -220,4 +220,52 @@ export const getExportZipUrl = (sessionId: string): string => {
 
 export const getExportSlideUrl = (sessionId: string, slideIndex: number): string => {
   return `/api/export/slide/${sessionId}/${slideIndex}`;
+};
+
+// Config APIs
+export const getConfig = async (): Promise<AppConfig> => {
+  const response = await api.get('/config');
+  return response.data.config;
+};
+
+export const updateConfig = async (config: AppConfig): Promise<AppConfig> => {
+  const response = await api.put('/config', config);
+  return response.data.config;
+};
+
+export const updateStageInstructions = async (
+  stage: string,
+  instructions: string | null
+): Promise<AppConfig> => {
+  const response = await api.patch('/config/stage-instructions', {
+    stage,
+    instructions,
+  });
+  return response.data.config;
+};
+
+export const resetConfig = async (): Promise<AppConfig> => {
+  const response = await api.post('/config/reset');
+  return response.data.config;
+};
+
+// Prompts API - edits .prompt files directly
+export const getPrompts = async (): Promise<Record<string, string>> => {
+  const response = await api.get('/prompts');
+  return response.data.prompts;
+};
+
+export const updatePrompts = async (prompts: Record<string, string>): Promise<void> => {
+  await api.patch('/prompts', { prompts });
+};
+
+export interface PromptValidationResponse {
+  valid: boolean;
+  errors: Record<string, string>;
+  warnings: Record<string, string>;
+}
+
+export const validatePrompts = async (prompts: Record<string, string>): Promise<PromptValidationResponse> => {
+  const response = await api.post('/prompts/validate', { prompts });
+  return response.data;
 };

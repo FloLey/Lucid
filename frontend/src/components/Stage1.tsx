@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { Session } from '../types';
+import { useState, useEffect } from 'react';
+import type { Session, AppConfig } from '../types';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 
@@ -23,11 +23,45 @@ export default function Stage1({
   updateSession,
   onNext,
 }: Stage1Props) {
-  const [draftText, setDraftText] = useState(session?.draft_text || '');
-  const [numSlides, setNumSlides] = useState(session?.num_slides || 5);
-  const [includeTitles, setIncludeTitles] = useState(session?.include_titles ?? true);
-  const [language, setLanguage] = useState(session?.language || 'English');
-  const [instructions, setInstructions] = useState(session?.additional_instructions || '');
+  const [config, setConfig] = useState<AppConfig | null>(null);
+  const [draftText, setDraftText] = useState('');
+  const [numSlides, setNumSlides] = useState<number | null>(null);
+  const [includeTitles, setIncludeTitles] = useState(true);
+  const [language, setLanguage] = useState('English');
+  const [instructions, setInstructions] = useState('');
+
+  // Load config defaults on mount, then override with session values if they exist
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const configData = await api.getConfig();
+        setConfig(configData);
+
+        // For a new session (no slides yet), use config defaults
+        const isNewSession = !session?.slides || session.slides.length === 0;
+
+        if (isNewSession) {
+          // Use config defaults for new sessions
+          setNumSlides(configData.global_defaults.num_slides);
+          setIncludeTitles(configData.global_defaults.include_titles);
+          setLanguage(configData.global_defaults.language);
+          if (configData.stage_instructions.stage1) {
+            setInstructions(configData.stage_instructions.stage1);
+          }
+        } else {
+          // Use session values for existing sessions
+          setDraftText(session?.draft_text || '');
+          setNumSlides(session?.num_slides ?? configData.global_defaults.num_slides);
+          setIncludeTitles(session?.include_titles ?? configData.global_defaults.include_titles);
+          setLanguage(session?.language || configData.global_defaults.language);
+          setInstructions(session?.additional_instructions || '');
+        }
+      } catch (err) {
+        console.error('Failed to load config:', err);
+      }
+    };
+    loadConfig();
+  }, [session]);
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
   const [regeneratingSlides, setRegeneratingSlides] = useState<Set<number>>(new Set());
   const [regenInstructionSlide, setRegenInstructionSlide] = useState<number | null>(null);
@@ -45,7 +79,7 @@ export default function Stage1({
       const sess = await api.generateSlideTexts(
         sessionId,
         draftText,
-        numSlides,
+        numSlides ?? undefined,
         includeTitles,
         instructions || undefined,
         language
@@ -109,10 +143,11 @@ export default function Stage1({
                 Number of Slides
               </label>
               <select
-                value={numSlides}
-                onChange={(e) => setNumSlides(Number(e.target.value))}
+                value={numSlides ?? 'auto'}
+                onChange={(e) => setNumSlides(e.target.value === 'auto' ? null : Number(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
               >
+                <option value="auto">Let AI decide</option>
                 {[3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                   <option key={n} value={n}>
                     {n} slides
