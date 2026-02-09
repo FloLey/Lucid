@@ -1,0 +1,25 @@
+{
+  "stage_instructions": {
+    "stage1": null,
+    "stage_style": null,
+    "stage2": null,
+    "stage3": null
+  },
+  "global_defaults": {
+    "num_slides": 5,
+    "language": "English",
+    "include_titles": true
+  },
+  "image": {
+    "width": 1080,
+    "height": 1350,
+    "aspect_ratio": "4:5"
+  },
+  "style": {
+    "default_font_family": "Inter",
+    "default_font_weight": 700,
+    "default_font_size_px": 72,
+    "default_text_color": "#FFFFFF",
+    "default_alignment": "center"
+  }
+}

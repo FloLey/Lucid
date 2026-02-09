@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
 
 from app.services.gemini_service import gemini_service
@@ -15,6 +16,22 @@ from app.services.stage4_service import stage4_service
 from app.services.export_service import export_service
 
 logger = logging.getLogger(__name__)
+
+
+def _load_prompt_file(filename: str) -> str:
+    """Load a prompt from the prompts directory."""
+    prompt_path = Path(__file__).parent.parent.parent / "prompts" / filename
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"Failed to load prompt file {filename}: {e}")
+        return ""
+
+
+def _get_chat_routing_prompt() -> str:
+    """Get chat routing prompt from file."""
+    return _load_prompt_file("chat_routing.prompt")
 
 
 # Tools allowed per stage - prevents hallucinations and logic errors
@@ -71,43 +88,27 @@ def get_routing_prompt(current_stage: int) -> str:
     """Generate stage-scoped routing prompt with only allowed tools."""
     tool_descriptions = STAGE_TOOL_DESCRIPTIONS.get(current_stage, "")
 
-    return f"""You are an AI assistant for Lucid, a carousel creation tool.
-Your job is to interpret user commands and route them to the appropriate tool.
+    # Get prompt template from config
+    prompt_template = _get_chat_routing_prompt()
 
-The user is currently in Stage {current_stage}.
-
-Available tools for this stage:
-{tool_descriptions}
-
-Navigation:
-- next_stage - Advance to the next stage (if available)
-- go_to_stage - Go to a specific stage (1-5)
-- back_stage - Go to the previous stage
-
-User message: {{message}}
-
-Analyze the user's intent and respond with a JSON object:
-{{{{
+    response_format = '''{{
     "tool": "tool_name",
-    "params": {{{{}}}},
+    "params": {{}},
     "response": "A brief response to the user"
-}}}}
+}}
 
-For tool params:
-- slide_index: 0-based index (when user says "slide 3", use index 2)
-- instruction: optional specific instruction for regeneration (e.g. "make it more punchy", "add a question")
-- text/body/title: string content
-- style: object with style properties
-If the message is just a greeting or general question, respond with:
-{{{{
+Or if just a greeting/question:
+{{
     "tool": null,
     "response": "Your helpful response"
-}}}}
+}}'''
 
-IMPORTANT: Only use tools listed above. Do not suggest tools from other stages.
-
-Respond with valid JSON only.
-"""
+    return prompt_template.format(
+        current_stage=current_stage,
+        tool_descriptions=tool_descriptions,
+        message="{message}",  # Keep as template variable for later
+        response_format=response_format,
+    )
 
 
 class ChatService:

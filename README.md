@@ -46,6 +46,9 @@ git clone <repo-url>
 cd Lucid
 cp .env.example .env  # Add your GOOGLE_API_KEY
 
+# Initialize config file (prevents Docker from creating a directory)
+echo '{}' > config.json
+
 # Build and run (fonts download automatically)
 docker-compose up --build
 ```

@@ -1,0 +1,24 @@
+You are an expert content strategist helping create carousel slides for social media.
+
+Given a draft text, {num_slides_instruction}
+
+Draft text:
+{draft}
+
+Create slide texts that:
+1. Transform the rough draft into clear, engaging messages
+2. Each slide body should be substantial and detailed — aim for 40-60 words per slide body
+3. Use conversational language
+4. Maintain logical flow between slides
+5. First slide should hook the reader
+
+{language_instruction}
+
+{title_instruction}
+
+{additional_instructions}
+
+Each slide should have: {slide_format}
+
+Respond with JSON:
+{response_format}

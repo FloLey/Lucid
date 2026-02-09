@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Optional
 
 from app.models.session import SessionState
@@ -13,37 +14,20 @@ from app.services.session_manager import session_manager
 logger = logging.getLogger(__name__)
 
 
-STYLE_PROPOSAL_PROMPT = """You are an expert visual designer creating shared visual style proposals for a social media carousel.
+def _load_prompt_file(filename: str) -> str:
+    """Load a prompt from the prompts directory."""
+    prompt_path = Path(__file__).parent.parent.parent / "prompts" / filename
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"Failed to load prompt file {filename}: {e}")
+        return ""
 
-Given the slide texts below, propose {num_proposals} distinct visual styles that would work well as consistent background themes across all slides.
 
-Slides:
-{slides_text}
-
-{additional_instructions}
-
-For each proposal, provide:
-1. A "description": A shared image prompt prefix that will be prepended to every per-slide image prompt. Write it as a direct image generation directive — NOT a human-readable description. It should specify the visual style, color palette, lighting, texture, and mood in prompt form.
-   GOOD example: "Soft watercolor washes in muted earth tones, warm diffused lighting, textured paper background, gentle organic shapes"
-   BAD example: "This style evokes a warm, natural feeling with earthy watercolor tones"
-2. An "image_prompt": A complete standalone image generation prompt for a preview image that applies this style.
-
-Respond with a JSON object:
-{{
-    "proposals": [
-        {{
-            "description": "shared prompt prefix here",
-            "image_prompt": "complete image prompt for preview"
-        }}
-    ]
-}}
-
-Each style should be meaningfully different from the others. Styles should:
-- Work well as backgrounds for text overlay (not too busy)
-- Maintain visual consistency suitable for a carousel
-- Have clear, distinct color palettes and moods
-- NEVER include text, words, or letters in images
-"""
+def _get_style_proposal_prompt() -> str:
+    """Get style proposal prompt from file."""
+    return _load_prompt_file("style_proposal.prompt")
 
 
 class StageStyleService:
@@ -56,6 +40,14 @@ class StageStyleService:
         additional_instructions: Optional[str] = None,
     ) -> Optional[SessionState]:
         """Generate style proposals with preview images."""
+        # Load config for defaults
+        from app.services.config_manager import config_manager
+        config = config_manager.get_config()
+
+        # Fallback to config default if not provided
+        if additional_instructions is None:
+            additional_instructions = config.stage_instructions.stage_style
+
         session = session_manager.get_session(session_id)
         if not session or not session.slides:
             return None
@@ -68,10 +60,22 @@ class StageStyleService:
 
         extra = f"Additional instructions: {additional_instructions}" if additional_instructions else ""
 
-        prompt = STYLE_PROPOSAL_PROMPT.format(
+        # Get prompt template from config
+        prompt_template = _get_style_proposal_prompt()
+
+        response_format = '''{{
+    "proposals": [
+        {{
+            "description": "your image generation prompt here"
+        }}
+    ]
+}}'''
+
+        prompt = prompt_template.format(
             num_proposals=num_proposals,
             slides_text=slides_text,
             additional_instructions=extra,
+            response_format=response_format,
         )
 
         result = await gemini_service.generate_json(prompt)
@@ -80,17 +84,17 @@ class StageStyleService:
 
         # Generate preview images in parallel
         async def generate_preview(i: int, proposal_data: dict) -> StyleProposal:
-            image_prompt = proposal_data.get("image_prompt", proposal_data.get("description", ""))
+            # Use description as the common visual style prompt
+            common_flow = proposal_data.get("description", "")
             try:
-                preview = await image_service.generate_image(image_prompt)
+                preview = await image_service.generate_image(common_flow)
             except Exception as e:
                 logger.warning(f"Failed to generate preview for proposal {i}: {e}")
                 preview = None
 
             return StyleProposal(
                 index=i,
-                description=proposal_data.get("description", ""),
-                image_prompt=image_prompt,
+                description=common_flow,
                 preview_image=preview,
             )
 

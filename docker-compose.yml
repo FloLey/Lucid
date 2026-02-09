@@ -7,8 +7,10 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/app:/app/app
+      - ./backend/prompts:/app/prompts
       - ./backend/fonts:/app/fonts
       - ./backend/sessions_db.json:/app/sessions_db.json
+      - ./config.json:/app/config.json:delegated
     env_file:
       - path: .env
         required: false

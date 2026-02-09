@@ -51,8 +51,7 @@ export interface Slide {
 
 export interface StyleProposal {
   index: number;
-  description: string;
-  image_prompt: string;
+  description: string;  // Common visual style prompt (used for preview and prepended to all slides)
   preview_image: string | null;
 }
 
@@ -83,4 +82,43 @@ export interface ChatResponse {
   response: string;
   tool_called: string | null;
   session: Session | null;
+}
+
+export interface StageInstructionsConfig {
+  stage1: string | null;
+  stage_style: string | null;
+  stage2: string | null;
+  stage3: string | null;
+}
+
+export interface GlobalDefaultsConfig {
+  num_slides: number | null;
+  language: string;
+  include_titles: boolean;
+}
+
+export interface ImageConfig {
+  width: number;
+  height: number;
+  aspect_ratio: string;
+}
+
+export interface StyleConfig {
+  default_font_family: string;
+  default_font_weight: number;
+  default_font_size_px: number;
+  default_text_color: string;
+  default_alignment: string;
+  default_stroke_enabled: boolean;
+  default_stroke_width_px: number;
+  default_stroke_color: string;
+}
+
+export interface AppConfig {
+  // Note: Prompts are NOT in config - they're in .prompt files
+  // Use /api/prompts endpoints to edit them
+  stage_instructions: StageInstructionsConfig;
+  global_defaults: GlobalDefaultsConfig;
+  image: ImageConfig;
+  style: StyleConfig;
 }

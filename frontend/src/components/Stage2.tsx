@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { Session } from '../types';
+import { useState, useEffect } from 'react';
+import type { Session, AppConfig } from '../types';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 
@@ -24,65 +24,72 @@ export default function Stage2({
   onNext,
   onBack,
 }: Stage2Props) {
-  const [styleInstructions, setStyleInstructions] = useState(
-    session?.image_style_instructions || ''
-  );
-  const [editingPrompt, setEditingPrompt] = useState<number | null>(null);
+  const [config, setConfig] = useState<AppConfig | null>(null);
+  const [numProposals, setNumProposals] = useState(3);
+  const [instructions, setInstructions] = useState('');
+
+  // Load config defaults on mount
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const configData = await api.getConfig();
+        setConfig(configData);
+
+        // For new sessions (no proposals yet), use config default instructions
+        const isNewSession = !session?.style_proposals || session.style_proposals.length === 0;
+        if (isNewSession && configData.stage_instructions.stage_style) {
+          setInstructions(configData.stage_instructions.stage_style);
+        }
+      } catch (err) {
+        console.error('Failed to load config:', err);
+      }
+    };
+    loadConfig();
+  }, [session]);
+
+  const proposals = session?.style_proposals || [];
+  const selectedIndex = session?.selected_style_proposal_index ?? null;
+  const hasProposals = proposals.length > 0;
 
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
     try {
-      const sess = await api.generatePrompts(sessionId, styleInstructions || undefined);
+      const sess = await api.generateStyleProposals(
+        sessionId,
+        numProposals,
+        instructions || undefined
+      );
       updateSession(sess);
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to generate image prompts'));
+      setError(getErrorMessage(err, 'Failed to generate style proposals'));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRegeneratePrompt = async (index: number) => {
-    setLoading(true);
+  const handleSelect = async (index: number) => {
     try {
-      const sess = await api.regeneratePrompt(sessionId, index);
+      const sess = await api.selectStyleProposal(sessionId, index);
       updateSession(sess);
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to regenerate prompt'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdatePrompt = async (index: number, prompt: string) => {
-    try {
-      const sess = await api.updatePrompt(sessionId, index, prompt);
-      updateSession(sess);
-      setEditingPrompt(null);
-    } catch (err) {
-      setError(getErrorMessage(err, 'Failed to update prompt'));
+      setError(getErrorMessage(err, 'Failed to select style proposal'));
     }
   };
 
   const slides = session?.slides || [];
-  const hasPrompts = slides.some((s) => s.image_prompt);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0">
-      {/* Left Column - Slide Texts */}
+      {/* Left Column - Inputs */}
       <div className="space-y-6 overflow-y-auto min-h-0">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Slide Texts</h2>
 
-          <div className="space-y-3 max-h-64 overflow-y-auto">
+          <div className="space-y-3 max-h-48 overflow-y-auto">
             {slides.map((slide, index) => (
-              <div
-                key={index}
-                className="p-3 bg-gray-50 rounded-lg text-sm"
-              >
-                <span className="font-medium text-lucid-600">
-                  {index + 1}.
-                </span>{' '}
+              <div key={index} className="p-3 bg-gray-50 rounded-lg text-sm">
+                <span className="font-medium text-lucid-600">{index + 1}.</span>{' '}
                 {slide.text.title && (
                   <span className="font-semibold">{slide.text.title}: </span>
                 )}
@@ -93,27 +100,48 @@ export default function Stage2({
 
           <div className="mt-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Image Style Instructions
+              Number of Proposals
+            </label>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setNumProposals(n)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    numProposals === n
+                      ? 'bg-lucid-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Additional Instructions (optional)
             </label>
             <textarea
-              value={styleInstructions}
-              onChange={(e) => setStyleInstructions(e.target.value)}
-              placeholder="e.g., Modern, minimalist, warm colors, professional photography style"
-              className="w-full h-24 px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-lucid-500"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder="e.g., Warm colors, minimalist, professional photography"
+              className="w-full h-24 px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-lucid-500 focus:border-transparent"
             />
           </div>
 
           <button
             onClick={handleGenerate}
             disabled={loading || slides.length === 0}
-            className="mt-4 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="mt-6 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Generating...' : hasPrompts ? 'Regenerate All Prompts' : 'Generate Image Prompts'}
+            {loading ? 'Generating...' : hasProposals ? 'Regenerate Proposals' : 'Generate Style Proposals'}
           </button>
         </div>
       </div>
 
-      {/* Right Column - Image Prompts */}
+      {/* Right Column - Proposals */}
       <div className="flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -121,113 +149,78 @@ export default function Stage2({
               onClick={onBack}
               className="px-3 py-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              ← Back
+              &larr; Back
             </button>
-            <h2 className="text-lg font-semibold text-gray-900">Image Prompts</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Style Proposals</h2>
           </div>
-          {hasPrompts && (
+          {selectedIndex !== null && (
             <button
               onClick={onNext}
               className="px-4 py-2 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
             >
-              Next: Generate Images →
+              Next: Image Prompts &rarr;
             </button>
           )}
         </div>
 
-        <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
-        {session?.shared_prompt_prefix && (
-          <div className="p-3 bg-lucid-50 rounded-lg">
-            <span className="text-xs font-medium text-lucid-700">Shared Style:</span>
-            <p className="text-sm text-lucid-900">{session.shared_prompt_prefix}</p>
-          </div>
-        )}
-
-        {!hasPrompts ? (
-          <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
-            <p className="text-gray-500">
-              Click "Generate Image Prompts" to create visual concepts for each slide
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {slides.map((slide, index) => (
+        <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1">
+          {loading ? (
+            // Skeleton cards while generating
+            Array.from({ length: numProposals }).map((_, index) => (
               <div
                 key={index}
                 className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
               >
+                <span className="text-sm font-medium text-lucid-600">Proposal {index + 1}</span>
+                <div className="mt-3 animate-pulse">
+                  <div className="bg-gray-200 rounded-lg w-full mb-3" style={{ aspectRatio: '4/5' }} />
+                  <div className="bg-gray-200 rounded h-4 w-3/4 mb-2" />
+                  <div className="bg-gray-200 rounded h-4 w-1/2" />
+                </div>
+              </div>
+            ))
+          ) : !hasProposals ? (
+            <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
+              <p className="text-gray-500">
+                Click "Generate Style Proposals" to create visual style options for your carousel
+              </p>
+            </div>
+          ) : (
+            proposals.map((proposal) => (
+              <button
+                key={proposal.index}
+                onClick={() => handleSelect(proposal.index)}
+                className={`w-full text-left bg-white rounded-lg shadow-sm border-2 p-4 transition-colors ${
+                  selectedIndex === proposal.index
+                    ? 'border-lucid-500 ring-2 ring-lucid-200'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
                 <div className="flex items-start justify-between mb-2">
                   <span className="text-sm font-medium text-lucid-600">
-                    Slide {index + 1}
+                    Proposal {proposal.index + 1}
                   </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditingPrompt(editingPrompt === index ? null : index)}
-                      className="text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      {editingPrompt === index ? 'Cancel' : 'Edit'}
-                    </button>
-                    <button
-                      onClick={() => handleRegeneratePrompt(index)}
-                      disabled={loading}
-                      className="text-xs text-lucid-600 hover:text-lucid-700"
-                    >
-                      Regenerate
-                    </button>
-                  </div>
+                  {selectedIndex === proposal.index && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-lucid-100 text-lucid-700">
+                      Selected
+                    </span>
+                  )}
                 </div>
 
-                {editingPrompt === index ? (
-                  <PromptEditor
-                    prompt={slide.image_prompt || ''}
-                    onSave={(prompt) => handleUpdatePrompt(index, prompt)}
-                    onCancel={() => setEditingPrompt(null)}
+                {proposal.preview_image && (
+                  <img
+                    src={`data:image/png;base64,${proposal.preview_image}`}
+                    alt={`Style proposal ${proposal.index + 1}`}
+                    className="w-full rounded-lg mb-3"
+                    style={{ aspectRatio: '4/5' }}
                   />
-                ) : (
-                  <p className="text-gray-700 text-sm">
-                    {slide.image_prompt || 'No prompt generated'}
-                  </p>
                 )}
-              </div>
-            ))}
-          </div>
-        )}
+
+                <p className="text-gray-700 text-sm">{proposal.description}</p>
+              </button>
+            ))
+          )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-interface PromptEditorProps {
-  prompt: string;
-  onSave: (prompt: string) => void;
-  onCancel: () => void;
-}
-
-function PromptEditor({ prompt, onSave, onCancel }: PromptEditorProps) {
-  const [value, setValue] = useState(prompt);
-
-  return (
-    <div className="space-y-3">
-      <textarea
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Image prompt"
-        className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-lucid-500"
-      />
-      <div className="flex gap-2">
-        <button
-          onClick={() => onSave(value)}
-          className="px-3 py-1.5 text-sm bg-lucid-600 text-white rounded-lg hover:bg-lucid-700"
-        >
-          Save
-        </button>
-        <button
-          onClick={onCancel}
-          className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-        >
-          Cancel
-        </button>
       </div>
     </div>
   );

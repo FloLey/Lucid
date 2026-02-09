@@ -1,6 +1,7 @@
 """Stage 1 service - Draft to Slide texts transformation."""
 
 import logging
+from pathlib import Path
 from typing import List, Optional
 
 from app.models.slide import Slide, SlideText
@@ -11,31 +12,25 @@ from app.services.session_manager import session_manager
 logger = logging.getLogger(__name__)
 
 
-SLIDE_GENERATION_PROMPT = """You are an expert content strategist helping create carousel slides for social media.
+def _load_prompt_file(filename: str) -> str:
+    """Load a prompt from the prompts directory."""
+    prompt_path = Path(__file__).parent.parent.parent / "prompts" / filename
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"Failed to load prompt file {filename}: {e}")
+        return ""
 
-Given a draft text, create {num_slides} slide texts that:
-1. Transform the rough draft into clear, engaging messages
-2. Each slide body should be substantial and detailed — aim for 40-60 words per slide body
-3. Use conversational, engaging language
-4. Maintain logical flow between slides
-5. First slide should hook the reader
-6. Last slide should have a clear call-to-action
 
-{language_instruction}
+def _get_slide_generation_prompt() -> str:
+    """Get slide generation prompt from file."""
+    return _load_prompt_file("slide_generation.prompt")
 
-{title_instruction}
 
-{additional_instructions}
-
-Draft text:
-{draft}
-
-Respond with a JSON object containing a "slides" array. Each slide should have:
-{slide_format}
-
-Example response format:
-{example_format}
-"""
+def _get_regenerate_slide_prompt() -> str:
+    """Get regenerate slide prompt from file."""
+    return _load_prompt_file("regenerate_single_slide.prompt")
 
 
 class Stage1Service:
@@ -45,12 +40,26 @@ class Stage1Service:
         self,
         session_id: str,
         draft_text: str,
-        num_slides: int = 5,
-        include_titles: bool = True,
+        num_slides: Optional[int] = None,
+        include_titles: Optional[bool] = None,
         additional_instructions: Optional[str] = None,
-        language: str = "English",
+        language: Optional[str] = None,
     ) -> Optional[SessionState]:
         """Generate slide texts from a draft."""
+        # Load config for defaults
+        from app.services.config_manager import config_manager
+        config = config_manager.get_config()
+
+        # Fallback chain: explicit param -> config default -> built-in default
+        if num_slides is None:
+            num_slides = config.global_defaults.num_slides  # Can also be None!
+        if language is None:
+            language = config.global_defaults.language
+        if include_titles is None:
+            include_titles = config.global_defaults.include_titles
+        if additional_instructions is None:
+            additional_instructions = config.stage_instructions.stage1
+
         session = session_manager.get_session(session_id)
         if not session:
             session = session_manager.create_session(session_id)
@@ -62,7 +71,12 @@ class Stage1Service:
         session.additional_instructions = additional_instructions
         session.language = language
 
-        # Build prompt
+        # Build prompt with dynamic num_slides instruction
+        if num_slides is not None:
+            num_slides_instruction = f"Generate exactly {num_slides} slides."
+        else:
+            num_slides_instruction = "Choose the optimal number of slides based on the content (maximum 10 slides)."
+
         language_instruction = f"Write ALL slide content in {language}."
 
         title_instruction = (
@@ -77,7 +91,7 @@ class Stage1Service:
             else '"body" (string) only'
         )
 
-        example_format = (
+        response_format = (
             '{"slides": [{"title": "Hook", "body": "Grab attention here"}, ...]}'
             if include_titles
             else '{"slides": [{"body": "First slide content"}, ...]}'
@@ -89,14 +103,17 @@ class Stage1Service:
             else ""
         )
 
-        prompt = SLIDE_GENERATION_PROMPT.format(
-            num_slides=num_slides,
+        # Get prompt template from config
+        prompt_template = _get_slide_generation_prompt()
+
+        prompt = prompt_template.format(
+            num_slides_instruction=num_slides_instruction,
             language_instruction=language_instruction,
             title_instruction=title_instruction,
             additional_instructions=additional,
             draft=draft_text,
             slide_format=slide_format,
-            example_format=example_format,
+            response_format=response_format,
         )
 
         # Generate with Gemini
@@ -106,7 +123,11 @@ class Stage1Service:
         slides_data = result.get("slides", [])
         session.slides = []
 
-        for i, slide_data in enumerate(slides_data[:num_slides]):
+        # If num_slides was specified, use it as a limit/target
+        # If None, AI decided the count (but cap at 10 for safety)
+        max_slides = num_slides if num_slides is not None else 10
+
+        for i, slide_data in enumerate(slides_data[:max_slides]):
             slide = Slide(
                 index=i,
                 text=SlideText(
@@ -116,14 +137,18 @@ class Stage1Service:
             )
             session.slides.append(slide)
 
-        # Ensure we have the requested number of slides
-        while len(session.slides) < num_slides:
-            session.slides.append(
-                Slide(
-                    index=len(session.slides),
-                    text=SlideText(body=f"Slide {len(session.slides) + 1} content"),
+        # Only pad if num_slides was explicitly specified
+        if num_slides is not None:
+            while len(session.slides) < num_slides:
+                session.slides.append(
+                    Slide(
+                        index=len(session.slides),
+                        text=SlideText(body=f"Slide {len(session.slides) + 1} content"),
+                    )
                 )
-            )
+
+        # Update session.num_slides to reflect actual count
+        session.num_slides = len(session.slides)
 
         session_manager.update_session(session)
         return session
@@ -171,29 +196,29 @@ class Stage1Service:
 
         instruction_text = f"\nSpecific instruction: {instruction}" if instruction else ""
 
-        prompt = f"""Rewrite slide {slide_index + 1} of {len(session.slides)} for a carousel.
+        title_instruction = (
+            "Include both title and body."
+            if session.include_titles
+            else "Only provide body text."
+        )
 
-Write ALL content in {session.language}.
+        response_format = '{"title": "...", "body": "..."}'
 
-Original draft context: {session.draft_text}
+        # Get prompt template from config
+        prompt_template = _get_regenerate_slide_prompt()
 
-{prev_context}
-{next_context}
-
-Current slide to rewrite: {session.slides[slide_index].text.get_full_text()}
-
-Create a fresh take on this slide that:
-1. Maintains the core message
-2. Flows well with surrounding slides
-3. Uses engaging language
-4. Has a substantial body text of 40-60 words
-{instruction_text}
-
-{"Include both title and body." if session.include_titles else "Only provide body text."}
-
-Respond with JSON:
-{{"title": "...", "body": "..."}}
-"""
+        prompt = prompt_template.format(
+            slide_num=slide_index + 1,
+            total_slides=len(session.slides),
+            language=session.language,
+            draft_text=session.draft_text,
+            prev_context=prev_context,
+            next_context=next_context,
+            current_text=session.slides[slide_index].text.get_full_text(),
+            instruction_text=instruction_text,
+            title_instruction=title_instruction,
+            response_format=response_format,
+        )
 
         result = await gemini_service.generate_json(prompt)
 
