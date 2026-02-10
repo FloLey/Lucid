@@ -632,6 +632,94 @@ Tool definitions are passed as structured function declarations to the Gemini AP
 
 ---
 
+## Appendix A: Complete Tool Reference
+
+### Read Tools (always available, all stages)
+
+| Tool | Params | Returns | Description |
+|------|--------|---------|-------------|
+| `get_slide` | `slide_index: int` (1-based) | `{index, title, body, image_prompt, has_image}` | Full content of one slide |
+| `get_all_slides` | (none) | `{slides: [{index, title, body}, ...]}` | Summary of every slide |
+| `get_draft` | (none) | `{draft_text: str}` | The original draft the user pasted |
+| `get_session_info` | (none) | `{current_stage, num_slides, language, shared_prompt_prefix}` | Session metadata |
+| `get_style_proposals` | (none) | `{proposals: [{index, description}, ...], selected_index}` | Style proposals and which is selected |
+
+### Write Tools — Stage 1 (Draft)
+
+| Tool | Params | Description |
+|------|--------|-------------|
+| `generate_slides` | (none) | Generate slide texts from the stored draft |
+| `regenerate_slide` | `slide_index: int`, `instruction?: str` | Regenerate one slide's text with optional instruction |
+| `update_slide` | `slide_index: int`, `title?: str`, `body?: str` | Directly set a slide's title and/or body text |
+
+### Write Tools — Stage 2 (Style)
+
+| Tool | Params | Description |
+|------|--------|-------------|
+| `generate_style_proposals` | `num_proposals?: int`, `additional_instructions?: str` | Generate visual style proposals with preview images |
+| `select_style_proposal` | `proposal_index: int` | Select a style proposal by index |
+
+### Write Tools — Stage 3 (Image Prompts)
+
+| Tool | Params | Description |
+|------|--------|-------------|
+| `generate_prompts` | `style_instructions?: str` | Generate image prompts for all slides |
+| `regenerate_prompt` | `slide_index: int` | Regenerate one slide's image prompt |
+| `update_prompt` | `slide_index: int`, `prompt: str` | Directly set a slide's image prompt text |
+
+### Write Tools — Stage 4 (Images)
+
+| Tool | Params | Description |
+|------|--------|-------------|
+| `generate_images` | (none) | Generate background images for all slides |
+| `regenerate_image` | `slide_index: int` | Regenerate one slide's background image |
+
+### Write Tools — Stage 5 (Typography/Design)
+
+| Tool | Params | Description |
+|------|--------|-------------|
+| `apply_styles` | (none) | Apply text styling/typography to all slide images |
+| `update_style` | `slide_index: int`, `style: object` | Update styling properties for one slide |
+| `export` | (none) | Export the carousel as a ZIP archive |
+
+### Navigation Tools (always available, all stages)
+
+| Tool | Params | Description |
+|------|--------|-------------|
+| `next_stage` | (none) | Advance to the next stage |
+| `back_stage` | (none) | Go to the previous stage |
+| `go_to_stage` | `stage: int` (1-5) | Jump to a specific stage |
+
+### Tool availability matrix
+
+| Tool | S1 | S2 | S3 | S4 | S5 |
+|------|----|----|----|----|----|
+| `get_slide` | R | R | R | R | R |
+| `get_all_slides` | R | R | R | R | R |
+| `get_draft` | R | R | R | R | R |
+| `get_session_info` | R | R | R | R | R |
+| `get_style_proposals` | R | R | R | R | R |
+| `generate_slides` | W | - | - | - | - |
+| `regenerate_slide` | W | - | - | - | - |
+| `update_slide` | W | - | - | - | - |
+| `generate_style_proposals` | - | W | - | - | - |
+| `select_style_proposal` | - | W | - | - | - |
+| `generate_prompts` | - | - | W | - | - |
+| `regenerate_prompt` | - | - | W | - | - |
+| `update_prompt` | - | - | W | - | - |
+| `generate_images` | - | - | - | W | - |
+| `regenerate_image` | - | - | - | W | - |
+| `apply_styles` | - | - | - | - | W |
+| `update_style` | - | - | - | - | W |
+| `export` | - | - | - | - | W |
+| `next_stage` | N | N | N | N | - |
+| `back_stage` | - | N | N | N | N |
+| `go_to_stage` | N | N | N | N | N |
+
+**R** = Read (always available) | **W** = Write (stage-gated) | **N** = Navigation (always available) | **-** = Not available
+
+---
+
 ## 5. Implementation Plan
 
 ### Phase 1: Non-blocking UI (do first, independent of chatbot)
