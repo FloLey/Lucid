@@ -84,6 +84,25 @@ export interface ChatResponse {
   session: Session | null;
 }
 
+// SSE chat event types
+export type ChatEvent =
+  | { event: 'thinking'; text: string }
+  | { event: 'text'; text: string }
+  | { event: 'tool_call'; name: string; args: Record<string, unknown> }
+  | { event: 'tool_result'; name: string; result: Record<string, unknown> }
+  | { event: 'error'; message: string }
+  | { event: 'done'; session: Session | null; has_writes: boolean };
+
+// Chat message types for the UI
+export interface ChatMessage {
+  id: string;
+  type: 'user' | 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'error';
+  content: string;
+  toolName?: string;
+  toolArgs?: Record<string, unknown>;
+  toolResult?: Record<string, unknown>;
+}
+
 export interface StageInstructionsConfig {
   stage1: string | null;
   stage_style: string | null;

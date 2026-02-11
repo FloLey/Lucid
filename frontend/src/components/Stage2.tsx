@@ -6,8 +6,8 @@ import { getErrorMessage } from '../utils/error';
 interface Stage2Props {
   sessionId: string;
   session: Session | null;
-  loading: boolean;
-  setLoading: (loading: boolean) => void;
+  stageLoading: boolean;
+  setStageLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   updateSession: (session: Session) => void;
   onNext: () => void;
@@ -17,8 +17,8 @@ interface Stage2Props {
 export default function Stage2({
   sessionId,
   session,
-  loading,
-  setLoading,
+  stageLoading,
+  setStageLoading,
   setError,
   updateSession,
   onNext,
@@ -52,7 +52,7 @@ export default function Stage2({
   const hasProposals = proposals.length > 0;
 
   const handleGenerate = async () => {
-    setLoading(true);
+    setStageLoading(true);
     setError(null);
     try {
       const sess = await api.generateStyleProposals(
@@ -64,7 +64,7 @@ export default function Stage2({
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate style proposals'));
     } finally {
-      setLoading(false);
+      setStageLoading(false);
     }
   };
 
@@ -133,10 +133,10 @@ export default function Stage2({
 
           <button
             onClick={handleGenerate}
-            disabled={loading || slides.length === 0}
+            disabled={stageLoading || slides.length === 0}
             className="mt-6 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Generating...' : hasProposals ? 'Regenerate Proposals' : 'Generate Style Proposals'}
+            {stageLoading ? 'Generating...' : hasProposals ? 'Regenerate Proposals' : 'Generate Style Proposals'}
           </button>
         </div>
       </div>
@@ -164,7 +164,7 @@ export default function Stage2({
         </div>
 
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1">
-          {loading ? (
+          {stageLoading ? (
             // Skeleton cards while generating
             Array.from({ length: numProposals }).map((_, index) => (
               <div

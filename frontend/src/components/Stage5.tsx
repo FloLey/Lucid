@@ -6,8 +6,8 @@ import { getErrorMessage } from '../utils/error';
 interface Stage5Props {
   sessionId: string;
   session: Session | null;
-  loading: boolean;
-  setLoading: (loading: boolean) => void;
+  stageLoading: boolean;
+  setStageLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   updateSession: (session: Session) => void;
   onBack: () => void;
@@ -26,8 +26,8 @@ function cloneStyle(s: TextStyle): TextStyle {
 export default function Stage5({
   sessionId,
   session,
-  loading,
-  setLoading,
+  stageLoading,
+  setStageLoading,
   setError,
   updateSession,
   onBack,
@@ -137,14 +137,14 @@ export default function Stage5({
   useEffect(() => {
     if (slides.length > 0 && slides.some((s) => s.image_data && !s.final_image)) {
       const applyAll = async () => {
-        setLoading(true);
+        setStageLoading(true);
         try {
           const sess = await api.applyTextToAll(sessionId);
           updateSession(sess);
         } catch (err) {
           setError(getErrorMessage(err, 'Failed to apply typography'));
         } finally {
-          setLoading(false);
+          setStageLoading(false);
         }
       };
       applyAll();
@@ -345,7 +345,7 @@ export default function Stage5({
     if (dirtyStyleRef.current) await flushStyleToBackend();
     if (dirtyTextRef.current) await flushTextToBackend();
 
-    setLoading(true);
+    setStageLoading(true);
     setError(null);
     try {
       const styleDict = style as unknown as Record<string, unknown>;
@@ -355,7 +355,7 @@ export default function Stage5({
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to apply style to all slides'));
     } finally {
-      setLoading(false);
+      setStageLoading(false);
     }
   };
 
@@ -601,10 +601,10 @@ export default function Stage5({
             {/* Apply to All */}
             <button
               onClick={handleApplyToAll}
-              disabled={loading}
+              disabled={stageLoading}
               className="px-3 py-1.5 text-xs bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
-              {loading ? 'Applying...' : 'Apply to All'}
+              {stageLoading ? 'Applying...' : 'Apply to All'}
             </button>
           </div>
         </div>

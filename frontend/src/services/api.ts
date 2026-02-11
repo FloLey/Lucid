@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Session, ChatResponse, AppConfig, PromptsConfig } from '../types';
+import type { Session, AppConfig, ChatEvent } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -201,16 +201,55 @@ export const applyStyleToAll = async (
   return response.data.session;
 };
 
-// Chat API
-export const sendChatMessage = async (
+// Chat API (SSE streaming)
+export const sendChatMessageSSE = (
   sessionId: string,
-  message: string
-): Promise<ChatResponse> => {
-  const response = await api.post('/chat/message', {
-    session_id: sessionId,
-    message,
+  message: string,
+  onEvent: (event: ChatEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> => {
+  return fetch('/api/chat/message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, message }),
+    signal,
+  }).then(async (response) => {
+    if (!response.ok || !response.body) {
+      onEvent({ event: 'error', message: `HTTP ${response.status}` });
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(trimmed.slice(6)) as ChatEvent;
+            onEvent(data);
+          } catch {
+            // skip malformed lines
+          }
+        }
+      }
+    }
   });
-  return response.data;
+};
+
+export const cancelAgent = async (sessionId: string): Promise<void> => {
+  await api.post('/chat/cancel', { session_id: sessionId });
+};
+
+export const undoAgent = async (sessionId: string): Promise<Session> => {
+  const response = await api.post('/chat/undo', { session_id: sessionId });
+  return response.data.session;
 };
 
 // Export API

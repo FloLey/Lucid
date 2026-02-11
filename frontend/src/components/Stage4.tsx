@@ -6,8 +6,8 @@ import { getErrorMessage } from '../utils/error';
 interface Stage4Props {
   sessionId: string;
   session: Session | null;
-  loading: boolean;
-  setLoading: (loading: boolean) => void;
+  stageLoading: boolean;
+  setStageLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   updateSession: (session: Session) => void;
   onNext: () => void;
@@ -17,8 +17,8 @@ interface Stage4Props {
 export default function Stage4({
   sessionId,
   session,
-  loading,
-  setLoading,
+  stageLoading,
+  setStageLoading,
   setError,
   updateSession,
   onNext,
@@ -27,7 +27,7 @@ export default function Stage4({
   const [regeneratingImages, setRegeneratingImages] = useState<Set<number>>(new Set());
 
   const handleGenerate = async () => {
-    setLoading(true);
+    setStageLoading(true);
     setError(null);
     try {
       const sess = await api.generateImages(sessionId);
@@ -35,7 +35,7 @@ export default function Stage4({
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate images'));
     } finally {
-      setLoading(false);
+      setStageLoading(false);
     }
   };
 
@@ -95,10 +95,10 @@ export default function Stage4({
 
           <button
             onClick={handleGenerate}
-            disabled={loading || slides.length === 0}
+            disabled={stageLoading || slides.length === 0}
             className="mt-4 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Generating...' : hasImages ? 'Regenerate All Images' : 'Generate Images'}
+            {stageLoading ? 'Generating...' : hasImages ? 'Regenerate All Images' : 'Generate Images'}
           </button>
         </div>
       </div>
@@ -107,7 +107,7 @@ export default function Stage4({
       <div className="flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Background Images</h2>
-          {hasImages && !loading && regeneratingImages.size === 0 && (
+          {hasImages && !stageLoading && regeneratingImages.size === 0 && (
             <button
               onClick={onNext}
               className="px-4 py-2 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
@@ -118,7 +118,7 @@ export default function Stage4({
         </div>
 
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
-          {loading && regeneratingImages.size === 0 ? (
+          {stageLoading && regeneratingImages.size === 0 ? (
             slides.map((_, index) => (
               <div
                 key={index}

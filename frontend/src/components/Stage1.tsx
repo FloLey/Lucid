@@ -6,8 +6,8 @@ import { getErrorMessage } from '../utils/error';
 interface Stage1Props {
   sessionId: string;
   session: Session | null;
-  loading: boolean;
-  setLoading: (loading: boolean) => void;
+  stageLoading: boolean;
+  setStageLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   updateSession: (session: Session) => void;
   onNext: () => void;
@@ -17,8 +17,8 @@ interface Stage1Props {
 export default function Stage1({
   sessionId,
   session,
-  loading,
-  setLoading,
+  stageLoading,
+  setStageLoading,
   setError,
   updateSession,
   onNext,
@@ -73,7 +73,7 @@ export default function Stage1({
       return;
     }
 
-    setLoading(true);
+    setStageLoading(true);
     setError(null);
     try {
       const sess = await api.generateSlideTexts(
@@ -88,7 +88,7 @@ export default function Stage1({
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate slide texts'));
     } finally {
-      setLoading(false);
+      setStageLoading(false);
     }
   };
 
@@ -201,10 +201,10 @@ export default function Stage1({
 
           <button
             onClick={handleGenerate}
-            disabled={loading || !draftText.trim()}
+            disabled={stageLoading || !draftText.trim()}
             className="mt-6 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Generating...' : hasSlides ? 'Regenerate All' : 'Generate Slides'}
+            {stageLoading ? 'Generating...' : hasSlides ? 'Regenerate All' : 'Generate Slides'}
           </button>
         </div>
       </div>
@@ -213,7 +213,7 @@ export default function Stage1({
       <div className="flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Slide Texts</h2>
-          {hasSlides && !loading && regeneratingSlides.size === 0 && (
+          {hasSlides && !stageLoading && regeneratingSlides.size === 0 && (
             <button
               onClick={onNext}
               className="px-4 py-2 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
@@ -224,7 +224,7 @@ export default function Stage1({
         </div>
 
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1">
-          {loading && regeneratingSlides.size === 0 ? (
+          {stageLoading && regeneratingSlides.size === 0 ? (
             // Generating all slides — show spinner placeholders
             Array.from({ length: numSlides }).map((_, index) => (
               <div

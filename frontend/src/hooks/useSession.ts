@@ -9,7 +9,7 @@ const SESSION_KEY = 'lucid_session_id';
 export function useSession() {
   const [sessionId, setSessionId] = useState<string>('');
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [stageLoading, setStageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Initialize session
@@ -49,40 +49,31 @@ export function useSession() {
 
   const advanceStage = useCallback(async () => {
     if (!sessionId) return;
-    setLoading(true);
     try {
       const sess = await api.advanceStage(sessionId);
       setSession(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to advance stage'));
-    } finally {
-      setLoading(false);
     }
   }, [sessionId]);
 
   const previousStage = useCallback(async () => {
     if (!sessionId) return;
-    setLoading(true);
     try {
       const sess = await api.previousStage(sessionId);
       setSession(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to go back'));
-    } finally {
-      setLoading(false);
     }
   }, [sessionId]);
 
   const goToStage = useCallback(async (stage: number) => {
     if (!sessionId) return;
-    setLoading(true);
     try {
       const sess = await api.goToStage(sessionId, stage);
       setSession(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to navigate to stage'));
-    } finally {
-      setLoading(false);
     }
   }, [sessionId]);
 
@@ -101,9 +92,9 @@ export function useSession() {
   return {
     sessionId,
     session,
-    loading,
+    stageLoading,
     error,
-    setLoading,
+    setStageLoading,
     setError,
     updateSession,
     refreshSession,
