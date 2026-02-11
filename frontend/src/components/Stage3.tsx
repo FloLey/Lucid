@@ -6,8 +6,8 @@ import { getErrorMessage } from '../utils/error';
 interface Stage3Props {
   sessionId: string;
   session: Session | null;
-  loading: boolean;
-  setLoading: (loading: boolean) => void;
+  stageLoading: boolean;
+  setStageLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   updateSession: (session: Session) => void;
   onNext: () => void;
@@ -17,8 +17,8 @@ interface Stage3Props {
 export default function Stage3({
   sessionId,
   session,
-  loading,
-  setLoading,
+  stageLoading,
+  setStageLoading,
   setError,
   updateSession,
   onNext,
@@ -55,7 +55,7 @@ export default function Stage3({
   const [editingPrompt, setEditingPrompt] = useState<number | null>(null);
 
   const handleGenerate = async () => {
-    setLoading(true);
+    setStageLoading(true);
     setError(null);
     try {
       const sess = await api.generatePrompts(sessionId, styleInstructions || undefined);
@@ -63,19 +63,19 @@ export default function Stage3({
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate image prompts'));
     } finally {
-      setLoading(false);
+      setStageLoading(false);
     }
   };
 
   const handleRegeneratePrompt = async (index: number) => {
-    setLoading(true);
+    setStageLoading(true);
     try {
       const sess = await api.regeneratePrompt(sessionId, index);
       updateSession(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to regenerate prompt'));
     } finally {
-      setLoading(false);
+      setStageLoading(false);
     }
   };
 
@@ -130,10 +130,10 @@ export default function Stage3({
 
           <button
             onClick={handleGenerate}
-            disabled={loading || slides.length === 0}
+            disabled={stageLoading || slides.length === 0}
             className="mt-4 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Generating...' : hasPrompts ? 'Regenerate All Prompts' : 'Generate Image Prompts'}
+            {stageLoading ? 'Generating...' : hasPrompts ? 'Regenerate All Prompts' : 'Generate Image Prompts'}
           </button>
         </div>
       </div>
@@ -194,7 +194,7 @@ export default function Stage3({
                     </button>
                     <button
                       onClick={() => handleRegeneratePrompt(index)}
-                      disabled={loading}
+                      disabled={stageLoading}
                       className="text-xs text-lucid-600 hover:text-lucid-700"
                     >
                       Regenerate

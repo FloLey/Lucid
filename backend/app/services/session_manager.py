@@ -22,6 +22,7 @@ class SessionManager:
 
     def __init__(self):
         self._sessions: Dict[str, SessionState] = {}
+        self._snapshots: Dict[str, SessionState] = {}
         self._load_from_file()
 
     def _load_from_file(self):
@@ -131,9 +132,29 @@ class SessionManager:
 
         return session
 
+    def take_snapshot(self, session_id: str) -> None:
+        """Deep copy current session state before agent writes."""
+        session = self._sessions.get(session_id)
+        if session:
+            self._snapshots[session_id] = session.model_copy(deep=True)
+
+    def restore_snapshot(self, session_id: str) -> Optional[SessionState]:
+        """Restore session from snapshot and persist. Returns None if no snapshot."""
+        snapshot = self._snapshots.pop(session_id, None)
+        if snapshot:
+            self._sessions[session_id] = snapshot
+            self._save_to_file()
+            return snapshot
+        return None
+
+    def get_snapshot(self, session_id: str) -> Optional[SessionState]:
+        """Get the snapshot for a session (without removing it)."""
+        return self._snapshots.get(session_id)
+
     def clear_all(self):
         """Clear all sessions (for testing)."""
         self._sessions.clear()
+        self._snapshots.clear()
         # Also remove the file
         if SESSIONS_FILE.exists():
             try:

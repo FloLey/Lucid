@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from app.config import GOOGLE_API_KEY
 
@@ -71,6 +71,28 @@ class GeminiService:
 
         except GeminiError:
             raise
+        except Exception as e:
+            raise GeminiError(f"Gemini API error: {e}")
+
+    def generate_with_tools(
+        self,
+        contents: List,
+        config: Any,
+    ) -> Any:
+        """Call Gemini with function declarations and return the raw response.
+
+        The caller handles extracting function_call parts, text parts, and
+        thought signatures. The SDK handles thought_signature management
+        automatically when contents are passed back in subsequent turns.
+        """
+        self._ensure_configured()
+
+        try:
+            return self._client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=config,
+            )
         except Exception as e:
             raise GeminiError(f"Gemini API error: {e}")
 
