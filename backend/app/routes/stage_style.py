@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.services.stage_style_service import stage_style_service
 from app.services.gemini_service import GeminiError
+from app.models.session import SessionResponse
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class SelectProposalRequest(BaseModel):
     proposal_index: int = Field(ge=0)
 
 
-@router.post("/generate")
+@router.post("/generate", response_model=SessionResponse)
 async def generate_proposals(request: GenerateProposalsRequest):
     """Generate style proposals with preview images."""
     try:
@@ -47,7 +48,7 @@ async def generate_proposals(request: GenerateProposalsRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/select")
+@router.post("/select", response_model=SessionResponse)
 def select_proposal(request: SelectProposalRequest):
     """Select a style proposal."""
     session = stage_style_service.select_proposal(

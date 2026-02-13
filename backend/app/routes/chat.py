@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.services.chat_service import chat_service, cancel_agent
 from app.services.session_manager import session_manager
+from app.models.session import SessionResponse
 
 router = APIRouter()
 
@@ -62,7 +63,7 @@ async def cancel(request: CancelRequest):
     return {"status": "cancelled"}
 
 
-@router.post("/undo")
+@router.post("/undo", response_model=SessionResponse)
 async def undo(request: UndoRequest):
     """Restore session to pre-agent snapshot."""
     snapshot = session_manager.get_snapshot(request.session_id)

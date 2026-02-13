@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.services.stage1_service import stage1_service
 from app.services.gemini_service import GeminiError
+from app.models.session import SessionResponse
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class RegenerateAllRequest(BaseModel):
     session_id: str
 
 
-@router.post("/generate")
+@router.post("/generate", response_model=SessionResponse)
 async def generate_slide_texts(request: GenerateSlideTextsRequest):
     """Generate slide texts from a draft."""
     try:
@@ -69,7 +70,7 @@ async def generate_slide_texts(request: GenerateSlideTextsRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/regenerate-all")
+@router.post("/regenerate-all", response_model=SessionResponse)
 async def regenerate_all_slide_texts(request: RegenerateAllRequest):
     """Regenerate all slide texts."""
     try:
@@ -86,7 +87,7 @@ async def regenerate_all_slide_texts(request: RegenerateAllRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/regenerate")
+@router.post("/regenerate", response_model=SessionResponse)
 async def regenerate_slide_text(request: RegenerateSlideTextRequest):
     """Regenerate a single slide text."""
     try:
@@ -105,7 +106,7 @@ async def regenerate_slide_text(request: RegenerateSlideTextRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/update")
+@router.post("/update", response_model=SessionResponse)
 def update_slide_text(request: UpdateSlideTextRequest):
     """Manually update a slide's text."""
     session = stage1_service.update_slide_text(

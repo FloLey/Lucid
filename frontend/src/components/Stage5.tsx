@@ -86,7 +86,7 @@ export default function Stage5() {
             cloned.text_color = config.style.default_text_color;
           }
           if (cloned.alignment === 'center' && config.style.default_alignment !== 'center') {
-            cloned.alignment = config.style.default_alignment;
+            cloned.alignment = config.style.default_alignment as 'left' | 'center' | 'right';
           }
           if (!cloned.stroke.enabled && config.style.default_stroke_enabled) {
             cloned.stroke.enabled = config.style.default_stroke_enabled;
@@ -200,7 +200,8 @@ export default function Stage5() {
         } else if (key === 'shadow') {
           Object.assign(next.shadow, value);
         } else {
-          (next as Record<string, unknown>)[key] = value;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (next as any)[key] = value;
         }
       }
       return next;

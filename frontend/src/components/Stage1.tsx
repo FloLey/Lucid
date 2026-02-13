@@ -66,7 +66,7 @@ export default function Stage1() {
       const sess = await api.generateSlideTexts(
         sessionId,
         draftText,
-        numSlides ?? undefined,
+        numSlides ?? 5,
         includeTitles,
         instructions || undefined,
         language
@@ -213,7 +213,7 @@ export default function Stage1() {
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1">
           {loading && regeneratingSlides.size === 0 ? (
             // Generating all slides — show spinner placeholders
-            Array.from({ length: numSlides }).map((_, index) => (
+            Array.from({ length: numSlides ?? 5 }).map((_, index) => (
               <div
                 key={index}
                 className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"

@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.stage3_service import stage3_service
+from app.models.session import SessionResponse
 
 router = APIRouter()
 
@@ -29,7 +30,7 @@ class SetImageRequest(BaseModel):
     image_data: str = Field(min_length=1, description="Base64 encoded image data")
 
 
-@router.post("/generate")
+@router.post("/generate", response_model=SessionResponse)
 async def generate_all_images(request: GenerateImagesRequest):
     """Generate images for all slides."""
     try:
@@ -43,7 +44,7 @@ async def generate_all_images(request: GenerateImagesRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/regenerate")
+@router.post("/regenerate", response_model=SessionResponse)
 async def regenerate_image(request: RegenerateImageRequest):
     """Regenerate image for a single slide."""
     try:
@@ -58,7 +59,7 @@ async def regenerate_image(request: RegenerateImageRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/upload")
+@router.post("/upload", response_model=SessionResponse)
 async def set_image(request: SetImageRequest):
     """Set image data directly (for custom uploads)."""
     session = stage3_service.set_image_data(

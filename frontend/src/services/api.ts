@@ -8,6 +8,18 @@ const api = axios.create({
   },
 });
 
+// Global error interceptor — surfaces user-friendly messages from backend detail field
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const detail = error.response?.data?.detail;
+    if (detail && typeof detail === 'string') {
+      error.message = detail;
+    }
+    return Promise.reject(error);
+  },
+);
+
 // Session APIs
 export const createSession = async (sessionId: string): Promise<Session> => {
   const response = await api.post('/sessions/create', { session_id: sessionId });

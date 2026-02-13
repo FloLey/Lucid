@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.stage4_service import stage4_service
+from app.models.session import SessionResponse
 
 router = APIRouter()
 
@@ -45,7 +46,7 @@ class ApplyStyleAllRequest(BaseModel):
     style: Dict[str, Any] = Field(description="Style properties to apply")
 
 
-@router.post("/apply-all")
+@router.post("/apply-all", response_model=SessionResponse)
 async def apply_text_to_all(request: ApplyTextRequest):
     """Apply text styling to all slide images."""
     session = await stage4_service.apply_text_to_all_images(
@@ -57,7 +58,7 @@ async def apply_text_to_all(request: ApplyTextRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/apply")
+@router.post("/apply", response_model=SessionResponse)
 async def apply_text_to_image(request: ApplyTextSingleRequest):
     """Apply text styling to a single slide image."""
     session = await stage4_service.apply_text_to_image(
@@ -69,7 +70,7 @@ async def apply_text_to_image(request: ApplyTextSingleRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/suggest")
+@router.post("/suggest", response_model=SessionResponse)
 async def suggest_style(request: SuggestStyleRequest):
     """Get AI suggestions for text styling."""
     session = await stage4_service.suggest_style(
@@ -81,7 +82,7 @@ async def suggest_style(request: SuggestStyleRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/update-style")
+@router.post("/update-style", response_model=SessionResponse)
 async def update_style(request: UpdateStyleRequest):
     """Update style properties for a slide."""
     session = stage4_service.update_style(
@@ -94,7 +95,7 @@ async def update_style(request: UpdateStyleRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/apply-style-all")
+@router.post("/apply-style-all", response_model=SessionResponse)
 async def apply_style_to_all(request: ApplyStyleAllRequest):
     """Apply style updates to all slides."""
     session = stage4_service.apply_style_to_all(

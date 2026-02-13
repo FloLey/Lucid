@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.services.stage2_service import stage2_service
 from app.services.gemini_service import GeminiError
+from app.models.session import SessionResponse
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class UpdateStyleRequest(BaseModel):
     style_instructions: str
 
 
-@router.post("/generate")
+@router.post("/generate", response_model=SessionResponse)
 async def generate_all_prompts(request: GeneratePromptsRequest):
     """Generate image prompts for all slides."""
     try:
@@ -63,7 +64,7 @@ async def generate_all_prompts(request: GeneratePromptsRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/regenerate")
+@router.post("/regenerate", response_model=SessionResponse)
 async def regenerate_prompt(request: RegeneratePromptRequest):
     """Regenerate image prompt for a single slide."""
     try:
@@ -81,7 +82,7 @@ async def regenerate_prompt(request: RegeneratePromptRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/update")
+@router.post("/update", response_model=SessionResponse)
 def update_prompt(request: UpdatePromptRequest):
     """Manually update an image prompt."""
     session = stage2_service.update_prompt(
@@ -94,7 +95,7 @@ def update_prompt(request: UpdatePromptRequest):
     return {"session": session.model_dump()}
 
 
-@router.post("/style")
+@router.post("/style", response_model=SessionResponse)
 def update_style(request: UpdateStyleRequest):
     """Update the shared style instructions."""
     session = stage2_service.update_style_instructions(

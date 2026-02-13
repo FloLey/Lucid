@@ -39,12 +39,9 @@ const STAGE_COMMANDS: Record<number, { command: string; description: string }[]>
   ],
 };
 
-let nextId = 1;
-function genId(): string {
-  return String(nextId++);
-}
-
 export default function ChatPanel({ sessionId, currentStage, updateSession }: ChatPanelProps) {
+  const nextIdRef = useRef(1);
+  const genId = useCallback(() => String(nextIdRef.current++), []);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [processing, setProcessing] = useState(false);
