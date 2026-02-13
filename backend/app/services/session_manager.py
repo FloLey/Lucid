@@ -1,12 +1,15 @@
 """Session management service with JSON file persistence."""
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Dict, Optional
 from datetime import datetime
 
 from app.models.session import SessionState
+
+logger = logging.getLogger(__name__)
 
 # Path for session persistence (in project root for Docker volume mount)
 SESSIONS_FILE = Path(__file__).parent.parent.parent / "sessions_db.json"
@@ -40,10 +43,10 @@ class SessionManager:
                     self._sessions[session_id] = session
                 except Exception as e:
                     # Skip invalid session data
-                    print(f"Warning: Failed to load session {session_id}: {e}")
+                    logger.warning(f"Failed to load session {session_id}: {e}")
 
         except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Failed to load sessions file: {e}")
+            logger.warning(f"Failed to load sessions file: {e}")
 
     def _save_to_file(self):
         """Save all sessions to JSON file."""
@@ -57,7 +60,7 @@ class SessionManager:
                 json.dump(data, f, indent=2, default=str)
 
         except IOError as e:
-            print(f"Warning: Failed to save sessions file: {e}")
+            logger.warning(f"Failed to save sessions file: {e}")
 
     @property
     def sessions(self) -> Dict[str, SessionState]:
@@ -86,9 +89,10 @@ class SessionManager:
         return session
 
     def delete_session(self, session_id: str) -> bool:
-        """Delete a session."""
+        """Delete a session and clean up any associated snapshots."""
         if session_id in self._sessions:
             del self._sessions[session_id]
+            self._snapshots.pop(session_id, None)
             self._save_to_file()
             return True
         return False

@@ -19,10 +19,14 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 # API Keys
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 
-# Image settings
+# Image settings (default source of truth — can be overridden by config.json)
 IMAGE_WIDTH = 1080
 IMAGE_HEIGHT = 1350
 IMAGE_ASPECT_RATIO = "4:5"
+
+# Gemini model names
+GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
+GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
 # Logging
 LOG_FILE = BASE_DIR / "lucid.log"

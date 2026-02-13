@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Optional, Dict, Any, List
 
-from app.config import GOOGLE_API_KEY
+from app.config import GOOGLE_API_KEY, GEMINI_TEXT_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class GeminiService:
             )
 
             response = self._client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=GEMINI_TEXT_MODEL,
                 contents=[prompt],
                 config=config,
             )
@@ -89,7 +89,7 @@ class GeminiService:
 
         try:
             return self._client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=GEMINI_TEXT_MODEL,
                 contents=contents,
                 config=config,
             )

@@ -67,7 +67,7 @@ class ValidatePromptsResponse(BaseModel):
 
 
 @router.get("", response_model=ConfigResponse)
-async def get_config():
+def get_config():
     """Get complete configuration.
 
     Returns:
@@ -77,7 +77,7 @@ async def get_config():
 
 
 @router.put("", response_model=ConfigResponse)
-async def update_config(config: AppConfig):
+def update_config(config: AppConfig):
     """Replace entire configuration.
 
     Note: This does NOT include prompts. Use /api/prompts to edit prompt files.
@@ -101,7 +101,7 @@ async def update_config(config: AppConfig):
 
 
 @router.patch("/stage-instructions", response_model=ConfigResponse)
-async def update_stage_instructions(request: UpdateStageInstructionsRequest):
+def update_stage_instructions(request: UpdateStageInstructionsRequest):
     """Update instructions for a specific stage.
 
     Args:
@@ -123,7 +123,7 @@ async def update_stage_instructions(request: UpdateStageInstructionsRequest):
 
 
 @router.patch("/global-defaults", response_model=ConfigResponse)
-async def update_global_defaults(request: UpdateGlobalDefaultsRequest):
+def update_global_defaults(request: UpdateGlobalDefaultsRequest):
     """Update global default parameters.
 
     Args:
@@ -142,7 +142,7 @@ async def update_global_defaults(request: UpdateGlobalDefaultsRequest):
 
 
 @router.patch("/image", response_model=ConfigResponse)
-async def update_image_config(request: UpdateImageConfigRequest):
+def update_image_config(request: UpdateImageConfigRequest):
     """Update image configuration.
 
     Args:
@@ -161,7 +161,7 @@ async def update_image_config(request: UpdateImageConfigRequest):
 
 
 @router.patch("/style", response_model=ConfigResponse)
-async def update_style_config(request: UpdateStyleConfigRequest):
+def update_style_config(request: UpdateStyleConfigRequest):
     """Update style configuration.
 
     Args:
@@ -180,7 +180,7 @@ async def update_style_config(request: UpdateStyleConfigRequest):
 
 
 @router.post("/reset", response_model=ConfigResponse)
-async def reset_config():
+def reset_config():
     """Reset entire configuration to defaults.
 
     Returns:

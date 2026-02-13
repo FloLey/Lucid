@@ -1,12 +1,16 @@
 """Font management service with fuzzy matching."""
 
+import logging
 import os
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from PIL import ImageFont
 
 from app.config import FONTS_DIR
+
+logger = logging.getLogger(__name__)
 
 
 class FontManager:
@@ -59,8 +63,12 @@ class FontManager:
         "C:/Windows/Fonts/arial.ttf",
     ]
 
+    # Maximum number of font objects to keep cached
+    MAX_CACHE_SIZE = 128
+
     def __init__(self):
         self._font_cache: Dict[Tuple[str, int, int], ImageFont.FreeTypeFont] = {}
+        self._cache_order: list[Tuple[str, int, int]] = []
         self._font_index: Dict[str, Dict[int, Path]] = {}
         self._available_fonts: Optional[List[str]] = None
         self._scan_fonts_directory()
@@ -219,6 +227,10 @@ class FontManager:
         cache_key = (family, weight, size)
 
         if cache_key in self._font_cache:
+            # Move to end (most recently used)
+            if cache_key in self._cache_order:
+                self._cache_order.remove(cache_key)
+            self._cache_order.append(cache_key)
             return self._font_cache[cache_key]
 
         # Resolve family name
@@ -233,10 +245,10 @@ class FontManager:
 
                 try:
                     font = ImageFont.truetype(str(font_path), size)
-                    self._font_cache[cache_key] = font
+                    self._cache_put(cache_key, font)
                     return font
                 except Exception as e:
-                    print(f"Failed to load font {font_path}: {e}")
+                    logger.warning(f"Failed to load font {font_path}: {e}")
 
         # Only fallback to system fonts if fonts directory is empty
         if not self._font_index:
@@ -244,7 +256,7 @@ class FontManager:
             if fallback_path:
                 try:
                     font = ImageFont.truetype(fallback_path, size)
-                    self._font_cache[cache_key] = font
+                    self._cache_put(cache_key, font)
                     return font
                 except Exception:
                     pass
@@ -253,15 +265,25 @@ class FontManager:
         font = ImageFont.load_default()
         return font
 
+    def _cache_put(self, key: Tuple[str, int, int], font: ImageFont.FreeTypeFont) -> None:
+        """Store a font in the cache, evicting the oldest entry if full."""
+        if len(self._font_cache) >= self.MAX_CACHE_SIZE:
+            oldest = self._cache_order.pop(0)
+            self._font_cache.pop(oldest, None)
+        self._font_cache[key] = font
+        self._cache_order.append(key)
+
     def refresh(self):
         """Refresh the font index by rescanning the directory."""
         self._font_cache.clear()
+        self._cache_order.clear()
         self._available_fonts = None
         self._scan_fonts_directory()
 
     def clear_cache(self):
         """Clear the font cache."""
         self._font_cache.clear()
+        self._cache_order.clear()
         self._available_fonts = None
 
 

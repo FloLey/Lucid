@@ -7,7 +7,7 @@ from typing import Optional
 
 from PIL import Image
 
-from app.config import GOOGLE_API_KEY, IMAGE_WIDTH, IMAGE_HEIGHT
+from app.config import GOOGLE_API_KEY, IMAGE_WIDTH, IMAGE_HEIGHT, GEMINI_IMAGE_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class ImageService:
                 )
 
                 response = self._client.models.generate_content(
-                    model="gemini-2.5-flash-image",
+                    model=GEMINI_IMAGE_MODEL,
                     contents=[full_prompt],
                     config=types.GenerateContentConfig(
                         response_modalities=["IMAGE"],

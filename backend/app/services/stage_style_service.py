@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from pathlib import Path
 from typing import Optional
 
 from app.models.session import SessionState
@@ -10,24 +9,9 @@ from app.models.style_proposal import StyleProposal
 from app.services.gemini_service import gemini_service
 from app.services.image_service import image_service
 from app.services.session_manager import session_manager
+from app.services.prompt_loader import load_prompt_file
 
 logger = logging.getLogger(__name__)
-
-
-def _load_prompt_file(filename: str) -> str:
-    """Load a prompt from the prompts directory."""
-    prompt_path = Path(__file__).parent.parent.parent / "prompts" / filename
-    try:
-        with open(prompt_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception as e:
-        logger.error(f"Failed to load prompt file {filename}: {e}")
-        return ""
-
-
-def _get_style_proposal_prompt() -> str:
-    """Get style proposal prompt from file."""
-    return _load_prompt_file("style_proposal.prompt")
 
 
 class StageStyleService:
@@ -61,7 +45,7 @@ class StageStyleService:
         extra = f"Additional instructions: {additional_instructions}" if additional_instructions else ""
 
         # Get prompt template from config
-        prompt_template = _get_style_proposal_prompt()
+        prompt_template = load_prompt_file("style_proposal.prompt")
 
         response_format = '''{{
     "proposals": [

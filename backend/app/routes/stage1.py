@@ -1,10 +1,14 @@
 """Stage 1 routes - Draft to Slide texts."""
 
+import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.stage1_service import stage1_service
+from app.services.gemini_service import GeminiError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -46,14 +50,20 @@ class RegenerateAllRequest(BaseModel):
 @router.post("/generate")
 async def generate_slide_texts(request: GenerateSlideTextsRequest):
     """Generate slide texts from a draft."""
-    session = await stage1_service.generate_slide_texts(
-        session_id=request.session_id,
-        draft_text=request.draft_text,
-        num_slides=request.num_slides,
-        include_titles=request.include_titles,
-        additional_instructions=request.additional_instructions,
-        language=request.language,
-    )
+    try:
+        session = await stage1_service.generate_slide_texts(
+            session_id=request.session_id,
+            draft_text=request.draft_text,
+            num_slides=request.num_slides,
+            include_titles=request.include_titles,
+            additional_instructions=request.additional_instructions,
+            language=request.language,
+        )
+    except GeminiError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate slide texts: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate slide texts: {e}")
     if not session:
         raise HTTPException(status_code=500, detail="Failed to generate slide texts")
     return {"session": session.model_dump()}
@@ -62,9 +72,15 @@ async def generate_slide_texts(request: GenerateSlideTextsRequest):
 @router.post("/regenerate-all")
 async def regenerate_all_slide_texts(request: RegenerateAllRequest):
     """Regenerate all slide texts."""
-    session = await stage1_service.regenerate_all_slide_texts(
-        session_id=request.session_id,
-    )
+    try:
+        session = await stage1_service.regenerate_all_slide_texts(
+            session_id=request.session_id,
+        )
+    except GeminiError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to regenerate all slides: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to regenerate slides: {e}")
     if not session:
         raise HTTPException(status_code=404, detail="Session not found or no draft")
     return {"session": session.model_dump()}
@@ -73,18 +89,24 @@ async def regenerate_all_slide_texts(request: RegenerateAllRequest):
 @router.post("/regenerate")
 async def regenerate_slide_text(request: RegenerateSlideTextRequest):
     """Regenerate a single slide text."""
-    session = await stage1_service.regenerate_slide_text(
-        session_id=request.session_id,
-        slide_index=request.slide_index,
-        instruction=request.instruction,
-    )
+    try:
+        session = await stage1_service.regenerate_slide_text(
+            session_id=request.session_id,
+            slide_index=request.slide_index,
+            instruction=request.instruction,
+        )
+    except GeminiError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to regenerate slide: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to regenerate slide: {e}")
     if not session:
         raise HTTPException(status_code=404, detail="Session or slide not found")
     return {"session": session.model_dump()}
 
 
 @router.post("/update")
-async def update_slide_text(request: UpdateSlideTextRequest):
+def update_slide_text(request: UpdateSlideTextRequest):
     """Manually update a slide's text."""
     session = stage1_service.update_slide_text(
         session_id=request.session_id,
@@ -98,6 +120,6 @@ async def update_slide_text(request: UpdateSlideTextRequest):
 
 
 @router.get("/placeholder")
-async def placeholder():
+def placeholder():
     """Placeholder endpoint for backwards compatibility."""
     return {"stage": 1, "status": "active"}

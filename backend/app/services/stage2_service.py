@@ -2,30 +2,14 @@
 
 import asyncio
 import logging
-from pathlib import Path
 from typing import Optional
 
 from app.models.session import SessionState
 from app.services.gemini_service import gemini_service
 from app.services.session_manager import session_manager
+from app.services.prompt_loader import load_prompt_file
 
 logger = logging.getLogger(__name__)
-
-
-def _load_prompt_file(filename: str) -> str:
-    """Load a prompt from the prompts directory."""
-    prompt_path = Path(__file__).parent.parent.parent / "prompts" / filename
-    try:
-        with open(prompt_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception as e:
-        logger.error(f"Failed to load prompt file {filename}: {e}")
-        return ""
-
-
-def _get_single_image_prompt() -> str:
-    """Get single image prompt generation prompt from file."""
-    return _load_prompt_file("generate_single_image_prompt.prompt")
 
 
 class Stage2Service:
@@ -57,7 +41,7 @@ class Stage2Service:
         shared_theme = session.shared_prompt_prefix or "Consistent visual style throughout"
 
         # Get prompt template for single slide generation
-        prompt_template = _get_single_image_prompt()
+        prompt_template = load_prompt_file("generate_single_image_prompt.prompt")
 
         # Generate prompts for each slide in parallel
         async def generate_single_prompt(slide_index: int) -> str:
@@ -130,7 +114,7 @@ class Stage2Service:
 
         style_instructions_text = f"Style instructions: {style_instructions}" if style_instructions else ""
 
-        prompt_template = _get_single_image_prompt()
+        prompt_template = load_prompt_file("generate_single_image_prompt.prompt")
 
         prompt = prompt_template.format(
             slide_text=slide.text.get_full_text(),

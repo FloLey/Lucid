@@ -3,7 +3,6 @@
 import json
 import logging
 import re
-from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, AsyncGenerator
 
 from app.services.gemini_service import gemini_service, GeminiError
@@ -13,19 +12,9 @@ from app.services.stage_style_service import stage_style_service
 from app.services.stage2_service import stage2_service
 from app.services.stage3_service import stage3_service
 from app.services.stage4_service import stage4_service
+from app.services.prompt_loader import load_prompt_file
 
 logger = logging.getLogger(__name__)
-
-
-def _load_prompt_file(filename: str) -> str:
-    """Load a prompt from the prompts directory."""
-    prompt_path = Path(__file__).parent.parent.parent / "prompts" / filename
-    try:
-        with open(prompt_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception as e:
-        logger.error(f"Failed to load prompt file {filename}: {e}")
-        return ""
 
 
 # In-memory cancellation flags (one per session)
@@ -362,7 +351,7 @@ class ChatService:
 
     def _get_system_prompt(self, current_stage: int) -> str:
         """Get the agent system prompt with current stage info."""
-        template = _load_prompt_file("chat_routing.prompt")
+        template = load_prompt_file("chat_routing.prompt")
         return template.format(current_stage=current_stage)
 
     def _execute_read_tool(self, session_id: str, tool: str, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -656,6 +645,9 @@ class ChatService:
         except Exception as e:
             logger.error(f"Agent loop error: {e}", exc_info=True)
             yield _sse_event("error", {"message": f"An error occurred: {str(e)}"})
+
+        # Clean up cancel flag in case it was set after loop ended
+        _cancel_flags.pop(session_id, None)
 
         # Emit done with final session state
         session = session_manager.get_session(session_id)

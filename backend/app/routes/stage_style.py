@@ -1,10 +1,14 @@
 """Stage Style routes - Visual style proposal generation and selection."""
 
+import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.stage_style_service import stage_style_service
+from app.services.gemini_service import GeminiError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -27,18 +31,24 @@ class SelectProposalRequest(BaseModel):
 @router.post("/generate")
 async def generate_proposals(request: GenerateProposalsRequest):
     """Generate style proposals with preview images."""
-    session = await stage_style_service.generate_proposals(
-        session_id=request.session_id,
-        num_proposals=request.num_proposals,
-        additional_instructions=request.additional_instructions,
-    )
+    try:
+        session = await stage_style_service.generate_proposals(
+            session_id=request.session_id,
+            num_proposals=request.num_proposals,
+            additional_instructions=request.additional_instructions,
+        )
+    except GeminiError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate style proposals: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate style proposals: {e}")
     if not session:
         raise HTTPException(status_code=404, detail="Session not found or no slides")
     return {"session": session.model_dump()}
 
 
 @router.post("/select")
-async def select_proposal(request: SelectProposalRequest):
+def select_proposal(request: SelectProposalRequest):
     """Select a style proposal."""
     session = stage_style_service.select_proposal(
         session_id=request.session_id,
@@ -50,6 +60,6 @@ async def select_proposal(request: SelectProposalRequest):
 
 
 @router.get("/placeholder")
-async def placeholder():
+def placeholder():
     """Placeholder endpoint for backwards compatibility."""
     return {"stage": "style", "status": "active"}

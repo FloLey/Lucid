@@ -1,36 +1,15 @@
 """Stage 1 service - Draft to Slide texts transformation."""
 
 import logging
-from pathlib import Path
 from typing import List, Optional
 
 from app.models.slide import Slide, SlideText
 from app.models.session import SessionState
 from app.services.gemini_service import gemini_service
 from app.services.session_manager import session_manager
+from app.services.prompt_loader import load_prompt_file
 
 logger = logging.getLogger(__name__)
-
-
-def _load_prompt_file(filename: str) -> str:
-    """Load a prompt from the prompts directory."""
-    prompt_path = Path(__file__).parent.parent.parent / "prompts" / filename
-    try:
-        with open(prompt_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception as e:
-        logger.error(f"Failed to load prompt file {filename}: {e}")
-        return ""
-
-
-def _get_slide_generation_prompt() -> str:
-    """Get slide generation prompt from file."""
-    return _load_prompt_file("slide_generation.prompt")
-
-
-def _get_regenerate_slide_prompt() -> str:
-    """Get regenerate slide prompt from file."""
-    return _load_prompt_file("regenerate_single_slide.prompt")
 
 
 class Stage1Service:
@@ -103,8 +82,7 @@ class Stage1Service:
             else ""
         )
 
-        # Get prompt template from config
-        prompt_template = _get_slide_generation_prompt()
+        prompt_template = load_prompt_file("slide_generation.prompt")
 
         prompt = prompt_template.format(
             num_slides_instruction=num_slides_instruction,
@@ -204,8 +182,7 @@ class Stage1Service:
 
         response_format = '{"title": "...", "body": "..."}'
 
-        # Get prompt template from config
-        prompt_template = _get_regenerate_slide_prompt()
+        prompt_template = load_prompt_file("regenerate_single_slide.prompt")
 
         prompt = prompt_template.format(
             slide_num=slide_index + 1,

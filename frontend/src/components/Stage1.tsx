@@ -1,67 +1,54 @@
 import { useState, useEffect } from 'react';
-import type { Session, AppConfig } from '../types';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
+import { useSessionContext } from '../contexts/SessionContext';
+import { useAppConfig } from '../hooks/useAppConfig';
+import { SLIDE_COUNT_OPTIONS, LANGUAGES } from '../constants';
+import Spinner from './Spinner';
 
-interface Stage1Props {
-  sessionId: string;
-  session: Session | null;
-  stageLoading: boolean;
-  setStageLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  updateSession: (session: Session) => void;
-  onNext: () => void;
-  onBack: () => void;
-}
+export default function Stage1() {
+  const {
+    sessionId,
+    session,
+    loading,
+    setLoading,
+    setError,
+    updateSession,
+    onNext,
+  } = useSessionContext();
 
-export default function Stage1({
-  sessionId,
-  session,
-  stageLoading,
-  setStageLoading,
-  setError,
-  updateSession,
-  onNext,
-}: Stage1Props) {
-  const [config, setConfig] = useState<AppConfig | null>(null);
+  const config = useAppConfig();
   const [draftText, setDraftText] = useState('');
   const [numSlides, setNumSlides] = useState<number | null>(null);
   const [includeTitles, setIncludeTitles] = useState(true);
   const [language, setLanguage] = useState('English');
   const [instructions, setInstructions] = useState('');
 
-  // Load config defaults on mount, then override with session values if they exist
+  // Apply config defaults or session values once config is loaded
   useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const configData = await api.getConfig();
-        setConfig(configData);
+    if (!config) return;
 
-        // For a new session (no slides yet), use config defaults
-        const isNewSession = !session?.slides || session.slides.length === 0;
+    // For a new session (no slides yet), use config defaults
+    const isNewSession = !session?.slides || session.slides.length === 0;
 
-        if (isNewSession) {
-          // Use config defaults for new sessions
-          setNumSlides(configData.global_defaults.num_slides);
-          setIncludeTitles(configData.global_defaults.include_titles);
-          setLanguage(configData.global_defaults.language);
-          if (configData.stage_instructions.stage1) {
-            setInstructions(configData.stage_instructions.stage1);
-          }
-        } else {
-          // Use session values for existing sessions
-          setDraftText(session?.draft_text || '');
-          setNumSlides(session?.num_slides ?? configData.global_defaults.num_slides);
-          setIncludeTitles(session?.include_titles ?? configData.global_defaults.include_titles);
-          setLanguage(session?.language || configData.global_defaults.language);
-          setInstructions(session?.additional_instructions || '');
-        }
-      } catch (err) {
-        console.error('Failed to load config:', err);
+    if (isNewSession) {
+      // Use config defaults for new sessions
+      setNumSlides(config.global_defaults.num_slides);
+      setIncludeTitles(config.global_defaults.include_titles);
+      setLanguage(config.global_defaults.language);
+      if (config.stage_instructions.stage1) {
+        setInstructions(config.stage_instructions.stage1);
       }
-    };
-    loadConfig();
-  }, [session]);
+    } else {
+      // Use session values for existing sessions
+      setDraftText(session?.draft_text || '');
+      setNumSlides(session?.num_slides ?? config.global_defaults.num_slides);
+      setIncludeTitles(session?.include_titles ?? config.global_defaults.include_titles);
+      setLanguage(session?.language || config.global_defaults.language);
+      setInstructions(session?.additional_instructions || '');
+    }
+  }, [config, session]);
+
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
   const [regeneratingSlides, setRegeneratingSlides] = useState<Set<number>>(new Set());
   const [regenInstructionSlide, setRegenInstructionSlide] = useState<number | null>(null);
@@ -73,7 +60,7 @@ export default function Stage1({
       return;
     }
 
-    setStageLoading(true);
+    setLoading(true);
     setError(null);
     try {
       const sess = await api.generateSlideTexts(
@@ -88,7 +75,7 @@ export default function Stage1({
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate slide texts'));
     } finally {
-      setStageLoading(false);
+      setLoading(false);
     }
   };
 
@@ -148,7 +135,7 @@ export default function Stage1({
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
               >
                 <option value="auto">Let AI decide</option>
-                {[3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                {SLIDE_COUNT_OPTIONS.map((n) => (
                   <option key={n} value={n}>
                     {n} slides
                   </option>
@@ -165,7 +152,7 @@ export default function Stage1({
                 onChange={(e) => setLanguage(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
               >
-                {['English', 'French', 'Spanish', 'German', 'Portuguese', 'Italian', 'Dutch', 'Arabic', 'Chinese', 'Japanese', 'Korean'].map((lang) => (
+                {LANGUAGES.map((lang) => (
                   <option key={lang} value={lang}>
                     {lang}
                   </option>
@@ -201,10 +188,10 @@ export default function Stage1({
 
           <button
             onClick={handleGenerate}
-            disabled={stageLoading || !draftText.trim()}
+            disabled={loading || !draftText.trim()}
             className="mt-6 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {stageLoading ? 'Generating...' : hasSlides ? 'Regenerate All' : 'Generate Slides'}
+            {loading ? 'Generating...' : hasSlides ? 'Regenerate All' : 'Generate Slides'}
           </button>
         </div>
       </div>
@@ -213,7 +200,7 @@ export default function Stage1({
       <div className="flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Slide Texts</h2>
-          {hasSlides && !stageLoading && regeneratingSlides.size === 0 && (
+          {hasSlides && !loading && regeneratingSlides.size === 0 && (
             <button
               onClick={onNext}
               className="px-4 py-2 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
@@ -224,7 +211,7 @@ export default function Stage1({
         </div>
 
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1">
-          {stageLoading && regeneratingSlides.size === 0 ? (
+          {loading && regeneratingSlides.size === 0 ? (
             // Generating all slides — show spinner placeholders
             Array.from({ length: numSlides }).map((_, index) => (
               <div
@@ -233,10 +220,7 @@ export default function Stage1({
               >
                 <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
                 <div className="flex items-center gap-3 mt-3 text-gray-400">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <Spinner size="sm" />
                   <span className="text-sm">Generating...</span>
                 </div>
               </div>
@@ -308,10 +292,7 @@ export default function Stage1({
 
                 {regeneratingSlides.has(index) ? (
                   <div className="flex items-center gap-3 text-gray-400">
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
+                    <Spinner size="sm" />
                     <span className="text-sm">Regenerating...</span>
                   </div>
                 ) : editingSlide === index ? (

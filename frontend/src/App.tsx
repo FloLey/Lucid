@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useSession } from './hooks/useSession';
+import { SessionContext } from './contexts/SessionContext';
 import Stage1 from './components/Stage1';
 import Stage2 from './components/Stage2';
 import Stage3 from './components/Stage3';
@@ -29,33 +30,31 @@ function App() {
 
   const currentStage = session?.current_stage ?? 1;
 
-  const renderCurrentStage = () => {
-    const commonProps = {
-      sessionId,
-      session,
-      stageLoading,
-      setStageLoading,
-      setError,
-      updateSession,
-      onNext: advanceStage,
-      onBack: previousStage,
-    };
+  const sessionContextValue = useMemo(() => ({
+    sessionId,
+    session,
+    loading: stageLoading,
+    setLoading: setStageLoading,
+    setError,
+    updateSession,
+    onNext: advanceStage,
+    onBack: previousStage,
+  }), [sessionId, session, stageLoading, setStageLoading, setError, updateSession, advanceStage, previousStage]);
 
+  const renderCurrentStage = () => {
     switch (currentStage) {
       case 1:
-        return <Stage1 {...commonProps} />;
+        return <Stage1 />;
       case 2:
-        return <Stage2 {...commonProps} />;
+        return <Stage2 />;
       case 3:
-        return <Stage3 {...commonProps} />;
+        return <Stage3 />;
       case 4:
-        return <Stage4 {...commonProps} />;
-      case 5: {
-        const { onNext: _, ...stage5Props } = commonProps;
-        return <Stage5 {...stage5Props} />;
-      }
+        return <Stage4 />;
+      case 5:
+        return <Stage5 />;
       default:
-        return <Stage1 {...commonProps} />;
+        return <Stage1 />;
     }
   };
 
@@ -83,7 +82,9 @@ function App() {
               )}
 
               {session ? (
-                renderCurrentStage()
+                <SessionContext.Provider value={sessionContextValue}>
+                  {renderCurrentStage()}
+                </SessionContext.Provider>
               ) : (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-gray-500">Loading session...</div>

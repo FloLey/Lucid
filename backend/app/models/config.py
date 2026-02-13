@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
+from app.config import IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_ASPECT_RATIO
+
 
 def _load_prompt(filename: str) -> str:
     """Load a prompt from the prompts directory."""
@@ -75,9 +77,9 @@ class GlobalDefaultsConfig(BaseModel):
 class ImageConfig(BaseModel):
     """Image generation settings."""
 
-    width: int = Field(default=1080, ge=256, le=4096, description="Image width in pixels")
-    height: int = Field(default=1350, ge=256, le=4096, description="Image height in pixels")
-    aspect_ratio: str = Field(default="4:5", description="Aspect ratio for images")
+    width: int = Field(default=IMAGE_WIDTH, ge=256, le=4096, description="Image width in pixels")
+    height: int = Field(default=IMAGE_HEIGHT, ge=256, le=4096, description="Image height in pixels")
+    aspect_ratio: str = Field(default=IMAGE_ASPECT_RATIO, description="Aspect ratio for images")
 
 
 class StyleConfig(BaseModel):

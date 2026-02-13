@@ -1,10 +1,14 @@
 """Stage 2 routes - Slide texts to Image prompts."""
 
+import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.stage2_service import stage2_service
+from app.services.gemini_service import GeminiError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -44,10 +48,16 @@ class UpdateStyleRequest(BaseModel):
 @router.post("/generate")
 async def generate_all_prompts(request: GeneratePromptsRequest):
     """Generate image prompts for all slides."""
-    session = await stage2_service.generate_all_prompts(
-        session_id=request.session_id,
-        image_style_instructions=request.image_style_instructions,
-    )
+    try:
+        session = await stage2_service.generate_all_prompts(
+            session_id=request.session_id,
+            image_style_instructions=request.image_style_instructions,
+        )
+    except GeminiError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate prompts: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate prompts: {e}")
     if not session:
         raise HTTPException(status_code=404, detail="Session not found or no slides")
     return {"session": session.model_dump()}
@@ -56,17 +66,23 @@ async def generate_all_prompts(request: GeneratePromptsRequest):
 @router.post("/regenerate")
 async def regenerate_prompt(request: RegeneratePromptRequest):
     """Regenerate image prompt for a single slide."""
-    session = await stage2_service.regenerate_prompt(
-        session_id=request.session_id,
-        slide_index=request.slide_index,
-    )
+    try:
+        session = await stage2_service.regenerate_prompt(
+            session_id=request.session_id,
+            slide_index=request.slide_index,
+        )
+    except GeminiError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to regenerate prompt: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to regenerate prompt: {e}")
     if not session:
         raise HTTPException(status_code=404, detail="Session or slide not found")
     return {"session": session.model_dump()}
 
 
 @router.post("/update")
-async def update_prompt(request: UpdatePromptRequest):
+def update_prompt(request: UpdatePromptRequest):
     """Manually update an image prompt."""
     session = stage2_service.update_prompt(
         session_id=request.session_id,
@@ -79,7 +95,7 @@ async def update_prompt(request: UpdatePromptRequest):
 
 
 @router.post("/style")
-async def update_style(request: UpdateStyleRequest):
+def update_style(request: UpdateStyleRequest):
     """Update the shared style instructions."""
     session = stage2_service.update_style_instructions(
         session_id=request.session_id,
@@ -91,6 +107,6 @@ async def update_style(request: UpdateStyleRequest):
 
 
 @router.get("/placeholder")
-async def placeholder():
+def placeholder():
     """Placeholder endpoint for backwards compatibility."""
     return {"stage": 2, "status": "active"}
