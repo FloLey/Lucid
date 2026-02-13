@@ -1,33 +1,25 @@
 import { useState } from 'react';
-import type { Session } from '../types';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
+import { useSessionContext } from '../contexts/SessionContext';
+import Spinner from './Spinner';
 
-interface Stage4Props {
-  sessionId: string;
-  session: Session | null;
-  stageLoading: boolean;
-  setStageLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  updateSession: (session: Session) => void;
-  onNext: () => void;
-  onBack: () => void;
-}
+export default function Stage4() {
+  const {
+    sessionId,
+    session,
+    loading,
+    setLoading,
+    setError,
+    updateSession,
+    onNext,
+    onBack,
+  } = useSessionContext();
 
-export default function Stage4({
-  sessionId,
-  session,
-  stageLoading,
-  setStageLoading,
-  setError,
-  updateSession,
-  onNext,
-  onBack,
-}: Stage4Props) {
   const [regeneratingImages, setRegeneratingImages] = useState<Set<number>>(new Set());
 
   const handleGenerate = async () => {
-    setStageLoading(true);
+    setLoading(true);
     setError(null);
     try {
       const sess = await api.generateImages(sessionId);
@@ -35,7 +27,7 @@ export default function Stage4({
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate images'));
     } finally {
-      setStageLoading(false);
+      setLoading(false);
     }
   };
 
@@ -95,10 +87,10 @@ export default function Stage4({
 
           <button
             onClick={handleGenerate}
-            disabled={stageLoading || slides.length === 0}
+            disabled={loading || slides.length === 0}
             className="mt-4 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {stageLoading ? 'Generating...' : hasImages ? 'Regenerate All Images' : 'Generate Images'}
+            {loading ? 'Generating...' : hasImages ? 'Regenerate All Images' : 'Generate Images'}
           </button>
         </div>
       </div>
@@ -107,7 +99,7 @@ export default function Stage4({
       <div className="flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Background Images</h2>
-          {hasImages && !stageLoading && regeneratingImages.size === 0 && (
+          {hasImages && !loading && regeneratingImages.size === 0 && (
             <button
               onClick={onNext}
               className="px-4 py-2 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
@@ -118,7 +110,7 @@ export default function Stage4({
         </div>
 
         <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
-          {stageLoading && regeneratingImages.size === 0 ? (
+          {loading && regeneratingImages.size === 0 ? (
             slides.map((_, index) => (
               <div
                 key={index}
@@ -126,10 +118,7 @@ export default function Stage4({
               >
                 <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
                 <div className="flex items-center gap-3 mt-3 text-gray-400">
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <Spinner size="sm" />
                   <span className="text-sm">Generating image...</span>
                 </div>
               </div>
@@ -150,10 +139,7 @@ export default function Stage4({
                   <div className="w-48 shrink-0 aspect-[4/5] relative bg-gray-100 rounded-lg overflow-hidden">
                     {regeneratingImages.has(index) ? (
                       <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        <svg className="animate-spin h-6 w-6" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
+                        <Spinner size="md" />
                       </div>
                     ) : slide.image_data ? (
                       <img

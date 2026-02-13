@@ -1,61 +1,46 @@
 import { useState, useEffect } from 'react';
-import type { Session, AppConfig } from '../types';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
+import { useSessionContext } from '../contexts/SessionContext';
+import { useAppConfig } from '../hooks/useAppConfig';
+import Spinner from './Spinner';
 
-interface Stage3Props {
-  sessionId: string;
-  session: Session | null;
-  stageLoading: boolean;
-  setStageLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  updateSession: (session: Session) => void;
-  onNext: () => void;
-  onBack: () => void;
-}
+export default function Stage3() {
+  const {
+    sessionId,
+    session,
+    loading,
+    setLoading,
+    setError,
+    updateSession,
+    onNext,
+    onBack,
+  } = useSessionContext();
 
-export default function Stage3({
-  sessionId,
-  session,
-  stageLoading,
-  setStageLoading,
-  setError,
-  updateSession,
-  onNext,
-  onBack,
-}: Stage3Props) {
-  const [config, setConfig] = useState<AppConfig | null>(null);
+  const config = useAppConfig();
   const [styleInstructions, setStyleInstructions] = useState('');
 
-  // Load config defaults on mount
+  // Sync style instructions when config or session changes
   useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const configData = await api.getConfig();
-        setConfig(configData);
+    if (!config) return;
 
-        // Check if image prompts have been generated yet
-        const hasImagePrompts = session?.slides?.some(slide => slide.image_prompt);
+    // Check if image prompts have been generated yet
+    const hasImagePrompts = session?.slides?.some(slide => slide.image_prompt);
 
-        if (!hasImagePrompts) {
-          // New session - use config default instructions
-          if (configData.stage_instructions.stage2) {
-            setStyleInstructions(configData.stage_instructions.stage2);
-          }
-        } else {
-          // Existing session - use session value
-          setStyleInstructions(session?.image_style_instructions || '');
-        }
-      } catch (err) {
-        console.error('Failed to load config:', err);
+    if (!hasImagePrompts) {
+      // New session - use config default instructions
+      if (config.stage_instructions.stage2) {
+        setStyleInstructions(config.stage_instructions.stage2);
       }
-    };
-    loadConfig();
-  }, [session]);
+    } else {
+      // Existing session - use session value
+      setStyleInstructions(session?.image_style_instructions || '');
+    }
+  }, [config, session]);
   const [editingPrompt, setEditingPrompt] = useState<number | null>(null);
 
   const handleGenerate = async () => {
-    setStageLoading(true);
+    setLoading(true);
     setError(null);
     try {
       const sess = await api.generatePrompts(sessionId, styleInstructions || undefined);
@@ -63,19 +48,19 @@ export default function Stage3({
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate image prompts'));
     } finally {
-      setStageLoading(false);
+      setLoading(false);
     }
   };
 
   const handleRegeneratePrompt = async (index: number) => {
-    setStageLoading(true);
+    setLoading(true);
     try {
       const sess = await api.regeneratePrompt(sessionId, index);
       updateSession(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to regenerate prompt'));
     } finally {
-      setStageLoading(false);
+      setLoading(false);
     }
   };
 
@@ -130,10 +115,15 @@ export default function Stage3({
 
           <button
             onClick={handleGenerate}
-            disabled={stageLoading || slides.length === 0}
-            className="mt-4 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={loading || slides.length === 0}
+            className="mt-4 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
-            {stageLoading ? 'Generating...' : hasPrompts ? 'Regenerate All Prompts' : 'Generate Image Prompts'}
+            {loading ? (
+              <>
+                <Spinner size="sm" />
+                Generating...
+              </>
+            ) : hasPrompts ? 'Regenerate All Prompts' : 'Generate Image Prompts'}
           </button>
         </div>
       </div>
@@ -194,7 +184,7 @@ export default function Stage3({
                     </button>
                     <button
                       onClick={() => handleRegeneratePrompt(index)}
-                      disabled={stageLoading}
+                      disabled={loading}
                       className="text-xs text-lucid-600 hover:text-lucid-700"
                     >
                       Regenerate
