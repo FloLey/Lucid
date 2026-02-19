@@ -147,7 +147,10 @@ env.bak/
 venv.bak/
 
 # Session persistence (local development)
-sessions_db.json
+backend/data/
+
+# LLM debug logs
+backend/logs/
 
 # User configuration
 config.json

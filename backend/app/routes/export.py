@@ -1,10 +1,11 @@
 """Export routes."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.services.export_service import export_service
+from app.dependencies import get_export_service
+from app.services.export_service import ExportService
 
 router = APIRouter()
 
@@ -22,26 +23,11 @@ class ExportSlideRequest(BaseModel):
     slide_index: int = Field(ge=0)
 
 
-@router.post("/zip")
-async def export_zip(request: ExportRequest):
-    """Export all slides as a ZIP archive."""
-    zip_buffer = export_service.export_session(request.session_id)
-    if not zip_buffer:
-        raise HTTPException(status_code=404, detail="Session not found or no slides")
-
-    return StreamingResponse(
-        zip_buffer,
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f"attachment; filename=lucid_carousel_{request.session_id}.zip"
-        },
-    )
-
-
-@router.get("/zip/{session_id}")
-async def export_zip_get(session_id: str):
-    """Export all slides as a ZIP archive (GET method for direct download)."""
-    zip_buffer = export_service.export_session(session_id)
+async def _build_zip_response(
+    session_id: str, export_service: ExportService
+) -> StreamingResponse:
+    """Build a ZIP streaming response for a session."""
+    zip_buffer = await export_service.export_session(session_id)
     if not zip_buffer:
         raise HTTPException(status_code=404, detail="Session not found or no slides")
 
@@ -54,30 +40,11 @@ async def export_zip_get(session_id: str):
     )
 
 
-@router.post("/slide")
-async def export_slide(request: ExportSlideRequest):
-    """Export a single slide as PNG."""
-    image_buffer = export_service.export_single_slide(
-        request.session_id,
-        request.slide_index,
-    )
-    if not image_buffer:
-        raise HTTPException(status_code=404, detail="Slide not found or no image")
-
-    filename = f"slide_{request.slide_index + 1:02d}.png"
-    return StreamingResponse(
-        image_buffer,
-        media_type="image/png",
-        headers={
-            "Content-Disposition": f"attachment; filename={filename}"
-        },
-    )
-
-
-@router.get("/slide/{session_id}/{slide_index}")
-async def export_slide_get(session_id: str, slide_index: int):
-    """Export a single slide as PNG (GET method for direct download)."""
-    image_buffer = export_service.export_single_slide(session_id, slide_index)
+async def _build_slide_response(
+    session_id: str, slide_index: int, export_service: ExportService
+) -> StreamingResponse:
+    """Build a PNG streaming response for a single slide."""
+    image_buffer = await export_service.export_single_slide(session_id, slide_index)
     if not image_buffer:
         raise HTTPException(status_code=404, detail="Slide not found or no image")
 
@@ -85,13 +52,48 @@ async def export_slide_get(session_id: str, slide_index: int):
     return StreamingResponse(
         image_buffer,
         media_type="image/png",
-        headers={
-            "Content-Disposition": f"attachment; filename={filename}"
-        },
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
+@router.post("/zip")
+async def export_zip(
+    request: ExportRequest, export_service: ExportService = Depends(get_export_service)
+):
+    """Export all slides as a ZIP archive."""
+    return await _build_zip_response(request.session_id, export_service)
+
+
+@router.get("/zip/{session_id}")
+async def export_zip_get(
+    session_id: str, export_service: ExportService = Depends(get_export_service)
+):
+    """Export all slides as a ZIP archive (GET method for direct download)."""
+    return await _build_zip_response(session_id, export_service)
+
+
+@router.post("/slide")
+async def export_slide(
+    request: ExportSlideRequest,
+    export_service: ExportService = Depends(get_export_service),
+):
+    """Export a single slide as PNG."""
+    return await _build_slide_response(
+        request.session_id, request.slide_index, export_service
+    )
+
+
+@router.get("/slide/{session_id}/{slide_index}")
+async def export_slide_get(
+    session_id: str,
+    slide_index: int,
+    export_service: ExportService = Depends(get_export_service),
+):
+    """Export a single slide as PNG (GET method for direct download)."""
+    return await _build_slide_response(session_id, slide_index, export_service)
+
+
 @router.get("/placeholder")
-async def placeholder():
+def placeholder():
     """Placeholder endpoint for backwards compatibility."""
     return {"feature": "export", "status": "active"}

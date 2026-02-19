@@ -14,11 +14,11 @@ class TestBoxStyle:
     def test_default_values(self):
         """Test default box style values."""
         box = BoxStyle()
-        assert box.x_pct == 0.1
-        assert box.y_pct == 0.2
-        assert box.w_pct == 0.8
-        assert box.h_pct == 0.5
-        assert box.padding_pct == 0.05
+        assert box.x_pct == 0.05
+        assert box.y_pct == 0.15
+        assert box.w_pct == 0.9
+        assert box.h_pct == 0.7
+        assert box.padding_pct == 0.03
 
     def test_custom_values(self):
         """Test custom box style values."""
@@ -158,7 +158,7 @@ class TestSessionState:
         session = SessionState(session_id="test-123")
         assert session.session_id == "test-123"
         assert session.current_stage == 1
-        assert session.num_slides == 5
+        assert session.num_slides is None
         assert session.include_titles is True
         assert len(session.slides) == 0
 
@@ -187,6 +187,7 @@ class TestSessionState:
         session = SessionState(session_id="test-ts")
         old_time = session.updated_at
         import time
+
         time.sleep(0.01)
         session.update_timestamp()
         assert session.updated_at > old_time

@@ -1,10 +1,13 @@
 """Stage 2 routes - Slide texts to Image prompts."""
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from app.services.stage2_service import stage2_service
+from app.models.session import SessionResponse
+from app.dependencies import get_stage2_service
+from app.services.stage2_service import Stage2Service
+from app.routes.utils import execute_service_action
 
 router = APIRouter()
 
@@ -41,56 +44,68 @@ class UpdateStyleRequest(BaseModel):
     style_instructions: str
 
 
-@router.post("/generate")
-async def generate_all_prompts(request: GeneratePromptsRequest):
+@router.post("/generate", response_model=SessionResponse)
+async def generate_all_prompts(
+    request: GeneratePromptsRequest,
+    stage2_service: Stage2Service = Depends(get_stage2_service),
+):
     """Generate image prompts for all slides."""
-    session = await stage2_service.generate_all_prompts(
-        session_id=request.session_id,
-        image_style_instructions=request.image_style_instructions,
+    return await execute_service_action(
+        lambda: stage2_service.generate_all_prompts(
+            session_id=request.session_id,
+            image_style_instructions=request.image_style_instructions,
+        ),
+        "Failed to generate prompts",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found or no slides")
-    return {"session": session.model_dump()}
 
 
-@router.post("/regenerate")
-async def regenerate_prompt(request: RegeneratePromptRequest):
+@router.post("/regenerate", response_model=SessionResponse)
+async def regenerate_prompt(
+    request: RegeneratePromptRequest,
+    stage2_service: Stage2Service = Depends(get_stage2_service),
+):
     """Regenerate image prompt for a single slide."""
-    session = await stage2_service.regenerate_prompt(
-        session_id=request.session_id,
-        slide_index=request.slide_index,
+    return await execute_service_action(
+        lambda: stage2_service.regenerate_prompt(
+            session_id=request.session_id,
+            slide_index=request.slide_index,
+        ),
+        "Failed to regenerate prompt",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session or slide not found")
-    return {"session": session.model_dump()}
 
 
-@router.post("/update")
-async def update_prompt(request: UpdatePromptRequest):
+@router.post("/update", response_model=SessionResponse)
+async def update_prompt(
+    request: UpdatePromptRequest,
+    stage2_service: Stage2Service = Depends(get_stage2_service),
+):
     """Manually update an image prompt."""
-    session = stage2_service.update_prompt(
-        session_id=request.session_id,
-        slide_index=request.slide_index,
-        prompt=request.prompt,
+    return await execute_service_action(
+        lambda: stage2_service.update_prompt(
+            session_id=request.session_id,
+            slide_index=request.slide_index,
+            prompt=request.prompt,
+        ),
+        "Session or slide not found",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session or slide not found")
-    return {"session": session.model_dump()}
 
 
-@router.post("/style")
-async def update_style(request: UpdateStyleRequest):
+@router.post("/style", response_model=SessionResponse)
+async def update_style(
+    request: UpdateStyleRequest,
+    stage2_service: Stage2Service = Depends(get_stage2_service),
+):
     """Update the shared style instructions."""
-    session = stage2_service.update_style_instructions(
-        session_id=request.session_id,
-        style_instructions=request.style_instructions,
+    return await execute_service_action(
+        lambda: stage2_service.update_style_instructions(
+            session_id=request.session_id,
+            style_instructions=request.style_instructions,
+        ),
+        "Session not found",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return {"session": session.model_dump()}
 
 
 @router.get("/placeholder")
-async def placeholder():
+def placeholder():
     """Placeholder endpoint for backwards compatibility."""
     return {"stage": 2, "status": "active"}

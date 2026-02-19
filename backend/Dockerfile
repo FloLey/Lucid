@@ -21,6 +21,10 @@ RUN python download_fonts.py
 # Copy application code
 COPY . .
 
+# Fix permissions for the non-root user (1000)
+RUN mkdir -p /app/logs /app/data /app/fonts && chown -R 1000:1000 /app
+USER 1000
+
 # Expose port
 EXPOSE 8000
 

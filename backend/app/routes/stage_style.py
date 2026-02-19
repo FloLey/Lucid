@@ -1,10 +1,13 @@
 """Stage Style routes - Visual style proposal generation and selection."""
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from app.services.stage_style_service import stage_style_service
+from app.models.session import SessionResponse
+from app.dependencies import get_stage_style_service
+from app.services.stage_style_service import StageStyleService
+from app.routes.utils import execute_service_action
 
 router = APIRouter()
 
@@ -24,32 +27,38 @@ class SelectProposalRequest(BaseModel):
     proposal_index: int = Field(ge=0)
 
 
-@router.post("/generate")
-async def generate_proposals(request: GenerateProposalsRequest):
+@router.post("/generate", response_model=SessionResponse)
+async def generate_proposals(
+    request: GenerateProposalsRequest,
+    stage_style_service: StageStyleService = Depends(get_stage_style_service),
+):
     """Generate style proposals with preview images."""
-    session = await stage_style_service.generate_proposals(
-        session_id=request.session_id,
-        num_proposals=request.num_proposals,
-        additional_instructions=request.additional_instructions,
+    return await execute_service_action(
+        lambda: stage_style_service.generate_proposals(
+            session_id=request.session_id,
+            num_proposals=request.num_proposals,
+            additional_instructions=request.additional_instructions,
+        ),
+        "Failed to generate style proposals",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found or no slides")
-    return {"session": session.model_dump()}
 
 
-@router.post("/select")
-async def select_proposal(request: SelectProposalRequest):
+@router.post("/select", response_model=SessionResponse)
+async def select_proposal(
+    request: SelectProposalRequest,
+    stage_style_service: StageStyleService = Depends(get_stage_style_service),
+):
     """Select a style proposal."""
-    session = stage_style_service.select_proposal(
-        session_id=request.session_id,
-        proposal_index=request.proposal_index,
+    return await execute_service_action(
+        lambda: stage_style_service.select_proposal(
+            session_id=request.session_id,
+            proposal_index=request.proposal_index,
+        ),
+        "Session not found or invalid proposal index",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found or invalid proposal index")
-    return {"session": session.model_dump()}
 
 
 @router.get("/placeholder")
-async def placeholder():
+def placeholder():
     """Placeholder endpoint for backwards compatibility."""
     return {"stage": "style", "status": "active"}

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Session, AppConfig, ChatEvent } from '../types';
+import type { Session, AppConfig } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -7,6 +7,18 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Global error interceptor — surfaces user-friendly messages from backend detail field
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const detail = error.response?.data?.detail;
+    if (detail && typeof detail === 'string') {
+      error.message = detail;
+    }
+    return Promise.reject(error);
+  },
+);
 
 // Session APIs
 export const createSession = async (sessionId: string): Promise<Session> => {
@@ -38,8 +50,8 @@ export const goToStage = async (sessionId: string, stage: number): Promise<Sessi
 export const generateSlideTexts = async (
   sessionId: string,
   draftText: string,
-  numSlides: number,
-  includeTitles: boolean,
+  numSlides?: number,
+  includeTitles?: boolean,
   additionalInstructions?: string,
   language: string = 'English'
 ): Promise<Session> => {
@@ -198,57 +210,6 @@ export const applyStyleToAll = async (
     session_id: sessionId,
     style,
   });
-  return response.data.session;
-};
-
-// Chat API (SSE streaming)
-export const sendChatMessageSSE = (
-  sessionId: string,
-  message: string,
-  onEvent: (event: ChatEvent) => void,
-  signal?: AbortSignal,
-): Promise<void> => {
-  return fetch('/api/chat/message', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, message }),
-    signal,
-  }).then(async (response) => {
-    if (!response.ok || !response.body) {
-      onEvent({ event: 'error', message: `HTTP ${response.status}` });
-      return;
-    }
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(trimmed.slice(6)) as ChatEvent;
-            onEvent(data);
-          } catch {
-            // skip malformed lines
-          }
-        }
-      }
-    }
-  });
-};
-
-export const cancelAgent = async (sessionId: string): Promise<void> => {
-  await api.post('/chat/cancel', { session_id: sessionId });
-};
-
-export const undoAgent = async (sessionId: string): Promise<Session> => {
-  const response = await api.post('/chat/undo', { session_id: sessionId });
   return response.data.session;
 };
 

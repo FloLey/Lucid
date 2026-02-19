@@ -1,167 +1,153 @@
-"""Session management service with JSON file persistence."""
+"""Session management service with per-session JSON file persistence."""
 
-import json
-import os
-from pathlib import Path
+import asyncio
+import logging
+import threading
 from typing import Dict, Optional
-from datetime import datetime
+from contextlib import asynccontextmanager
 
 from app.models.session import SessionState
+from app.services.session_store import FileSessionStore
 
-# Path for session persistence (in project root for Docker volume mount)
-SESSIONS_FILE = Path(__file__).parent.parent.parent / "sessions_db.json"
+logger = logging.getLogger(__name__)
 
 
 class SessionManager:
     """
-    Manages session state with JSON file persistence.
+    Manages session state with in-memory cache and file persistence.
 
-    Persistence allows sessions to survive Docker hot-reloads during development,
-    so developers can edit code and continue working on the same session.
+    All mutation methods are async-only. Delegates file I/O to FileSessionStore.
     """
 
-    def __init__(self):
+    def __init__(self, store: Optional[FileSessionStore] = None):
+        """
+        Initialize the SessionManager.
+
+        Args:
+            store: The persistence backend. Defaults to a new FileSessionStore.
+        """
+        self._store = store or FileSessionStore()
         self._sessions: Dict[str, SessionState] = {}
-        self._snapshots: Dict[str, SessionState] = {}
-        self._load_from_file()
+        self._global_lock = threading.Lock()
+        self._session_locks: Dict[str, threading.Lock] = {}
+        self._sessions = self._store.load_all()
 
-    def _load_from_file(self):
-        """Load sessions from JSON file on startup."""
-        if not SESSIONS_FILE.exists():
-            return
+    def _get_session_lock(self, session_id: str) -> threading.Lock:
+        """Get or create a lock for a specific session."""
+        with self._global_lock:
+            if session_id not in self._session_locks:
+                self._session_locks[session_id] = threading.Lock()
+            return self._session_locks[session_id]
 
+    @asynccontextmanager
+    async def _async_lock(self):
+        """Async context manager for acquiring the global threading lock."""
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._global_lock.acquire)
         try:
-            with open(SESSIONS_FILE, "r") as f:
-                data = json.load(f)
-
-            for session_id, session_data in data.items():
-                try:
-                    session = SessionState.model_validate(session_data)
-                    self._sessions[session_id] = session
-                except Exception as e:
-                    # Skip invalid session data
-                    print(f"Warning: Failed to load session {session_id}: {e}")
-
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Warning: Failed to load sessions file: {e}")
-
-    def _save_to_file(self):
-        """Save all sessions to JSON file."""
-        try:
-            data = {}
-            for session_id, session in self._sessions.items():
-                # Use Pydantic's model_dump with mode='json' for serialization
-                data[session_id] = session.model_dump(mode='json')
-
-            with open(SESSIONS_FILE, "w") as f:
-                json.dump(data, f, indent=2, default=str)
-
-        except IOError as e:
-            print(f"Warning: Failed to save sessions file: {e}")
+            yield
+        finally:
+            self._global_lock.release()
 
     @property
     def sessions(self) -> Dict[str, SessionState]:
         """Get all sessions."""
         return self._sessions
 
-    def create_session(self, session_id: str) -> SessionState:
+    async def create_session(self, session_id: str) -> SessionState:
         """Create a new session or return existing one."""
-        if session_id in self._sessions:
-            return self._sessions[session_id]
+        async with self._async_lock():
+            if session_id in self._sessions:
+                return self._sessions[session_id]
 
-        session = SessionState(session_id=session_id)
-        self._sessions[session_id] = session
-        self._save_to_file()
-        return session
+            session = SessionState(session_id=session_id)
+            self._sessions[session_id] = session
+            await self._store.save(session)
+            return session
 
-    def get_session(self, session_id: str) -> Optional[SessionState]:
+    async def get_session(self, session_id: str) -> Optional[SessionState]:
         """Get a session by ID."""
-        return self._sessions.get(session_id)
+        async with self._async_lock():
+            return self._sessions.get(session_id)
 
-    def update_session(self, session: SessionState) -> SessionState:
+    async def update_session(self, session: SessionState) -> SessionState:
         """Update a session's state."""
         session.update_timestamp()
-        self._sessions[session.session_id] = session
-        self._save_to_file()
-        return session
+        async with self._async_lock():
+            self._sessions[session.session_id] = session
+            await self._store.save(session)
+            return session
 
-    def delete_session(self, session_id: str) -> bool:
+    async def delete_session(self, session_id: str) -> bool:
         """Delete a session."""
-        if session_id in self._sessions:
-            del self._sessions[session_id]
-            self._save_to_file()
-            return True
-        return False
+        async with self._async_lock():
+            if session_id in self._sessions:
+                del self._sessions[session_id]
+                self._store.delete(session_id)
+                return True
+            return False
 
-    def advance_stage(self, session_id: str) -> Optional[SessionState]:
+    async def advance_stage(self, session_id: str) -> Optional[SessionState]:
         """Advance session to next stage."""
-        session = self.get_session(session_id)
-        if not session:
-            return None
+        async with self._async_lock():
+            session = self._sessions.get(session_id)
+            if not session:
+                return None
 
-        if session.current_stage < 5:
-            session.current_stage += 1
-            session.update_timestamp()
-            self._save_to_file()
+            if session.current_stage < 5:
+                session.current_stage += 1
+                session.update_timestamp()
+                await self._store.save(session)
 
-        return session
+            return session
 
-    def previous_stage(self, session_id: str) -> Optional[SessionState]:
-        """Go back to previous stage (bi-directional navigation)."""
-        session = self.get_session(session_id)
-        if not session:
-            return None
+    async def previous_stage(self, session_id: str) -> Optional[SessionState]:
+        """Go back to previous stage."""
+        async with self._async_lock():
+            session = self._sessions.get(session_id)
+            if not session:
+                return None
 
-        if session.current_stage > 1:
-            session.current_stage -= 1
-            session.update_timestamp()
-            self._save_to_file()
+            if session.current_stage > 1:
+                session.current_stage -= 1
+                session.update_timestamp()
+                await self._store.save(session)
 
-        return session
+            return session
 
-    def go_to_stage(self, session_id: str, stage: int) -> Optional[SessionState]:
+    async def go_to_stage(
+        self, session_id: str, stage: int
+    ) -> Optional[SessionState]:
         """Go to a specific stage."""
-        session = self.get_session(session_id)
-        if not session:
-            return None
+        async with self._async_lock():
+            session = self._sessions.get(session_id)
+            if not session:
+                return None
 
-        if 1 <= stage <= 5:
-            session.current_stage = stage
-            session.update_timestamp()
-            self._save_to_file()
+            if 1 <= stage <= 5:
+                session.current_stage = stage
+                session.update_timestamp()
+                await self._store.save(session)
 
-        return session
-
-    def take_snapshot(self, session_id: str) -> None:
-        """Deep copy current session state before agent writes."""
-        session = self._sessions.get(session_id)
-        if session:
-            self._snapshots[session_id] = session.model_copy(deep=True)
-
-    def restore_snapshot(self, session_id: str) -> Optional[SessionState]:
-        """Restore session from snapshot and persist. Returns None if no snapshot."""
-        snapshot = self._snapshots.pop(session_id, None)
-        if snapshot:
-            self._sessions[session_id] = snapshot
-            self._save_to_file()
-            return snapshot
-        return None
-
-    def get_snapshot(self, session_id: str) -> Optional[SessionState]:
-        """Get the snapshot for a session (without removing it)."""
-        return self._snapshots.get(session_id)
+            return session
 
     def clear_all(self):
-        """Clear all sessions (for testing)."""
-        self._sessions.clear()
-        self._snapshots.clear()
-        # Also remove the file
-        if SESSIONS_FILE.exists():
-            try:
-                SESSIONS_FILE.unlink()
-            except IOError:
-                pass
+        """Wipe all sessions from memory and disk. Primarily used for testing."""
+        with self._global_lock:
+            self._sessions.clear()
+            self._store.clear_all()
+
+    @asynccontextmanager
+    async def session_context(self, session_id: str):
+        """Async context manager for safe session access with per-session lock."""
+        lock = self._get_session_lock(session_id)
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lock.acquire)
+        try:
+            yield self._sessions.get(session_id)
+        finally:
+            lock.release()
 
 
-# Global session manager instance
+# Module-level singleton — used by test files and the DI container
 session_manager = SessionManager()

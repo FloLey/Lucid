@@ -1,10 +1,13 @@
 """Stage 1 routes - Draft to Slide texts."""
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from app.services.stage1_service import stage1_service
+from app.models.session import SessionResponse
+from app.dependencies import get_stage1_service
+from app.services.stage1_service import Stage1Service
+from app.routes.utils import execute_service_action
 
 router = APIRouter()
 
@@ -14,7 +17,7 @@ class GenerateSlideTextsRequest(BaseModel):
 
     session_id: str
     draft_text: str = Field(min_length=1, description="The draft text to transform")
-    num_slides: int = Field(default=5, ge=1, le=20)
+    num_slides: Optional[int] = Field(default=None, ge=1, le=20)
     include_titles: bool = Field(default=True)
     additional_instructions: Optional[str] = None
     language: str = Field(default="English")
@@ -43,61 +46,73 @@ class RegenerateAllRequest(BaseModel):
     session_id: str
 
 
-@router.post("/generate")
-async def generate_slide_texts(request: GenerateSlideTextsRequest):
+@router.post("/generate", response_model=SessionResponse)
+async def generate_slide_texts(
+    request: GenerateSlideTextsRequest,
+    stage1_service: Stage1Service = Depends(get_stage1_service),
+):
     """Generate slide texts from a draft."""
-    session = await stage1_service.generate_slide_texts(
-        session_id=request.session_id,
-        draft_text=request.draft_text,
-        num_slides=request.num_slides,
-        include_titles=request.include_titles,
-        additional_instructions=request.additional_instructions,
-        language=request.language,
+    return await execute_service_action(
+        lambda: stage1_service.generate_slide_texts(
+            session_id=request.session_id,
+            draft_text=request.draft_text,
+            num_slides=request.num_slides,
+            include_titles=request.include_titles,
+            additional_instructions=request.additional_instructions,
+            language=request.language,
+        ),
+        "Failed to generate slide texts",
     )
-    if not session:
-        raise HTTPException(status_code=500, detail="Failed to generate slide texts")
-    return {"session": session.model_dump()}
 
 
-@router.post("/regenerate-all")
-async def regenerate_all_slide_texts(request: RegenerateAllRequest):
+@router.post("/regenerate-all", response_model=SessionResponse)
+async def regenerate_all_slide_texts(
+    request: RegenerateAllRequest,
+    stage1_service: Stage1Service = Depends(get_stage1_service),
+):
     """Regenerate all slide texts."""
-    session = await stage1_service.regenerate_all_slide_texts(
-        session_id=request.session_id,
+    return await execute_service_action(
+        lambda: stage1_service.regenerate_all_slide_texts(
+            session_id=request.session_id,
+        ),
+        "Failed to regenerate slides",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found or no draft")
-    return {"session": session.model_dump()}
 
 
-@router.post("/regenerate")
-async def regenerate_slide_text(request: RegenerateSlideTextRequest):
+@router.post("/regenerate", response_model=SessionResponse)
+async def regenerate_slide_text(
+    request: RegenerateSlideTextRequest,
+    stage1_service: Stage1Service = Depends(get_stage1_service),
+):
     """Regenerate a single slide text."""
-    session = await stage1_service.regenerate_slide_text(
-        session_id=request.session_id,
-        slide_index=request.slide_index,
-        instruction=request.instruction,
+    return await execute_service_action(
+        lambda: stage1_service.regenerate_slide_text(
+            session_id=request.session_id,
+            slide_index=request.slide_index,
+            instruction=request.instruction,
+        ),
+        "Failed to regenerate slide",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session or slide not found")
-    return {"session": session.model_dump()}
 
 
-@router.post("/update")
-async def update_slide_text(request: UpdateSlideTextRequest):
+@router.post("/update", response_model=SessionResponse)
+async def update_slide_text(
+    request: UpdateSlideTextRequest,
+    stage1_service: Stage1Service = Depends(get_stage1_service),
+):
     """Manually update a slide's text."""
-    session = stage1_service.update_slide_text(
-        session_id=request.session_id,
-        slide_index=request.slide_index,
-        title=request.title,
-        body=request.body,
+    return await execute_service_action(
+        lambda: stage1_service.update_slide_text(
+            session_id=request.session_id,
+            slide_index=request.slide_index,
+            title=request.title,
+            body=request.body,
+        ),
+        "Session or slide not found",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session or slide not found")
-    return {"session": session.model_dump()}
 
 
 @router.get("/placeholder")
-async def placeholder():
+def placeholder():
     """Placeholder endpoint for backwards compatibility."""
     return {"stage": 1, "status": "active"}

@@ -1,13 +1,14 @@
 """Rendering service for typography and layout on images."""
 
 import logging
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 
 from PIL import Image, ImageDraw, ImageFont
 
 from app.models.style import TextStyle, BoxStyle
-from app.services.font_manager import font_manager
-from app.services.image_service import image_service
+from app.services.font_manager import FontManager
+from app.services.image_service import ImageService
+from app.services.config_manager import ConfigManager
 from app.config import IMAGE_WIDTH, IMAGE_HEIGHT
 
 logger = logging.getLogger(__name__)
@@ -16,10 +17,24 @@ logger = logging.getLogger(__name__)
 class RenderingService:
     """Service for rendering text onto images with typography and layout."""
 
+    def __init__(
+        self,
+        config_manager: Optional[ConfigManager] = None,
+        font_manager: Optional[FontManager] = None,
+        image_service: Optional[ImageService] = None,
+    ):
+        # Dependencies are provided via DI container
+        self.config_manager = config_manager
+        self.font_manager = font_manager
+        self.image_service = image_service
+        # Ensure dependencies are present (should always be true with DI container)
+        if not all([self.config_manager, self.font_manager, self.image_service]):
+            raise ValueError("All dependencies must be provided to RenderingService")
+
     def _wrap_text(
         self,
         text: str,
-        font: ImageFont.FreeTypeFont,
+        font: Union[ImageFont.FreeTypeFont, ImageFont.ImageFont],
         max_width: int,
         draw: ImageDraw.ImageDraw,
     ) -> List[str]:
@@ -65,7 +80,7 @@ class RenderingService:
         self,
         draw: ImageDraw.ImageDraw,
         lines: List[str],
-        font: ImageFont.FreeTypeFont,
+        font: Union[ImageFont.FreeTypeFont, ImageFont.ImageFont],
         style: TextStyle,
         line_height: float,
         start_y: float,
@@ -77,17 +92,17 @@ class RenderingService:
     ) -> None:
         """Draw lines of text with alignment, shadow, and stroke."""
         for i, line in enumerate(lines):
-            line_y = start_y + (i * line_height)
+            line_y = int(start_y + (i * line_height))
 
             bbox = draw.textbbox((0, 0), line, font=font)
             line_width = bbox[2] - bbox[0]
 
             if style.alignment == "left":
-                line_x = box_x + padding
+                line_x = int(box_x + padding)
             elif style.alignment == "right":
-                line_x = box_x + box_w - padding - line_width
+                line_x = int(box_x + box_w - padding - line_width)
             else:  # center
-                line_x = box_x + (box_w - line_width) / 2
+                line_x = int(box_x + (box_w - line_width) / 2)
 
             # Draw shadow
             if style.shadow.enabled:
@@ -129,6 +144,8 @@ class RenderingService:
         draw: ImageDraw.ImageDraw,
     ) -> Tuple[int, List[str]]:
         """Find the largest font size (up to max_size) where all text fits."""
+        if not self.font_manager:
+            raise ValueError("Font manager not initialized")
         min_size = 12
         if max_size < min_size:
             max_size = min_size
@@ -139,7 +156,7 @@ class RenderingService:
 
         while low <= high:
             mid = (low + high) // 2
-            font = font_manager.get_font(font_family, font_weight, mid)
+            font = self.font_manager.get_font(font_family, font_weight, mid)
             lines = self._wrap_text(text, font, box_width, draw)
 
             total_h = mid * line_spacing * len(lines)
@@ -151,7 +168,7 @@ class RenderingService:
                 high = mid - 1
 
         if not best_lines:
-            font = font_manager.get_font(font_family, font_weight, min_size)
+            font = self.font_manager.get_font(font_family, font_weight, min_size)
             best_lines = self._wrap_text(text, font, box_width, draw)
             best_size = min_size
 
@@ -169,6 +186,8 @@ class RenderingService:
         stroke_color: Optional[Tuple[int, int, int, int]],
     ) -> None:
         """Render a single text block within its box, auto-scaling to fit."""
+        if not self.font_manager:
+            raise ValueError("Font manager not initialized")
         padding = int(IMAGE_WIDTH * box.padding_pct)
         box_x = int(IMAGE_WIDTH * box.x_pct)
         box_y = int(IMAGE_HEIGHT * box.y_pct)
@@ -182,19 +201,33 @@ class RenderingService:
             return
 
         font_size, lines = self._find_fitting_size(
-            text, style.font_family, font_weight,
-            font_size_px, style.line_spacing,
-            text_width, text_height, draw,
+            text,
+            style.font_family,
+            font_weight,
+            font_size_px,
+            style.line_spacing,
+            text_width,
+            text_height,
+            draw,
         )
 
-        font = font_manager.get_font(style.font_family, font_weight, font_size)
+        font = self.font_manager.get_font(style.font_family, font_weight, font_size)
         line_height = font_size * style.line_spacing
         total_text_height = line_height * len(lines)
         start_y = box_y + padding + (text_height - total_text_height) / 2
 
         self._draw_lines(
-            draw, lines, font, style, line_height, start_y,
-            box_x, box_w, padding, text_color, stroke_color,
+            draw,
+            lines,
+            font,
+            style,
+            line_height,
+            start_y,
+            box_x,
+            box_w,
+            padding,
+            text_color,
+            stroke_color,
         )
 
     def render_text_on_image(
@@ -205,7 +238,9 @@ class RenderingService:
         body: str = "",
     ) -> str:
         """Render text onto a background image with given style."""
-        background = image_service.decode_image(background_base64)
+        if not self.image_service:
+            raise ValueError("Image service not initialized")
+        background = self.image_service.decode_image(background_base64)
         background = background.convert("RGBA")
 
         if background.size != (IMAGE_WIDTH, IMAGE_HEIGHT):
@@ -224,21 +259,32 @@ class RenderingService:
         has_body = body and body.strip()
 
         if has_title:
+            assert title is not None
             self._render_text_block(
-                draw, title, style, style.title_box,
-                style.font_size_px, style.font_weight,
-                text_color, stroke_color,
+                draw,
+                title,
+                style,
+                style.title_box,
+                style.font_size_px,
+                style.font_weight,
+                text_color,
+                stroke_color,
             )
 
         if has_body:
             body_weight = max(400, style.font_weight - 200)
             self._render_text_block(
-                draw, body, style, style.body_box,
-                style.body_font_size_px, body_weight,
-                text_color, stroke_color,
+                draw,
+                body,
+                style,
+                style.body_box,
+                style.body_font_size_px,
+                body_weight,
+                text_color,
+                stroke_color,
             )
 
-        return image_service.encode_image(background)
+        return self.image_service.encode_image(background)
 
     def suggest_style(
         self,
@@ -246,7 +292,9 @@ class RenderingService:
         text: str,
     ) -> TextStyle:
         """Analyze background and suggest optimal text style."""
-        background = image_service.decode_image(background_base64)
+        if not self.image_service:
+            raise ValueError("Image service not initialized")
+        background = self.image_service.decode_image(background_base64)
         background = background.convert("RGB")
 
         width, height = background.size
@@ -292,7 +340,3 @@ class RenderingService:
         style.stroke.color = stroke_color
 
         return style
-
-
-# Global rendering service instance
-rendering_service = RenderingService()

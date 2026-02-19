@@ -4,7 +4,6 @@ Font Download Script for Lucid
 Downloads TTF fonts from Google Fonts GitHub repository during Docker build.
 """
 
-import os
 import urllib.request
 import ssl
 from pathlib import Path
@@ -29,7 +28,7 @@ FONTS = {
         "files": [
             ("Roboto-Regular.ttf", 400),
             ("Roboto-Bold.ttf", 700),
-        ]
+        ],
     },
     "Montserrat": {
         "repo": "JulietaUla/Montserrat",
@@ -38,7 +37,7 @@ FONTS = {
         "files": [
             ("Montserrat-Regular.ttf", 400),
             ("Montserrat-Bold.ttf", 700),
-        ]
+        ],
     },
     "Oswald": {
         "repo": "googlefonts/OswaldFont",
@@ -47,7 +46,7 @@ FONTS = {
         "files": [
             ("Oswald-Regular.ttf", 400),
             ("Oswald-Bold.ttf", 700),
-        ]
+        ],
     },
     "Playfair": {
         "repo": "technext/cozastore",
@@ -56,7 +55,7 @@ FONTS = {
         "files": [
             ("PlayfairDisplay-Regular.ttf", 400),
             ("PlayfairDisplay-Bold.ttf", 700),
-        ]
+        ],
     },
 }
 
@@ -84,8 +83,7 @@ def download_file(url: str, dest: Path, timeout: int = 30) -> bool:
         ctx.verify_mode = ssl.CERT_NONE
 
         req = urllib.request.Request(
-            url,
-            headers={'User-Agent': 'Mozilla/5.0 (Lucid Font Downloader)'}
+            url, headers={"User-Agent": "Mozilla/5.0 (Lucid Font Downloader)"}
         )
 
         with urllib.request.urlopen(req, timeout=timeout, context=ctx) as response:
@@ -182,7 +180,7 @@ def download_fonts():
 
             # Try fallback URL
             if filename in FALLBACK_URLS:
-                print(f"  Trying fallback URL...")
+                print("  Trying fallback URL...")
                 if download_file(FALLBACK_URLS[filename], dest):
                     print(f"  ✓ {filename} (fallback)")
                     downloaded += 1

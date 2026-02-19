@@ -1,8 +1,23 @@
 import { useState, useEffect } from 'react';
 import type { AppConfig, StageInstructionsConfig, GlobalDefaultsConfig, ImageConfig, StyleConfig } from '../types';
 import * as api from '../services/api';
+import { getErrorMessage } from '../utils/error';
+import Spinner from './Spinner';
+import PromptsTab from './config-tabs/PromptsTab';
+import InstructionsTab from './config-tabs/InstructionsTab';
+import GlobalTab from './config-tabs/GlobalTab';
+import ImageTab from './config-tabs/ImageTab';
+import StyleTab from './config-tabs/StyleTab';
 
 type Tab = 'prompts' | 'instructions' | 'global' | 'image' | 'style';
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'prompts', label: 'Prompts' },
+  { id: 'instructions', label: 'Instructions' },
+  { id: 'global', label: 'Global' },
+  { id: 'image', label: 'Image' },
+  { id: 'style', label: 'Style' },
+];
 
 interface ConfigSettingsProps {
   onClose: () => void;
@@ -31,8 +46,8 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
       ]);
       setConfig(configData);
       setPrompts(promptsData);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load configuration');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load configuration'));
     } finally {
       setLoading(false);
     }
@@ -52,8 +67,8 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
       ]);
 
       showSuccess('Configuration saved successfully!');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to save configuration');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to save configuration'));
     } finally {
       setSaving(false);
     }
@@ -70,8 +85,8 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
       const data = await api.resetConfig();
       setConfig(data);
       showSuccess('Configuration reset to defaults');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to reset configuration');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to reset configuration'));
     } finally {
       setSaving(false);
     }
@@ -110,8 +125,8 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl p-8 shadow-2xl">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-lucid-600 mx-auto"></div>
+        <div className="bg-white rounded-xl p-8 shadow-2xl text-center">
+          <Spinner size="lg" className="mx-auto" />
           <p className="mt-4 text-gray-600">Loading configuration...</p>
         </div>
       </div>
@@ -142,13 +157,7 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
 
         {/* Tab Navigation */}
         <div className="flex border-b border-gray-200 px-6">
-          {[
-            { id: 'prompts' as Tab, label: 'Prompts', icon: '📝' },
-            { id: 'instructions' as Tab, label: 'Instructions', icon: '📋' },
-            { id: 'global' as Tab, label: 'Global', icon: '🌍' },
-            { id: 'image' as Tab, label: 'Image', icon: '🖼️' },
-            { id: 'style' as Tab, label: 'Style', icon: '🎨' },
-          ].map((tab) => (
+          {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -158,7 +167,6 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <span className="mr-2">{tab.icon}</span>
               {tab.label}
             </button>
           ))}
@@ -198,7 +206,7 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
             >
               {saving ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <Spinner size="sm" className="border-white" />
                   Saving...
                 </>
               ) : hasValidationErrors ? (
@@ -233,512 +241,6 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// Prompts Tab Component
-function PromptsTab({ prompts, onChange, onValidationChange }: {
-  prompts: Record<string, string>;
-  onChange: (updates: Record<string, string>) => void;
-  onValidationChange: (hasErrors: boolean) => void;
-}) {
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [validationWarnings, setValidationWarnings] = useState<Record<string, string>>({});
-  const [validating, setValidating] = useState(false);
-
-  const promptList = [
-    {
-      key: 'slide_generation',
-      label: 'Slide Generation',
-      description: 'Generate slide texts from draft',
-      variables: [
-        '{num_slides_instruction} → "Generate exactly 5 slides." or "Choose the optimal number of slides based on the content (maximum 10 slides)."',
-        '{language_instruction} → "Write ALL slide content in English."',
-        '{title_instruction} → "Each slide MUST have both a title and body." or "Each slide should only have body text (no titles)."',
-        '{additional_instructions} → User-provided instructions (optional)',
-        '{draft} → User\'s original draft text',
-        '{slide_format} → \'"title" (string) and "body" (string)\' or \'"body" (string) only\'',
-        '{response_format} → \'{"slides": [{"title": "Hook", "body": "Grab attention here"}, ...]}\' or \'{"slides": [{"body": "First slide content"}, ...]}\''
-      ]
-    },
-    {
-      key: 'style_proposal',
-      label: 'Style Proposal',
-      description: 'Generate visual style proposals',
-      variables: [
-        '{num_proposals} → Number (e.g., 3)',
-        '{slides_text} → "Slide 1: Title\\nBody text\\nSlide 2: ..."',
-        '{additional_instructions} → "Additional instructions: Make it vibrant" or empty',
-        '{response_format} → \'{"proposals": [{"description": "your image generation prompt here"}]}\''
-      ]
-    },
-    {
-      key: 'generate_single_image_prompt',
-      label: 'Image Prompt Generation (Per-Slide)',
-      description: 'Generate image prompts for each slide in parallel',
-      variables: [
-        '{slide_text} → "Title\\n\\nBody text of the slide"',
-        '{shared_theme} → "Soft watercolor washes in muted earth tones, warm lighting..."',
-        '{style_instructions_text} → "Style instructions: Modern and minimal" or empty',
-        '{context} → "Slide 1: ...\\nSlide 2: ... ← CURRENT SLIDE\\nSlide 3: ..."',
-        '{instruction_text} → "Additional instruction for this regeneration: make it darker" or empty',
-        '{response_format} → \'{"prompt": "your slide-specific image prompt here"}\''
-      ]
-    },
-    {
-      key: 'regenerate_single_slide',
-      label: 'Regenerate Single Slide',
-      description: 'Regenerate one slide\'s text with full context',
-      variables: [
-        '{draft_text} → Original user draft text',
-        '{language_instruction} → "Write ALL slide content in English."',
-        '{all_slides_context} → "Slide 1: ...\\nSlide 2: ... ← CURRENT SLIDE\\nSlide 3: ..."',
-        '{current_text} → "Current slide title\\n\\nCurrent slide body"',
-        '{instruction_text} → "Additional instruction: Make it more engaging" or empty',
-        '{title_instruction} → "Each slide MUST have both a title and body." or "Each slide should only have body text (no titles)."',
-        '{response_format} → \'{"title": "New Title", "body": "New body text"}\' or \'{"body": "New body text"}\''
-      ]
-    },
-    {
-      key: 'chat_routing',
-      label: 'Chat Routing',
-      description: 'Route chat commands to tools',
-      variables: [
-        '{current_stage} → "1" or "2" or "3" or "4" or "5"',
-        '{tool_descriptions} → "- auto_generate: Generate all content\\n- regenerate_slide: Regenerate one slide\\n..."',
-        '{message} → User\'s chat message',
-        '{response_format} → \'{"tool": "tool_name", "params": {}, "response": "A brief response to the user"}\' or \'{"tool": null, "response": "Your helpful response"}\''
-      ]
-    },
-  ];
-
-  // Validate prompts when they change (debounced)
-  useEffect(() => {
-    const timer = setTimeout(async () => {
-      try {
-        setValidating(true);
-        const result = await api.validatePrompts(prompts);
-        setValidationErrors(result.errors);
-        setValidationWarnings(result.warnings);
-        onValidationChange(Object.keys(result.errors).length > 0);
-      } catch (err) {
-        console.error('Validation error:', err);
-        onValidationChange(false);
-      } finally {
-        setValidating(false);
-      }
-    }, 500); // Debounce 500ms
-
-    return () => clearTimeout(timer);
-  }, [prompts, onValidationChange]);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-sm text-gray-600">
-            Edit the AI prompts stored in <code className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">backend/prompts/*.prompt</code> files. Use <code className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">&#123;variable&#125;</code> syntax for dynamic values.
-          </p>
-          {Object.keys(validationErrors).length > 0 && (
-            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-              <strong>Validation errors found:</strong> Fix missing variables before saving.
-            </div>
-          )}
-          <p className="text-xs text-gray-500 mt-2">
-            💡 Tip: These files are version-controlled. Use git to restore originals if needed.
-          </p>
-        </div>
-      </div>
-
-      {promptList.map((prompt) => {
-        const hasError = validationErrors[prompt.key];
-        const hasWarning = validationWarnings[prompt.key];
-
-        return (
-          <div key={prompt.key} className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-gray-900">{prompt.label}</label>
-              <div className="flex items-center gap-2">
-                {validating && (
-                  <span className="text-xs text-gray-400">Validating...</span>
-                )}
-                {hasError && (
-                  <span className="text-xs text-red-600 font-medium">❌ Invalid</span>
-                )}
-                {!hasError && hasWarning && (
-                  <span className="text-xs text-yellow-600 font-medium">⚠️ Warning</span>
-                )}
-                {!hasError && !hasWarning && !validating && (
-                  <span className="text-xs text-green-600 font-medium">✓ Valid</span>
-                )}
-                <span className="text-xs text-gray-500">
-                  {prompts[prompt.key]?.length || 0} characters
-                </span>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">{prompt.description}</p>
-            <textarea
-              value={prompts[prompt.key] || ''}
-              onChange={(e) => onChange({ [prompt.key]: e.target.value })}
-              rows={8}
-              className={`w-full px-3 py-2 text-sm font-mono border rounded-lg focus:ring-2 resize-y ${
-                hasError
-                  ? 'border-red-300 focus:ring-red-500 focus:border-red-500 bg-red-50'
-                  : hasWarning
-                  ? 'border-yellow-300 focus:ring-yellow-500 focus:border-yellow-500'
-                  : 'border-gray-300 focus:ring-lucid-500 focus:border-lucid-500'
-              }`}
-            />
-            {hasError && (
-              <p className="text-xs text-red-600">
-                {validationErrors[prompt.key]}
-              </p>
-            )}
-            {!hasError && hasWarning && (
-              <p className="text-xs text-yellow-600">
-                {validationWarnings[prompt.key]}
-              </p>
-            )}
-
-            {/* Variables Documentation */}
-            <details className="mt-2">
-              <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-800 select-none">
-                📋 Required variables ({prompt.variables?.length || 0})
-              </summary>
-              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <ul className="space-y-1 text-xs text-gray-700 font-mono">
-                  {prompt.variables?.map((variable, idx) => (
-                    <li key={idx} className="leading-relaxed">
-                      {variable}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </details>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// Instructions Tab Component
-function InstructionsTab({ config, onChange }: {
-  config: AppConfig;
-  onChange: (updates: Partial<StageInstructionsConfig>) => void;
-}) {
-  const stages = [
-    { key: 'stage1' as keyof StageInstructionsConfig, label: 'Stage 1 (Draft)', description: 'Default instructions for generating slide texts' },
-    { key: 'stage_style' as keyof StageInstructionsConfig, label: 'Stage Style', description: 'Default instructions for style proposals' },
-    { key: 'stage2' as keyof StageInstructionsConfig, label: 'Stage 2 (Prompts)', description: 'Default instructions for image prompts' },
-    { key: 'stage3' as keyof StageInstructionsConfig, label: 'Stage 3 (Images)', description: 'Instructions for image generation (if needed)' },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-600">
-        Set default additional instructions for each stage. These will be used when no explicit instructions are provided.
-        Leave empty to use no default instructions.
-      </p>
-
-      {stages.map((stage) => (
-        <div key={stage.key} className="space-y-2">
-          <label className="text-sm font-semibold text-gray-900">{stage.label}</label>
-          <p className="text-xs text-gray-500">{stage.description}</p>
-          <textarea
-            value={config.stage_instructions[stage.key] || ''}
-            onChange={(e) => onChange({ [stage.key]: e.target.value || null })}
-            placeholder="e.g., Make it funny and engaging..."
-            rows={3}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500 resize-y"
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Global Tab Component
-function GlobalTab({ config, onChange }: {
-  config: AppConfig;
-  onChange: (updates: Partial<GlobalDefaultsConfig>) => void;
-}) {
-  // Derive checkbox state from config (no local state needed)
-  const aiDecides = config.global_defaults.num_slides === null;
-
-  const handleAiDecidesChange = (checked: boolean) => {
-    if (checked) {
-      onChange({ num_slides: null });
-    } else {
-      onChange({ num_slides: 5 });
-    }
-  };
-
-  const handleNumSlidesChange = (value: number) => {
-    onChange({ num_slides: value });
-  };
-
-  return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-600">
-        Configure global default parameters used across the application.
-      </p>
-
-      {/* Number of Slides */}
-      <div className="space-y-3">
-        <label className="text-sm font-semibold text-gray-900">Number of Slides</label>
-        <p className="text-xs text-gray-500">Default number of slides to generate</p>
-
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="ai-decides"
-            checked={aiDecides}
-            onChange={(e) => handleAiDecidesChange(e.target.checked)}
-            className="w-4 h-4 text-lucid-600 border-gray-300 rounded focus:ring-lucid-500"
-          />
-          <label htmlFor="ai-decides" className="text-sm text-gray-700">
-            Let AI decide optimal number (max 10)
-          </label>
-        </div>
-
-        {!aiDecides && (
-          <div className="flex items-center gap-4">
-            <input
-              type="number"
-              min="1"
-              max="10"
-              value={config.global_defaults.num_slides || 5}
-              onChange={(e) => handleNumSlidesChange(parseInt(e.target.value))}
-              className="w-24 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-            />
-            <span className="text-sm text-gray-500">slides</span>
-          </div>
-        )}
-      </div>
-
-      {/* Language */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-gray-900">Language</label>
-        <p className="text-xs text-gray-500">Default language for generated content</p>
-        <input
-          type="text"
-          value={config.global_defaults.language}
-          onChange={(e) => onChange({ language: e.target.value })}
-          placeholder="English"
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-        />
-      </div>
-
-      {/* Include Titles */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-gray-900">Include Titles</label>
-        <p className="text-xs text-gray-500">Generate titles for slides by default</p>
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="include-titles"
-            checked={config.global_defaults.include_titles}
-            onChange={(e) => onChange({ include_titles: e.target.checked })}
-            className="w-4 h-4 text-lucid-600 border-gray-300 rounded focus:ring-lucid-500"
-          />
-          <label htmlFor="include-titles" className="text-sm text-gray-700">
-            Include titles in slides
-          </label>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Image Tab Component
-function ImageTab({ config, onChange }: {
-  config: AppConfig;
-  onChange: (updates: Partial<ImageConfig>) => void;
-}) {
-  return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-600">
-        Configure image generation settings.
-      </p>
-
-      {/* Width */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-gray-900">Width (pixels)</label>
-        <input
-          type="number"
-          min="256"
-          max="4096"
-          value={config.image.width}
-          onChange={(e) => onChange({ width: parseInt(e.target.value) })}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-        />
-      </div>
-
-      {/* Height */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-gray-900">Height (pixels)</label>
-        <input
-          type="number"
-          min="256"
-          max="4096"
-          value={config.image.height}
-          onChange={(e) => onChange({ height: parseInt(e.target.value) })}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-        />
-      </div>
-
-      {/* Aspect Ratio */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-gray-900">Aspect Ratio</label>
-        <input
-          type="text"
-          value={config.image.aspect_ratio}
-          onChange={(e) => onChange({ aspect_ratio: e.target.value })}
-          placeholder="4:5"
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-        />
-      </div>
-    </div>
-  );
-}
-
-// Style Tab Component
-function StyleTab({ config, onChange }: {
-  config: AppConfig;
-  onChange: (updates: Partial<StyleConfig>) => void;
-}) {
-  return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-600">
-        Configure default typography and style settings.
-      </p>
-
-      {/* Font Family */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-gray-900">Font Family</label>
-        <input
-          type="text"
-          value={config.style.default_font_family}
-          onChange={(e) => onChange({ default_font_family: e.target.value })}
-          placeholder="Inter"
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-        />
-      </div>
-
-      {/* Font Weight */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-gray-900">Font Weight</label>
-        <input
-          type="number"
-          min="100"
-          max="900"
-          step="100"
-          value={config.style.default_font_weight}
-          onChange={(e) => onChange({ default_font_weight: parseInt(e.target.value) })}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-        />
-      </div>
-
-      {/* Font Size */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-gray-900">Font Size (pixels)</label>
-        <input
-          type="number"
-          min="12"
-          max="200"
-          value={config.style.default_font_size_px}
-          onChange={(e) => onChange({ default_font_size_px: parseInt(e.target.value) })}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-        />
-      </div>
-
-      {/* Text Color */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-gray-900">Text Color</label>
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            value={config.style.default_text_color}
-            onChange={(e) => onChange({ default_text_color: e.target.value })}
-            className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
-          />
-          <input
-            type="text"
-            value={config.style.default_text_color}
-            onChange={(e) => onChange({ default_text_color: e.target.value })}
-            placeholder="#FFFFFF"
-            className="flex-1 px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-          />
-        </div>
-      </div>
-
-      {/* Alignment */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-gray-900">Text Alignment</label>
-        <select
-          value={config.style.default_alignment}
-          onChange={(e) => onChange({ default_alignment: e.target.value })}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-        >
-          <option value="left">Left</option>
-          <option value="center">Center</option>
-          <option value="right">Right</option>
-        </select>
-      </div>
-
-      {/* Stroke/Outline Settings */}
-      <div className="pt-4 border-t border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Text Stroke/Outline</h3>
-
-        {/* Stroke Enabled */}
-        <div className="flex items-center gap-2 mb-4">
-          <input
-            type="checkbox"
-            id="stroke-enabled"
-            checked={config.style.default_stroke_enabled || false}
-            onChange={(e) => onChange({ default_stroke_enabled: e.target.checked })}
-            className="w-4 h-4 text-lucid-600 border-gray-300 rounded focus:ring-lucid-500"
-          />
-          <label htmlFor="stroke-enabled" className="text-sm text-gray-700">
-            Enable stroke/outline by default
-          </label>
-        </div>
-
-        {/* Stroke Width */}
-        <div className="space-y-2 mb-4">
-          <label className="text-sm font-semibold text-gray-900">Stroke Width (pixels)</label>
-          <input
-            type="number"
-            min="0"
-            max="20"
-            value={config.style.default_stroke_width_px || 2}
-            onChange={(e) => onChange({ default_stroke_width_px: parseInt(e.target.value) })}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-          />
-        </div>
-
-        {/* Stroke Color */}
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-gray-900">Stroke Color</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={config.style.default_stroke_color || '#000000'}
-              onChange={(e) => onChange({ default_stroke_color: e.target.value })}
-              className="w-16 h-10 border border-gray-300 rounded cursor-pointer"
-            />
-            <input
-              type="text"
-              value={config.style.default_stroke_color || '#000000'}
-              onChange={(e) => onChange({ default_stroke_color: e.target.value })}
-              placeholder="#000000"
-              className="flex-1 px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-lucid-500 focus:border-lucid-500"
-            />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

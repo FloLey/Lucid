@@ -10,13 +10,26 @@ from io import BytesIO
 from typing import Optional
 
 from app.models.session import SessionState
-from app.services.session_manager import session_manager
+from app.services.session_manager import SessionManager
+from app.services.config_manager import ConfigManager
 
 logger = logging.getLogger(__name__)
 
 
 class ExportService:
     """Service for exporting carousel slides as ZIP archives."""
+
+    def __init__(
+        self,
+        session_manager: Optional[SessionManager] = None,
+        config_manager: Optional[ConfigManager] = None,
+    ):
+        # Dependencies are provided via DI container
+        self.session_manager = session_manager
+        self.config_manager = config_manager
+        # Ensure dependencies are present (should always be true with DI container)
+        if not all([self.session_manager, self.config_manager]):
+            raise ValueError("All dependencies must be provided to ExportService")
 
     def _sanitize_filename(self, text: str, max_length: int = 30) -> str:
         """Sanitize text for use in filename."""
@@ -40,13 +53,15 @@ class ExportService:
         """Generate metadata for the export."""
         slides_meta = []
         for slide in session.slides:
-            slides_meta.append({
-                "index": slide.index,
-                "title": slide.text.title,
-                "body": slide.text.body,
-                "image_prompt": slide.image_prompt,
-                "style": slide.style.model_dump(),
-            })
+            slides_meta.append(
+                {
+                    "index": slide.index,
+                    "title": slide.text.title,
+                    "body": slide.text.body,
+                    "image_prompt": slide.image_prompt,
+                    "style": slide.style.model_dump(),
+                }
+            )
 
         return {
             "session_id": session.session_id,
@@ -58,9 +73,11 @@ class ExportService:
             "slides": slides_meta,
         }
 
-    def export_session(self, session_id: str) -> Optional[BytesIO]:
+    async def export_session(self, session_id: str) -> Optional[BytesIO]:
         """Export session slides as ZIP archive."""
-        session = session_manager.get_session(session_id)
+        if not self.session_manager:
+            return None
+        session = await self.session_manager.get_session(session_id)
         if not session or not session.slides:
             return None
 
@@ -121,13 +138,15 @@ class ExportService:
 
         return "\n".join(lines)
 
-    def export_single_slide(
+    async def export_single_slide(
         self,
         session_id: str,
         slide_index: int,
     ) -> Optional[BytesIO]:
         """Export a single slide as PNG."""
-        session = session_manager.get_session(session_id)
+        if not self.session_manager:
+            return None
+        session = await self.session_manager.get_session(session_id)
         if not session or slide_index >= len(session.slides):
             return None
 
@@ -144,7 +163,3 @@ class ExportService:
         except Exception as e:
             logger.error(f"Error exporting slide {slide_index}: {e}")
             return None
-
-
-# Global export service instance
-export_service = ExportService()

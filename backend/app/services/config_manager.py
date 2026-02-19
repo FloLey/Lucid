@@ -5,14 +5,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from app.models.config import (
-    AppConfig,
-    PromptsConfig,
-    StageInstructionsConfig,
-    GlobalDefaultsConfig,
-    ImageConfig,
-    StyleConfig,
-)
+from app.models.config import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +47,7 @@ class ConfigManager:
         """Persist current configuration to file."""
         try:
             with open(self.config_file, "w", encoding="utf-8") as f:
-                json.dump(
-                    self.config.model_dump(),
-                    f,
-                    indent=2,
-                    ensure_ascii=False
-                )
+                json.dump(self.config.model_dump(), f, indent=2, ensure_ascii=False)
             logger.info(f"Saved configuration to {self.config_file}")
         except Exception as e:
             logger.error(f"Failed to save config to {self.config_file}: {e}")
@@ -86,20 +74,9 @@ class ConfigManager:
         self._save_to_file()
         return self.config
 
-    def update_prompts(self, prompts: PromptsConfig) -> AppConfig:
-        """Update all prompts.
-
-        Args:
-            prompts: New prompts configuration
-
-        Returns:
-            AppConfig: Updated configuration
-        """
-        self.config.prompts = prompts
-        self._save_to_file()
-        return self.config
-
-    def update_stage_instructions(self, stage: str, instructions: Optional[str]) -> AppConfig:
+    def update_stage_instructions(
+        self, stage: str, instructions: Optional[str]
+    ) -> AppConfig:
         """Update instructions for a specific stage.
 
         Args:
@@ -174,17 +151,3 @@ class ConfigManager:
         self.config = AppConfig()
         self._save_to_file()
         return self.config
-
-    def reset_prompts(self) -> AppConfig:
-        """Reset only prompts to defaults.
-
-        Returns:
-            AppConfig: Updated configuration
-        """
-        self.config.prompts = PromptsConfig()
-        self._save_to_file()
-        return self.config
-
-
-# Global singleton instance
-config_manager = ConfigManager()

@@ -6,11 +6,24 @@ import { getErrorMessage } from '../utils/error';
 
 const SESSION_KEY = 'lucid_session_id';
 
+/** Ensure array fields are never undefined. */
+function normalizeSession(session: Session): Session {
+  return {
+    ...session,
+    slides: session.slides ?? [],
+    style_proposals: session.style_proposals ?? [],
+  };
+}
+
 export function useSession() {
   const [sessionId, setSessionId] = useState<string>('');
   const [session, setSession] = useState<Session | null>(null);
   const [stageLoading, setStageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const setNormalizedSession = useCallback((sess: Session) => {
+    setSession(normalizeSession(sess));
+  }, []);
 
   // Initialize session
   useEffect(() => {
@@ -24,58 +37,58 @@ export function useSession() {
 
       try {
         const sess = await api.createSession(id);
-        setSession(sess);
+        setNormalizedSession(sess);
       } catch (err) {
         console.error('Failed to create session:', err);
       }
     };
 
     initSession();
-  }, []);
+  }, [setNormalizedSession]);
 
   const refreshSession = useCallback(async () => {
     if (!sessionId) return;
     try {
       const sess = await api.getSession(sessionId);
-      setSession(sess);
+      setNormalizedSession(sess);
     } catch (err) {
       console.error('Failed to refresh session:', err);
     }
-  }, [sessionId]);
+  }, [sessionId, setNormalizedSession]);
 
   const updateSession = useCallback((newSession: Session) => {
-    setSession(newSession);
-  }, []);
+    setNormalizedSession(newSession);
+  }, [setNormalizedSession]);
 
   const advanceStage = useCallback(async () => {
     if (!sessionId) return;
     try {
       const sess = await api.advanceStage(sessionId);
-      setSession(sess);
+      setNormalizedSession(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to advance stage'));
     }
-  }, [sessionId]);
+  }, [sessionId, setNormalizedSession]);
 
   const previousStage = useCallback(async () => {
     if (!sessionId) return;
     try {
       const sess = await api.previousStage(sessionId);
-      setSession(sess);
+      setNormalizedSession(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to go back'));
     }
-  }, [sessionId]);
+  }, [sessionId, setNormalizedSession]);
 
   const goToStage = useCallback(async (stage: number) => {
     if (!sessionId) return;
     try {
       const sess = await api.goToStage(sessionId, stage);
-      setSession(sess);
+      setNormalizedSession(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to navigate to stage'));
     }
-  }, [sessionId]);
+  }, [sessionId, setNormalizedSession]);
 
   const startNewSession = useCallback(async () => {
     const id = uuidv4();
@@ -83,11 +96,11 @@ export function useSession() {
     setSessionId(id);
     try {
       const sess = await api.createSession(id);
-      setSession(sess);
+      setNormalizedSession(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to create new session'));
     }
-  }, []);
+  }, [setNormalizedSession]);
 
   return {
     sessionId,

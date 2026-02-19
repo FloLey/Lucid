@@ -11,4 +11,6 @@ class StyleProposal(BaseModel):
     description: str = Field(
         description="Common visual style prompt (used for preview and prepended to all slides)"
     )
-    preview_image: Optional[str] = Field(default=None, description="Base64 preview image (display only)")
+    preview_image: Optional[str] = Field(
+        default=None, description="Base64 preview image (display only)"
+    )

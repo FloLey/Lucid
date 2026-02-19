@@ -1,6 +1,5 @@
 """Tests for Export service."""
 
-import base64
 import json
 import zipfile
 from io import BytesIO
@@ -9,10 +8,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.session_manager import session_manager
-from app.services.export_service import export_service
-from app.services.image_service import image_service
+from app.dependencies import container
 from app.models.slide import Slide, SlideText
+from tests.conftest import run_async
+
+session_manager = container.session_manager
+export_service = container.export_service
+image_service = container.image_service
 
 
 @pytest.fixture
@@ -32,7 +34,7 @@ def sample_image_base64():
 def session_with_final_images(sample_image_base64):
     """Create a session with final images."""
     session_manager.clear_all()
-    session = session_manager.create_session("test-export")
+    session = run_async(session_manager.create_session("test-export"))
     session.draft_text = "This is my test draft for export"
     session.slides = [
         Slide(
@@ -54,7 +56,7 @@ def session_with_final_images(sample_image_base64):
             final_image=sample_image_base64,
         ),
     ]
-    session_manager.update_session(session)
+    run_async(session_manager.update_session(session))
     return session
 
 
@@ -65,7 +67,12 @@ class TestExportService:
         """Test filename sanitization."""
         assert export_service._sanitize_filename("Hello World!") == "Hello_World"
         assert export_service._sanitize_filename("Test@#$%") == "Test"
-        assert export_service._sanitize_filename("A very long title that should be truncated") == "A_very_long_title_that_should"
+        assert (
+            export_service._sanitize_filename(
+                "A very long title that should be truncated"
+            )
+            == "A_very_long_title_that_should"
+        )
 
     def test_generate_filename_with_title(self):
         """Test filename generation with title."""
@@ -84,7 +91,7 @@ class TestExportService:
 
     def test_export_session(self, session_with_final_images):
         """Test exporting a full session."""
-        zip_buffer = export_service.export_session("test-export")
+        zip_buffer = run_async(export_service.export_session("test-export"))
         assert zip_buffer is not None
 
         # Verify ZIP contents
@@ -98,7 +105,7 @@ class TestExportService:
 
     def test_export_session_metadata(self, session_with_final_images):
         """Test metadata in exported ZIP."""
-        zip_buffer = export_service.export_session("test-export")
+        zip_buffer = run_async(export_service.export_session("test-export"))
 
         with zipfile.ZipFile(zip_buffer, "r") as zf:
             metadata_content = zf.read("metadata.json")
@@ -111,7 +118,7 @@ class TestExportService:
 
     def test_export_session_text_file(self, session_with_final_images):
         """Test text content file in exported ZIP."""
-        zip_buffer = export_service.export_session("test-export")
+        zip_buffer = run_async(export_service.export_session("test-export"))
 
         with zipfile.ZipFile(zip_buffer, "r") as zf:
             text_content = zf.read("slide_texts.txt").decode("utf-8")
@@ -123,12 +130,14 @@ class TestExportService:
     def test_export_session_no_session(self):
         """Test export with no session."""
         session_manager.clear_all()
-        zip_buffer = export_service.export_session("nonexistent")
+        zip_buffer = run_async(export_service.export_session("nonexistent"))
         assert zip_buffer is None
 
     def test_export_single_slide(self, session_with_final_images):
         """Test exporting a single slide."""
-        image_buffer = export_service.export_single_slide("test-export", 0)
+        image_buffer = run_async(
+            export_service.export_single_slide("test-export", 0)
+        )
         assert image_buffer is not None
 
         # Should be valid PNG
@@ -137,7 +146,9 @@ class TestExportService:
 
     def test_export_single_slide_invalid_index(self, session_with_final_images):
         """Test export with invalid slide index."""
-        image_buffer = export_service.export_single_slide("test-export", 99)
+        image_buffer = run_async(
+            export_service.export_single_slide("test-export", 99)
+        )
         assert image_buffer is None
 
 
