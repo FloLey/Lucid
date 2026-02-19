@@ -8,7 +8,6 @@ from app.models.project import (
     ProjectListResponse,
     ProjectResponse,
     RenameProjectRequest,
-    StageNavigationRequest,
 )
 from app.services.project_manager import ProjectManager
 from app.services.template_manager import TemplateManager

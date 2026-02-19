@@ -91,9 +91,3 @@ async def export_slide_get(
 ):
     """Export a single slide as PNG (GET method for direct download)."""
     return await _build_slide_response(project_id, slide_index, export_service)
-
-
-@router.get("/placeholder")
-def placeholder():
-    """Placeholder endpoint for backwards compatibility."""
-    return {"feature": "export", "status": "active"}

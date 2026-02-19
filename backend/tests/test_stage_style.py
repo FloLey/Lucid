@@ -171,8 +171,3 @@ class TestStageStyleRoutes:
         )
         assert response.status_code == 404
 
-    def test_placeholder_works(self, client):
-        """Test that placeholder endpoint still works."""
-        response = client.get("/api/stage-style/placeholder")
-        assert response.status_code == 200
-        assert response.json()["stage"] == "style"

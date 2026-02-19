@@ -164,12 +164,6 @@ class ProjectListResponse(BaseModel):
     projects: List[ProjectCard]
 
 
-class StageNavigationRequest(BaseModel):
-    """Generic stage-navigation request body."""
-
-    project_id: str
-
-
 # ---------------------------------------------------------------------------
 # Template models
 # ---------------------------------------------------------------------------

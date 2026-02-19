@@ -56,9 +56,3 @@ async def select_proposal(
         ),
         "Project not found or invalid proposal index",
     )
-
-
-@router.get("/placeholder")
-def placeholder():
-    """Placeholder endpoint for backwards compatibility."""
-    return {"stage": "style", "status": "active"}

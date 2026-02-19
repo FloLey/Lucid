@@ -122,9 +122,3 @@ async def apply_style_to_all(
         ),
         "Project not found or no slides",
     )
-
-
-@router.get("/placeholder")
-async def placeholder():
-    """Placeholder endpoint for backwards compatibility."""
-    return {"stage": 4, "status": "active"}

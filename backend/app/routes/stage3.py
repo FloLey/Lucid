@@ -75,9 +75,3 @@ async def set_image(
         ),
         "Project or slide not found",
     )
-
-
-@router.get("/placeholder")
-async def placeholder():
-    """Placeholder endpoint for backwards compatibility."""
-    return {"stage": 3, "status": "active"}
