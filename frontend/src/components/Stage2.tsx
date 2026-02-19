@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
-import { useSessionContext } from '../contexts/SessionContext';
+import { useProject } from '../contexts/ProjectContext';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { PROPOSAL_COUNT_OPTIONS } from '../constants';
 import Spinner from './Spinner';
@@ -9,15 +9,15 @@ import StageLayout from './StageLayout';
 
 export default function Stage2() {
   const {
-    sessionId,
-    session,
-    loading,
-    setLoading,
+    projectId,
+    currentProject: project,
+    stageLoading: loading,
+    setStageLoading: setLoading,
     setError,
-    updateSession,
-    onNext,
-    onBack,
-  } = useSessionContext();
+    updateProject,
+    advanceStage: onNext,
+    previousStage: onBack,
+  } = useProject();
 
   const config = useAppConfig();
   const [numProposals, setNumProposals] = useState(3);
@@ -26,14 +26,14 @@ export default function Stage2() {
   // Apply config default instructions for new sessions (no proposals yet)
   useEffect(() => {
     if (!config) return;
-    const isNewSession = !session?.style_proposals || session.style_proposals.length === 0;
-    if (isNewSession && config.stage_instructions.stage_style) {
+    const isNewProject = !project?.style_proposals || project.style_proposals.length === 0;
+    if (isNewProject && config.stage_instructions.stage_style) {
       setInstructions(config.stage_instructions.stage_style);
     }
-  }, [config, session]);
+  }, [config, project]);
 
-  const proposals = session?.style_proposals || [];
-  const selectedIndex = session?.selected_style_proposal_index ?? null;
+  const proposals = project?.style_proposals || [];
+  const selectedIndex = project?.selected_style_proposal_index ?? null;
   const hasProposals = proposals.length > 0;
 
   const handleGenerate = async () => {
@@ -41,11 +41,11 @@ export default function Stage2() {
     setError(null);
     try {
       const sess = await api.generateStyleProposals(
-        sessionId,
+        projectId,
         numProposals,
         instructions || undefined
       );
-      updateSession(sess);
+      updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate style proposals'));
     } finally {
@@ -55,14 +55,14 @@ export default function Stage2() {
 
   const handleSelect = async (index: number) => {
     try {
-      const sess = await api.selectStyleProposal(sessionId, index);
-      updateSession(sess);
+      const sess = await api.selectStyleProposal(projectId, index);
+      updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to select style proposal'));
     }
   };
 
-  const slides = session?.slides || [];
+  const slides = project?.slides || [];
 
   return (
     <StageLayout

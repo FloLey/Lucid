@@ -5,12 +5,12 @@ import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
-from app.models.session import SessionState
+from app.models.project import ProjectState
 from app.models.style_proposal import StyleProposal
 from app.services.prompt_loader import load_prompt_file
 
 if TYPE_CHECKING:
-    from app.services.session_manager import SessionManager
+    from app.services.project_manager import ProjectManager
     from app.services.gemini_service import GeminiService
     from app.services.image_service import ImageService
 
@@ -18,49 +18,49 @@ logger = logging.getLogger(__name__)
 
 
 class StageStyleService:
-    """Service for Stage 2: Visual style proposal generation and selection."""
+    """Service for Stage Style: Visual style proposal generation and selection."""
 
-    session_manager: SessionManager
+    project_manager: ProjectManager
     gemini_service: GeminiService
     image_service: ImageService
 
     def __init__(
         self,
-        session_manager: Optional[SessionManager] = None,
+        project_manager: Optional[ProjectManager] = None,
         gemini_service: Optional[GeminiService] = None,
         image_service: Optional[ImageService] = None,
     ):
-        # Validate dependencies before assignment
-        if not session_manager:
-            raise ValueError("session_manager dependency is required")
+        if not project_manager:
+            raise ValueError("project_manager dependency is required")
         if not gemini_service:
             raise ValueError("gemini_service dependency is required")
         if not image_service:
             raise ValueError("image_service dependency is required")
 
-        self.session_manager = session_manager
+        self.project_manager = project_manager
         self.gemini_service = gemini_service
         self.image_service = image_service
 
+    def _get_prompt(self, project: ProjectState, name: str) -> str:
+        return project.project_config.get_prompt(name) or load_prompt_file(
+            f"{name}.prompt"
+        )
+
     async def generate_proposals(
         self,
-        session_id: str,
+        project_id: str,
         num_proposals: int = 3,
         additional_instructions: Optional[str] = None,
-    ) -> Optional[SessionState]:
-        """Generate style proposals with preview images.
-
-        additional_instructions should be resolved by the caller (route handler).
-        """
-        session = await self.session_manager.get_session(session_id)
-        if not session or not session.slides:
+    ) -> Optional[ProjectState]:
+        """Generate style proposals with preview images."""
+        project = await self.project_manager.get_project(project_id)
+        if not project or not project.slides:
             return None
 
-        # Build slides text summary
         slides_text = "\n".join(
             [
                 f"Slide {i + 1}: {slide.text.get_full_text()}"
-                for i, slide in enumerate(session.slides)
+                for i, slide in enumerate(project.slides)
             ]
         )
 
@@ -70,10 +70,13 @@ class StageStyleService:
             else ""
         )
 
-        # Get prompt template from config
-        prompt_template = load_prompt_file("style_proposal.prompt")
+        prompt_template = self._get_prompt(project, "style_proposal")
 
-        response_format = """{{\n    "proposals": [\n        {{\n            "description": "your image generation prompt here"\n        }}\n    ]\n}}"""
+        response_format = (
+            """{{\n    "proposals": [\n        {{\n"""
+            """            "description": "your image generation prompt here"\n"""
+            """        }}\n    ]\n}}"""
+        )
 
         prompt = prompt_template.format(
             num_proposals=num_proposals,
@@ -88,9 +91,7 @@ class StageStyleService:
 
         raw_proposals = result.get("proposals", [])
 
-        # Generate preview images in parallel
         async def generate_preview(i: int, proposal_data: dict) -> StyleProposal:
-            # Use description as the common visual style prompt
             common_flow = proposal_data.get("description", "")
             try:
                 preview = await self.image_service.generate_image(common_flow)
@@ -108,26 +109,26 @@ class StageStyleService:
             *[generate_preview(i, p) for i, p in enumerate(raw_proposals)]
         )
 
-        session.style_proposals = list(proposals)
-        session.selected_style_proposal_index = None
-        await self.session_manager.update_session(session)
-        return session
+        project.style_proposals = list(proposals)
+        project.selected_style_proposal_index = None
+        await self.project_manager.update_project(project)
+        return project
 
     async def select_proposal(
         self,
-        session_id: str,
+        project_id: str,
         proposal_index: int,
-    ) -> Optional[SessionState]:
+    ) -> Optional[ProjectState]:
         """Select a style proposal and set shared_prompt_prefix."""
-        session = await self.session_manager.get_session(session_id)
-        if not session:
+        project = await self.project_manager.get_project(project_id)
+        if not project:
             return None
 
-        if proposal_index < 0 or proposal_index >= len(session.style_proposals):
+        if proposal_index < 0 or proposal_index >= len(project.style_proposals):
             return None
 
-        proposal = session.style_proposals[proposal_index]
-        session.shared_prompt_prefix = proposal.description
-        session.selected_style_proposal_index = proposal_index
-        await self.session_manager.update_session(session)
-        return session
+        proposal = project.style_proposals[proposal_index]
+        project.shared_prompt_prefix = proposal.description
+        project.selected_style_proposal_index = proposal_index
+        await self.project_manager.update_project(project)
+        return project

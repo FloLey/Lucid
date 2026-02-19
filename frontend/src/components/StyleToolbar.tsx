@@ -134,6 +134,19 @@ export default function StyleToolbar({
           Stroke
         </button>
 
+        {/* Text visibility toggle */}
+        <button
+          onClick={() => updateLocalStyle({ text_enabled: !style.text_enabled })}
+          className={`px-2 py-1 text-xs rounded font-medium transition-colors ${
+            style.text_enabled
+              ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              : 'bg-orange-100 text-orange-700 ring-1 ring-orange-300'
+          }`}
+          title={style.text_enabled ? 'Hide text overlay' : 'Show text overlay'}
+        >
+          {style.text_enabled ? 'Text On' : 'Text Off'}
+        </button>
+
         <div className="flex-1" />
 
         {/* Apply to All */}

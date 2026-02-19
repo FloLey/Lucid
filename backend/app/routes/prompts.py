@@ -1,15 +1,14 @@
 """API routes for editing prompt files directly."""
 
 from typing import Dict
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.dependencies import container
+from app.dependencies import get_prompt_loader
+from app.services.prompt_loader import PromptLoader
 from app.services.prompt_validator import validate_prompt, validate_all_prompts
 
 router = APIRouter()
-
-prompt_loader = container.prompt_loader
 
 
 class GetPromptsResponse(BaseModel):
@@ -40,7 +39,7 @@ class ValidatePromptsResponse(BaseModel):
 
 
 @router.get("", response_model=GetPromptsResponse)
-async def get_prompts():
+async def get_prompts(prompt_loader: PromptLoader = Depends(get_prompt_loader)):
     """Load all prompts from .prompt files."""
     try:
         prompts = prompt_loader.load_all()
@@ -50,7 +49,11 @@ async def get_prompts():
 
 
 @router.put("/{prompt_name}")
-async def update_prompt(prompt_name: str, request: UpdatePromptRequest):
+async def update_prompt(
+    prompt_name: str,
+    request: UpdatePromptRequest,
+    prompt_loader: PromptLoader = Depends(get_prompt_loader),
+):
     """Update a single prompt file."""
     if not prompt_loader.is_known(prompt_name):
         raise HTTPException(status_code=404, detail=f"Unknown prompt: {prompt_name}")
@@ -67,7 +70,10 @@ async def update_prompt(prompt_name: str, request: UpdatePromptRequest):
 
 
 @router.patch("")
-async def update_prompts(request: UpdatePromptsRequest):
+async def update_prompts(
+    request: UpdatePromptsRequest,
+    prompt_loader: PromptLoader = Depends(get_prompt_loader),
+):
     """Update multiple prompt files at once."""
     updated_count = 0
     errors = []

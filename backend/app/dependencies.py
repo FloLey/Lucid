@@ -1,8 +1,12 @@
 """Dependency injection container for Lucid services."""
 
-from app.services.session_manager import (
-    SessionManager,
-    session_manager as _session_manager,
+from app.services.project_manager import (
+    ProjectManager,
+    project_manager as _project_manager,
+)
+from app.services.template_manager import (
+    TemplateManager,
+    template_manager as _template_manager,
 )
 from app.services.gemini_service import GeminiService
 from app.services.image_service import ImageService
@@ -23,8 +27,9 @@ class ServiceContainer:
     """Container for managing service instances."""
 
     def __init__(self):
-        # Core services (session_manager uses module-level singleton)
-        self.session_manager = _session_manager
+        # Core services
+        self.project_manager = _project_manager
+        self.template_manager = _template_manager
         self.config_manager = ConfigManager()
         self.gemini_service = GeminiService()
         self.image_service = ImageService()
@@ -32,25 +37,26 @@ class ServiceContainer:
         self.prompt_validator = PromptValidator()
         self.prompt_loader = PromptLoader()
 
-        # Stage services with dependencies (no config_manager — resolved in routes)
+        # Stage services
         self.stage1 = Stage1Service(
-            session_manager=self.session_manager,
+            project_manager=self.project_manager,
             gemini_service=self.gemini_service,
         )
 
         self.stage_style = StageStyleService(
-            session_manager=self.session_manager,
+            project_manager=self.project_manager,
             gemini_service=self.gemini_service,
             image_service=self.image_service,
         )
 
         self.stage2 = Stage2Service(
-            session_manager=self.session_manager,
+            project_manager=self.project_manager,
             gemini_service=self.gemini_service,
         )
 
         self.stage3 = Stage3Service(
-            session_manager=self.session_manager, image_service=self.image_service
+            project_manager=self.project_manager,
+            image_service=self.image_service,
         )
 
         self.rendering_service = RenderingService(
@@ -60,12 +66,12 @@ class ServiceContainer:
         )
 
         self.stage4 = Stage4Service(
-            session_manager=self.session_manager,
+            project_manager=self.project_manager,
             rendering_service=self.rendering_service,
         )
 
         self.export_service = ExportService(
-            session_manager=self.session_manager, config_manager=self.config_manager
+            project_manager=self.project_manager,
         )
 
 
@@ -74,9 +80,14 @@ container = ServiceContainer()
 
 
 # Dependency functions for FastAPI
-def get_session_manager() -> SessionManager:
-    """Provider for SessionManager singleton."""
-    return container.session_manager
+def get_project_manager() -> ProjectManager:
+    """Provider for ProjectManager singleton."""
+    return container.project_manager
+
+
+def get_template_manager() -> TemplateManager:
+    """Provider for TemplateManager singleton."""
+    return container.template_manager
 
 
 def get_gemini_service() -> GeminiService:

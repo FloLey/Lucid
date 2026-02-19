@@ -12,7 +12,7 @@ from app.dependencies import container
 from app.models.slide import Slide, SlideText
 from tests.conftest import run_async
 
-session_manager = container.session_manager
+project_manager = container.project_manager
 export_service = container.export_service
 image_service = container.image_service
 
@@ -20,7 +20,7 @@ image_service = container.image_service
 @pytest.fixture
 def client():
     """Create a test client."""
-    session_manager.clear_all()
+    project_manager.clear_all()
     return TestClient(app)
 
 
@@ -31,12 +31,12 @@ def sample_image_base64():
 
 
 @pytest.fixture
-def session_with_final_images(sample_image_base64):
-    """Create a session with final images."""
-    session_manager.clear_all()
-    session = run_async(session_manager.create_session("test-export"))
-    session.draft_text = "This is my test draft for export"
-    session.slides = [
+def project_with_final_images(sample_image_base64):
+    """Create a project with final images."""
+    project_manager.clear_all()
+    project = run_async(project_manager.create_project())
+    project.draft_text = "This is my test draft for export"
+    project.slides = [
         Slide(
             index=0,
             text=SlideText(title="Welcome", body="Let's get started!"),
@@ -56,8 +56,8 @@ def session_with_final_images(sample_image_base64):
             final_image=sample_image_base64,
         ),
     ]
-    run_async(session_manager.update_session(session))
-    return session
+    run_async(project_manager.update_project(project))
+    return project
 
 
 class TestExportService:
@@ -89,9 +89,11 @@ class TestExportService:
         assert export_service._generate_filename(9, "Test").startswith("10_")
         assert export_service._generate_filename(0, "Test").startswith("01_")
 
-    def test_export_session(self, session_with_final_images):
-        """Test exporting a full session."""
-        zip_buffer = run_async(export_service.export_session("test-export"))
+    def test_export_project(self, project_with_final_images):
+        """Test exporting a full project."""
+        zip_buffer = run_async(
+            export_service.export_project(project_with_final_images.project_id)
+        )
         assert zip_buffer is not None
 
         # Verify ZIP contents
@@ -103,22 +105,26 @@ class TestExportService:
             slide_files = [n for n in names if n.startswith("slides/")]
             assert len(slide_files) == 3
 
-    def test_export_session_metadata(self, session_with_final_images):
+    def test_export_project_metadata(self, project_with_final_images):
         """Test metadata in exported ZIP."""
-        zip_buffer = run_async(export_service.export_session("test-export"))
+        zip_buffer = run_async(
+            export_service.export_project(project_with_final_images.project_id)
+        )
 
         with zipfile.ZipFile(zip_buffer, "r") as zf:
             metadata_content = zf.read("metadata.json")
             metadata = json.loads(metadata_content)
 
-            assert metadata["session_id"] == "test-export"
+            assert metadata["project_id"] == project_with_final_images.project_id
             assert metadata["num_slides"] == 3
             assert len(metadata["slides"]) == 3
             assert metadata["slides"][0]["title"] == "Welcome"
 
-    def test_export_session_text_file(self, session_with_final_images):
+    def test_export_project_text_file(self, project_with_final_images):
         """Test text content file in exported ZIP."""
-        zip_buffer = run_async(export_service.export_session("test-export"))
+        zip_buffer = run_async(
+            export_service.export_project(project_with_final_images.project_id)
+        )
 
         with zipfile.ZipFile(zip_buffer, "r") as zf:
             text_content = zf.read("slide_texts.txt").decode("utf-8")
@@ -127,16 +133,18 @@ class TestExportService:
             assert "Welcome" in text_content
             assert "Take action now!" in text_content
 
-    def test_export_session_no_session(self):
-        """Test export with no session."""
-        session_manager.clear_all()
-        zip_buffer = run_async(export_service.export_session("nonexistent"))
+    def test_export_project_no_project(self):
+        """Test export with no project."""
+        project_manager.clear_all()
+        zip_buffer = run_async(export_service.export_project("nonexistent"))
         assert zip_buffer is None
 
-    def test_export_single_slide(self, session_with_final_images):
+    def test_export_single_slide(self, project_with_final_images):
         """Test exporting a single slide."""
         image_buffer = run_async(
-            export_service.export_single_slide("test-export", 0)
+            export_service.export_single_slide(
+                project_with_final_images.project_id, 0
+            )
         )
         assert image_buffer is not None
 
@@ -144,10 +152,12 @@ class TestExportService:
         content = image_buffer.read()
         assert content[:8] == b"\x89PNG\r\n\x1a\n"
 
-    def test_export_single_slide_invalid_index(self, session_with_final_images):
+    def test_export_single_slide_invalid_index(self, project_with_final_images):
         """Test export with invalid slide index."""
         image_buffer = run_async(
-            export_service.export_single_slide("test-export", 99)
+            export_service.export_single_slide(
+                project_with_final_images.project_id, 99
+            )
         )
         assert image_buffer is None
 
@@ -155,11 +165,11 @@ class TestExportService:
 class TestExportRoutes:
     """Tests for Export API routes."""
 
-    def test_export_zip_route(self, client, session_with_final_images):
+    def test_export_zip_route(self, client, project_with_final_images):
         """Test the ZIP export endpoint."""
         response = client.post(
             "/api/export/zip",
-            json={"session_id": "test-export"},
+            json={"project_id": project_with_final_images.project_id},
         )
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/zip"
@@ -170,46 +180,49 @@ class TestExportRoutes:
         with zipfile.ZipFile(zip_buffer, "r") as zf:
             assert "metadata.json" in zf.namelist()
 
-    def test_export_zip_get_route(self, client, session_with_final_images):
+    def test_export_zip_get_route(self, client, project_with_final_images):
         """Test the GET ZIP export endpoint."""
-        response = client.get("/api/export/zip/test-export")
+        project_id = project_with_final_images.project_id
+        response = client.get(f"/api/export/zip/{project_id}")
         assert response.status_code == 200
         assert response.headers["content-type"] == "application/zip"
 
-    def test_export_zip_no_session(self, client):
-        """Test ZIP export with no session."""
+    def test_export_zip_no_project(self, client):
+        """Test ZIP export with no project."""
         response = client.post(
             "/api/export/zip",
-            json={"session_id": "nonexistent"},
+            json={"project_id": "nonexistent"},
         )
         assert response.status_code == 404
 
-    def test_export_slide_route(self, client, session_with_final_images):
+    def test_export_slide_route(self, client, project_with_final_images):
         """Test the single slide export endpoint."""
         response = client.post(
             "/api/export/slide",
-            json={"session_id": "test-export", "slide_index": 0},
+            json={
+                "project_id": project_with_final_images.project_id,
+                "slide_index": 0,
+            },
         )
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/png"
         assert "slide_01.png" in response.headers["content-disposition"]
 
-    def test_export_slide_get_route(self, client, session_with_final_images):
+    def test_export_slide_get_route(self, client, project_with_final_images):
         """Test the GET single slide export endpoint."""
-        response = client.get("/api/export/slide/test-export/0")
+        project_id = project_with_final_images.project_id
+        response = client.get(f"/api/export/slide/{project_id}/0")
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/png"
 
-    def test_export_slide_invalid_index(self, client, session_with_final_images):
+    def test_export_slide_invalid_index(self, client, project_with_final_images):
         """Test slide export with invalid index."""
         response = client.post(
             "/api/export/slide",
-            json={"session_id": "test-export", "slide_index": 99},
+            json={
+                "project_id": project_with_final_images.project_id,
+                "slide_index": 99,
+            },
         )
         assert response.status_code == 404
 
-    def test_placeholder_works(self, client):
-        """Test that placeholder endpoint still works."""
-        response = client.get("/api/export/placeholder")
-        assert response.status_code == 200
-        assert response.json()["feature"] == "export"

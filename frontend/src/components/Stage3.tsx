@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
-import { useSessionContext } from '../contexts/SessionContext';
+import { useProject } from '../contexts/ProjectContext';
 import { useAppConfig } from '../hooks/useAppConfig';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
 
 export default function Stage3() {
   const {
-    sessionId,
-    session,
-    loading,
-    setLoading,
+    projectId,
+    currentProject: project,
+    stageLoading: loading,
+    setStageLoading: setLoading,
     setError,
-    updateSession,
-    onNext,
-    onBack,
-  } = useSessionContext();
+    updateProject,
+    advanceStage: onNext,
+    previousStage: onBack,
+  } = useProject();
 
   const config = useAppConfig();
   const [styleInstructions, setStyleInstructions] = useState('');
@@ -26,7 +26,7 @@ export default function Stage3() {
     if (!config) return;
 
     // Check if image prompts have been generated yet
-    const hasImagePrompts = session?.slides?.some(slide => slide.image_prompt);
+    const hasImagePrompts = project?.slides?.some(slide => slide.image_prompt);
 
     if (!hasImagePrompts) {
       // New session - use config default instructions
@@ -35,17 +35,17 @@ export default function Stage3() {
       }
     } else {
       // Existing session - use session value
-      setStyleInstructions(session?.image_style_instructions || '');
+      setStyleInstructions(project?.image_style_instructions || '');
     }
-  }, [config, session]);
+  }, [config, project]);
   const [editingPrompt, setEditingPrompt] = useState<number | null>(null);
 
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
     try {
-      const sess = await api.generatePrompts(sessionId, styleInstructions || undefined);
-      updateSession(sess);
+      const sess = await api.generatePrompts(projectId, styleInstructions || undefined);
+      updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate image prompts'));
     } finally {
@@ -56,8 +56,8 @@ export default function Stage3() {
   const handleRegeneratePrompt = async (index: number) => {
     setLoading(true);
     try {
-      const sess = await api.regeneratePrompt(sessionId, index);
-      updateSession(sess);
+      const sess = await api.regeneratePrompt(projectId, index);
+      updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to regenerate prompt'));
     } finally {
@@ -67,15 +67,15 @@ export default function Stage3() {
 
   const handleUpdatePrompt = async (index: number, prompt: string) => {
     try {
-      const sess = await api.updatePrompt(sessionId, index, prompt);
-      updateSession(sess);
+      const sess = await api.updatePrompt(projectId, index, prompt);
+      updateProject(sess);
       setEditingPrompt(null);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to update prompt'));
     }
   };
 
-  const slides = session?.slides || [];
+  const slides = project?.slides || [];
   const hasPrompts = slides.some((s) => s.image_prompt);
 
   return (
@@ -150,10 +150,10 @@ export default function Stage3() {
           </div>
 
           <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
-          {session?.shared_prompt_prefix && (
+          {project?.shared_prompt_prefix && (
             <div className="p-3 bg-lucid-50 rounded-lg">
               <span className="text-xs font-medium text-lucid-700">Shared Style:</span>
-              <p className="text-sm text-lucid-900">{session.shared_prompt_prefix}</p>
+              <p className="text-sm text-lucid-900">{project?.shared_prompt_prefix}</p>
             </div>
           )}
 

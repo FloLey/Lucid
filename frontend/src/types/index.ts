@@ -33,6 +33,7 @@ export interface TextStyle {
   stroke: StrokeStyle;
   shadow: ShadowStyle;
   max_lines: number;
+  text_enabled: boolean;
 }
 
 export interface SlideText {
@@ -55,13 +56,16 @@ export interface StyleProposal {
   preview_image: string | null;
 }
 
-export interface Session {
-  session_id: string;
+export interface Project {
+  project_id: string;
+  name: string;
+  mode: string;
+  slide_count: number;
   created_at: string;
   updated_at: string;
   current_stage: number;
   draft_text: string;
-  num_slides: number;
+  num_slides: number | null;
   include_titles: boolean;
   additional_instructions: string | null;
   language: string;
@@ -70,11 +74,18 @@ export interface Session {
   image_style_instructions: string | null;
   shared_prompt_prefix: string | null;
   slides: Slide[];
+  thumbnail_b64: string | null;
 }
 
-export interface ApiResponse<T> {
-  session?: T;
-  error?: string;
+export interface ProjectCard {
+  project_id: string;
+  name: string;
+  mode: string;
+  current_stage: number;
+  slide_count: number;
+  thumbnail_b64: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface StageInstructionsConfig {
@@ -114,4 +125,12 @@ export interface AppConfig {
   global_defaults: GlobalDefaultsConfig;
   image: ImageConfig;
   style: StyleConfig;
+}
+
+export interface TemplateData {
+  id: string;
+  name: string;
+  default_mode: string;
+  default_slide_count: number;
+  created_at: string;
 }

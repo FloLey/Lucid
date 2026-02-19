@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useSession } from './hooks/useSession';
-import { SessionContext } from './contexts/SessionContext';
+import { useState } from 'react';
+import { ProjectProvider, useProject } from './contexts/ProjectContext';
 import Stage1 from './components/Stage1';
 import Stage2 from './components/Stage2';
 import Stage3 from './components/Stage3';
@@ -8,93 +7,113 @@ import Stage4 from './components/Stage4';
 import Stage5 from './components/Stage5';
 import Header from './components/Header';
 import StageIndicator from './components/StageIndicator';
+import ProjectHome from './components/ProjectHome';
+import NewProjectModal from './components/NewProjectModal';
+import TemplatesPage from './components/TemplatesPage';
 import ConfigSettings from './components/ConfigSettings';
 
-function App() {
+function AppContent() {
   const {
-    sessionId,
-    session,
-    stageLoading,
+    projects,
+    projectsLoading,
+    currentProject,
     error,
-    setStageLoading,
     setError,
-    updateSession,
-    advanceStage,
-    previousStage,
+    openProject,
+    closeProject,
+    createNewProject,
+    deleteProject,
     goToStage,
-    startNewSession,
-  } = useSession();
+  } = useProject();
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [showTemplatesPage, setShowTemplatesPage] = useState(false);
 
-  const currentStage = session?.current_stage ?? 1;
-
-  const sessionContextValue = useMemo(() => ({
-    sessionId,
-    session,
-    loading: stageLoading,
-    setLoading: setStageLoading,
-    setError,
-    updateSession,
-    onNext: advanceStage,
-    onBack: previousStage,
-  }), [sessionId, session, stageLoading, setStageLoading, setError, updateSession, advanceStage, previousStage]);
+  const currentStage = currentProject?.current_stage ?? 1;
 
   const renderCurrentStage = () => {
     switch (currentStage) {
-      case 1:
-        return <Stage1 />;
-      case 2:
-        return <Stage2 />;
-      case 3:
-        return <Stage3 />;
-      case 4:
-        return <Stage4 />;
-      case 5:
-        return <Stage5 />;
-      default:
-        return <Stage1 />;
+      case 1: return <Stage1 />;
+      case 2: return <Stage2 />;
+      case 3: return <Stage3 />;
+      case 4: return <Stage4 />;
+      case 5: return <Stage5 />;
+      default: return <Stage1 />;
     }
   };
 
   return (
     <>
       <div className="h-screen flex flex-col overflow-hidden">
-        <Header onNewSession={startNewSession} onSettings={() => setShowSettings(true)} />
+        <Header
+          projectName={currentProject?.name ?? null}
+          onBack={currentProject ? closeProject : null}
+          onSettings={() => setShowSettings(true)}
+        />
 
-        <StageIndicator currentStage={currentStage} onStageClick={goToStage} />
+        {currentProject && (
+          <StageIndicator currentStage={currentStage} onStageClick={goToStage} />
+        )}
 
-        <main className="flex-1 min-h-0 px-4 py-6 overflow-y-auto">
-          <div className="max-w-6xl mx-auto">
-            {error && (
-              <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
-                {error}
-                <button
-                  onClick={() => setError(null)}
-                  className="ml-2 text-red-500 hover:text-red-700"
-                >
-                  Dismiss
-                </button>
-              </div>
-            )}
+        <main className="flex-1 min-h-0 overflow-y-auto">
+          {error && (
+            <div className="mx-4 mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
+              {error}
+              <button
+                onClick={() => setError(null)}
+                className="ml-2 text-red-500 hover:text-red-700"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
 
-            {session ? (
-              <SessionContext.Provider value={sessionContextValue}>
+          {currentProject ? (
+            <div className="px-4 py-6">
+              <div className="max-w-6xl mx-auto">
                 {renderCurrentStage()}
-              </SessionContext.Provider>
-            ) : (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-gray-500">Loading session...</div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <ProjectHome
+              projects={projects}
+              loading={projectsLoading}
+              onOpen={openProject}
+              onNewProject={() => setShowNewProjectModal(true)}
+              onDelete={deleteProject}
+              onTemplates={() => setShowTemplatesPage(true)}
+            />
+          )}
         </main>
       </div>
 
       {showSettings && (
         <ConfigSettings onClose={() => setShowSettings(false)} />
       )}
+
+      {showNewProjectModal && (
+        <NewProjectModal
+          onClose={() => setShowNewProjectModal(false)}
+          onCreate={async (mode, slideCount, templateId) => {
+            await createNewProject(mode, slideCount, templateId);
+            setShowNewProjectModal(false);
+          }}
+        />
+      )}
+
+      {showTemplatesPage && (
+        <TemplatesPage onClose={() => setShowTemplatesPage(false)} />
+      )}
     </>
+  );
+}
+
+function App() {
+  return (
+    <ProjectProvider>
+      <AppContent />
+    </ProjectProvider>
   );
 }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
-import { useSessionContext } from '../contexts/SessionContext';
+import { useProject } from '../contexts/ProjectContext';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useDragResize } from '../hooks/useDragResize';
 import { useStyleManager } from '../hooks/useStyleManager';
@@ -15,13 +15,13 @@ type SelectedBox = 'title' | 'body';
 
 export default function Stage5() {
   const {
-    sessionId,
-    session,
-    loading,
+    projectId,
+    currentProject: project,
+    stageLoading: loading,
     setError,
-    updateSession,
-    onBack,
-  } = useSessionContext();
+    updateProject,
+    previousStage: onBack,
+  } = useProject();
 
   const config = useAppConfig();
   const [selectedSlide, setSelectedSlide] = useState(0);
@@ -29,12 +29,12 @@ export default function Stage5() {
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const slides = session?.slides || [];
+  const slides = project?.slides || [];
   const currentSlide = slides[selectedSlide];
 
   // Style management using useStyleManager hook
   const { style, updateStyle, isUpdating: styleUpdating } = useStyleManager({
-    sessionId,
+    projectId,
     slideIndex: selectedSlide,
     initialStyle: currentSlide?.style || null,
     config
@@ -49,20 +49,20 @@ export default function Stage5() {
 
   // Use ApiAction for renderSlide (defined early — used by scheduleTextSyncAndRender)
   const { execute: renderSlide, isLoading: rendering } = useApiAction({
-    action: () => api.applyTextToSlide(sessionId, selectedSlide),
-    onSuccess: (newSession) => updateSession(newSession),
+    action: () => api.applyTextToSlide(projectId, selectedSlide),
+    onSuccess: (newSession) => updateProject(newSession),
     onError: (error) => setError(error)
   });
 
   // Sync text to backend
   const syncTextToBackend = useCallback(async () => {
     try {
-      const sess = await api.updateSlideText(sessionId, selectedSlide, localTitle ?? undefined, localBody);
-      updateSession(sess);
+      const sess = await api.updateSlideText(projectId, selectedSlide, localTitle ?? undefined, localBody);
+      updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to save text'));
     }
-  }, [sessionId, selectedSlide, localTitle, localBody, updateSession, setError]);
+  }, [projectId, selectedSlide, localTitle, localBody, updateProject, setError]);
 
   // Schedule text sync and render
   const scheduleTextSyncAndRender = useCallback(() => {
@@ -175,15 +175,15 @@ export default function Stage5() {
     action: async () => {
       if (!style) throw new Error('No style to apply');
       const styleDict = style as unknown as Record<string, unknown>;
-      await api.applyStyleToAll(sessionId, styleDict);
-      return await api.applyTextToAll(sessionId);
+      await api.applyStyleToAll(projectId, styleDict);
+      return await api.applyTextToAll(projectId);
     },
-    onSuccess: (newSession) => updateSession(newSession),
+    onSuccess: (newSession) => updateProject(newSession),
     onError: (error) => setError(error)
   });
 
   const handleExport = () => {
-    window.open(api.getExportZipUrl(sessionId), '_blank');
+    window.open(api.getExportZipUrl(projectId), '_blank');
   };
 
   const hasFinalImages = slides.some((s) => s.final_image);

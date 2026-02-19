@@ -12,7 +12,7 @@ from app.models.style import TextStyle
 from tests.conftest import run_async
 
 stage4_service = container.stage4
-session_manager = container.session_manager
+project_manager = container.project_manager
 rendering_service = container.rendering_service
 image_service = container.image_service
 
@@ -20,7 +20,7 @@ image_service = container.image_service
 @pytest.fixture
 def client():
     """Create a test client."""
-    session_manager.clear_all()
+    project_manager.clear_all()
     return TestClient(app)
 
 
@@ -31,11 +31,11 @@ def sample_image_base64():
 
 
 @pytest.fixture
-def session_with_images(sample_image_base64):
-    """Create a session with background images."""
-    session_manager.clear_all()
-    session = run_async(session_manager.create_session("test-stage4"))
-    session.slides = [
+def project_with_images(sample_image_base64):
+    """Create a project with background images."""
+    project_manager.clear_all()
+    project = run_async(project_manager.create_project())
+    project.slides = [
         Slide(
             index=0,
             text=SlideText(title="Welcome", body="Let's get started!"),
@@ -52,8 +52,8 @@ def session_with_images(sample_image_base64):
             image_data=sample_image_base64,
         ),
     ]
-    run_async(session_manager.update_session(session))
-    return session
+    run_async(project_manager.update_project(project))
+    return project
 
 
 @pytest.fixture
@@ -190,39 +190,41 @@ class TestRenderingService:
 class TestStage4Service:
     """Tests for Stage4Service."""
 
-    def test_apply_text_to_all_images(self, session_with_images):
+    def test_apply_text_to_all_images(self, project_with_images):
         """Test applying text to all images."""
-        session = run_async(
-            stage4_service.apply_text_to_all_images(session_id="test-stage4")
+        project = run_async(
+            stage4_service.apply_text_to_all_images(
+                project_id=project_with_images.project_id
+            )
         )
-        assert session is not None
-        for slide in session.slides:
+        assert project is not None
+        for slide in project.slides:
             assert slide.final_image is not None
 
-    def test_apply_text_to_single_image(self, session_with_images):
+    def test_apply_text_to_single_image(self, project_with_images):
         """Test applying text to a single image."""
-        session = run_async(
+        project = run_async(
             stage4_service.apply_text_to_image(
-                session_id="test-stage4",
+                project_id=project_with_images.project_id,
                 slide_index=1,
             )
         )
-        assert session is not None
-        assert session.slides[1].final_image is not None
+        assert project is not None
+        assert project.slides[1].final_image is not None
 
-    def test_apply_text_no_session(self):
-        """Test applying text with no session."""
-        session_manager.clear_all()
-        session = run_async(
-            stage4_service.apply_text_to_all_images(session_id="nonexistent")
+    def test_apply_text_no_project(self):
+        """Test applying text with no project."""
+        project_manager.clear_all()
+        project = run_async(
+            stage4_service.apply_text_to_all_images(project_id="nonexistent")
         )
-        assert session is None
+        assert project is None
 
-    def test_update_style(self, session_with_images):
+    def test_update_style(self, project_with_images):
         """Test updating style properties."""
-        session = run_async(
+        project = run_async(
             stage4_service.update_style(
-                session_id="test-stage4",
+                project_id=project_with_images.project_id,
                 slide_index=0,
                 style_updates={
                     "font_size_px": 96,
@@ -231,16 +233,16 @@ class TestStage4Service:
                 },
             )
         )
-        assert session is not None
-        assert session.slides[0].style.font_size_px == 96
-        assert session.slides[0].style.text_color == "#FF0000"
-        assert session.slides[0].style.alignment == "left"
+        assert project is not None
+        assert project.slides[0].style.font_size_px == 96
+        assert project.slides[0].style.text_color == "#FF0000"
+        assert project.slides[0].style.alignment == "left"
 
-    def test_update_style_title_box(self, session_with_images):
+    def test_update_style_title_box(self, project_with_images):
         """Test updating title_box style properties."""
-        session = run_async(
+        project = run_async(
             stage4_service.update_style(
-                session_id="test-stage4",
+                project_id=project_with_images.project_id,
                 slide_index=0,
                 style_updates={
                     "title_box": {
@@ -251,15 +253,15 @@ class TestStage4Service:
                 },
             )
         )
-        assert session.slides[0].style.title_box.x_pct == 0.2
-        assert session.slides[0].style.title_box.y_pct == 0.4
-        assert session.slides[0].style.title_box.w_pct == 0.6
+        assert project.slides[0].style.title_box.x_pct == 0.2
+        assert project.slides[0].style.title_box.y_pct == 0.4
+        assert project.slides[0].style.title_box.w_pct == 0.6
 
-    def test_update_style_stroke(self, session_with_images):
+    def test_update_style_stroke(self, project_with_images):
         """Test updating stroke style properties."""
-        session = run_async(
+        project = run_async(
             stage4_service.update_style(
-                session_id="test-stage4",
+                project_id=project_with_images.project_id,
                 slide_index=0,
                 style_updates={
                     "stroke": {
@@ -270,85 +272,83 @@ class TestStage4Service:
                 },
             )
         )
-        assert session.slides[0].style.stroke.enabled is True
-        assert session.slides[0].style.stroke.width_px == 4
+        assert project.slides[0].style.stroke.enabled is True
+        assert project.slides[0].style.stroke.width_px == 4
 
-    def test_apply_style_to_all(self, session_with_images):
+    def test_apply_style_to_all(self, project_with_images):
         """Test applying style to all slides."""
-        session = run_async(
+        project = run_async(
             stage4_service.apply_style_to_all(
-                session_id="test-stage4",
+                project_id=project_with_images.project_id,
                 style_updates={"font_size_px": 80},
             )
         )
-        assert session is not None
-        for slide in session.slides:
+        assert project is not None
+        for slide in project.slides:
             assert slide.style.font_size_px == 80
 
-    def test_suggest_style(self, session_with_images):
+    def test_suggest_style(self, project_with_images):
         """Test image-based style suggestion."""
-        session = run_async(
+        project = run_async(
             stage4_service.suggest_style(
-                session_id="test-stage4",
+                project_id=project_with_images.project_id,
                 slide_index=0,
             )
         )
-        assert session is not None
+        assert project is not None
         # Should have updated style from image analysis
-        assert session.slides[0].style.font_family == "Inter"
+        assert project.slides[0].style.font_family == "Inter"
 
 
 class TestStage4Routes:
     """Tests for Stage 4 API routes."""
 
-    def test_apply_all_route(self, client, session_with_images):
+    def test_apply_all_route(self, client, project_with_images):
         """Test apply all endpoint."""
         response = client.post(
             "/api/stage4/apply-all",
-            json={"session_id": "test-stage4"},
+            json={"project_id": project_with_images.project_id},
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["session"]["slides"][0]["final_image"] is not None
+        assert data["project"]["slides"][0]["final_image"] is not None
 
-    def test_apply_single_route(self, client, session_with_images):
+    def test_apply_single_route(self, client, project_with_images):
         """Test apply single endpoint."""
         response = client.post(
             "/api/stage4/apply",
-            json={"session_id": "test-stage4", "slide_index": 0},
+            json={
+                "project_id": project_with_images.project_id,
+                "slide_index": 0,
+            },
         )
         assert response.status_code == 200
 
-    def test_update_style_route(self, client, session_with_images):
+    def test_update_style_route(self, client, project_with_images):
         """Test update style endpoint."""
         response = client.post(
             "/api/stage4/update-style",
             json={
-                "session_id": "test-stage4",
+                "project_id": project_with_images.project_id,
                 "slide_index": 0,
                 "style": {"font_size_px": 64, "text_color": "#00FF00"},
             },
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["session"]["slides"][0]["style"]["font_size_px"] == 64
+        assert data["project"]["slides"][0]["style"]["font_size_px"] == 64
 
-    def test_apply_style_all_route(self, client, session_with_images):
+    def test_apply_style_all_route(self, client, project_with_images):
         """Test apply style to all endpoint."""
         response = client.post(
             "/api/stage4/apply-style-all",
             json={
-                "session_id": "test-stage4",
+                "project_id": project_with_images.project_id,
                 "style": {"alignment": "right"},
             },
         )
         assert response.status_code == 200
 
-    def test_placeholder_works(self, client):
-        """Test that placeholder endpoint still works."""
-        response = client.get("/api/stage4/placeholder")
-        assert response.status_code == 200
-        assert response.json()["stage"] == 4
 
 
 def font_manager_import():

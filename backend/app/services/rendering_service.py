@@ -248,6 +248,9 @@ class RenderingService:
                 (IMAGE_WIDTH, IMAGE_HEIGHT), Image.Resampling.LANCZOS
             )
 
+        if not style.text_enabled:
+            return self.image_service.encode_image(background)
+
         draw = ImageDraw.Draw(background)
 
         text_color = self._get_text_color(style.text_color)

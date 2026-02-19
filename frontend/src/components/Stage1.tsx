@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
-import { useSessionContext } from '../contexts/SessionContext';
+import { useProject } from '../contexts/ProjectContext';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { SLIDE_COUNT_OPTIONS, LANGUAGES } from '../constants';
 import Spinner from './Spinner';
@@ -9,14 +9,14 @@ import StageLayout from './StageLayout';
 
 export default function Stage1() {
   const {
-    sessionId,
-    session,
-    loading,
-    setLoading,
+    projectId,
+    currentProject: project,
+    stageLoading: loading,
+    setStageLoading: setLoading,
     setError,
-    updateSession,
-    onNext,
-  } = useSessionContext();
+    updateProject,
+    advanceStage: onNext,
+  } = useProject();
 
   const config = useAppConfig();
   const [draftText, setDraftText] = useState('');
@@ -30,9 +30,9 @@ export default function Stage1() {
     if (!config) return;
 
     // For a new session (no slides yet), use config defaults
-    const isNewSession = !session?.slides || session.slides.length === 0;
+    const isNewProject = !project?.slides || project.slides.length === 0;
 
-    if (isNewSession) {
+    if (isNewProject) {
       // Use config defaults for new sessions
       setNumSlides(config.global_defaults.num_slides);
       setIncludeTitles(config.global_defaults.include_titles);
@@ -41,18 +41,18 @@ export default function Stage1() {
         setInstructions(config.stage_instructions.stage1);
       }
       // Draft may have been stored via chat before slides are generated
-      if (session?.draft_text) {
-        setDraftText(session.draft_text);
+      if (project?.draft_text) {
+        setDraftText(project.draft_text);
       }
     } else {
-      // Use session values for existing sessions
-      setDraftText(session?.draft_text || '');
-      setNumSlides(session?.num_slides ?? config.global_defaults.num_slides);
-      setIncludeTitles(session?.include_titles ?? config.global_defaults.include_titles);
-      setLanguage(session?.language || config.global_defaults.language);
-      setInstructions(session?.additional_instructions || '');
+      // Use project values for existing projects
+      setDraftText(project?.draft_text || '');
+      setNumSlides(project?.num_slides ?? config.global_defaults.num_slides);
+      setIncludeTitles(project?.include_titles ?? config.global_defaults.include_titles);
+      setLanguage(project?.language || config.global_defaults.language);
+      setInstructions(project?.additional_instructions || '');
     }
-  }, [config, session]);
+  }, [config, project]);
 
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
   const [regeneratingSlides, setRegeneratingSlides] = useState<Set<number>>(new Set());
@@ -69,14 +69,14 @@ export default function Stage1() {
     setError(null);
     try {
       const sess = await api.generateSlideTexts(
-        sessionId,
+        projectId,
         draftText,
         numSlides ?? undefined,
         includeTitles,
         instructions || undefined,
         language
       );
-      updateSession(sess);
+      updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate slide texts'));
     } finally {
@@ -89,8 +89,8 @@ export default function Stage1() {
     setRegenInstruction('');
     setRegeneratingSlides((prev) => new Set(prev).add(index));
     try {
-      const sess = await api.regenerateSlideText(sessionId, index, instruction || undefined);
-      updateSession(sess);
+      const sess = await api.regenerateSlideText(projectId, index, instruction || undefined);
+      updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, `Failed to regenerate slide ${index + 1}`));
     } finally {
@@ -104,15 +104,15 @@ export default function Stage1() {
 
   const handleUpdateSlide = async (index: number, title?: string, body?: string) => {
     try {
-      const sess = await api.updateSlideText(sessionId, index, title, body);
-      updateSession(sess);
+      const sess = await api.updateSlideText(projectId, index, title, body);
+      updateProject(sess);
       setEditingSlide(null);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to update slide'));
     }
   };
 
-  const slides = session?.slides || [];
+  const slides = project?.slides || [];
   const hasSlides = slides.length > 0;
 
   return (
