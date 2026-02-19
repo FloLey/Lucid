@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from app.models.style import TextStyle, BoxStyle, StrokeStyle, ShadowStyle
 from app.models.slide import Slide, SlideText
-from app.models.session import SessionState
+from app.models.project import ProjectState, ProjectConfig
 
 
 class TestBoxStyle:
@@ -150,44 +150,48 @@ class TestSlide:
         assert slide.style.font_size_px == 60
 
 
-class TestSessionState:
-    """Tests for SessionState model."""
+class TestProjectState:
+    """Tests for ProjectState model."""
 
-    def test_new_session(self):
-        """Test creating a new session."""
-        session = SessionState(session_id="test-123")
-        assert session.session_id == "test-123"
-        assert session.current_stage == 1
-        assert session.num_slides is None
-        assert session.include_titles is True
-        assert len(session.slides) == 0
+    def test_new_project(self):
+        """Test creating a new project."""
+        project = ProjectState(project_id="test-123")
+        assert project.project_id == "test-123"
+        assert project.current_stage == 1
+        assert project.num_slides is None
+        assert project.include_titles is True
+        assert len(project.slides) == 0
+        assert project.mode == "carousel"
 
-    def test_session_with_slides(self):
-        """Test session with slides."""
-        session = SessionState(session_id="test-456")
-        session.ensure_slides(3)
-        assert len(session.slides) == 3
-        assert session.slides[0].index == 0
-        assert session.slides[2].index == 2
+    def test_project_with_slides(self):
+        """Test project with slides."""
+        project = ProjectState(project_id="test-456")
+        project.slides = [
+            Slide(index=0),
+            Slide(index=1),
+            Slide(index=2),
+        ]
+        assert len(project.slides) == 3
+        assert project.slides[0].index == 0
+        assert project.slides[2].index == 2
 
-    def test_get_slide(self):
-        """Test getting a slide by index."""
-        session = SessionState(session_id="test-789")
-        session.ensure_slides(5)
-        slide = session.get_slide(2)
-        assert slide is not None
-        assert slide.index == 2
+    def test_project_config_get_prompt(self):
+        """Test ProjectConfig.get_prompt returns None when not set."""
+        config = ProjectConfig()
+        assert config.get_prompt("slide_generation") is None
 
-        # Out of bounds
-        assert session.get_slide(10) is None
-        assert session.get_slide(-1) is None
+    def test_project_config_custom_prompt(self):
+        """Test ProjectConfig.get_prompt returns custom prompt."""
+        config = ProjectConfig(prompts={"slide_generation": "Custom prompt template"})
+        assert config.get_prompt("slide_generation") == "Custom prompt template"
+        assert config.get_prompt("other_prompt") is None
 
     def test_update_timestamp(self):
         """Test timestamp update."""
-        session = SessionState(session_id="test-ts")
-        old_time = session.updated_at
+        project = ProjectState(project_id="test-ts")
+        old_time = project.updated_at
         import time
 
         time.sleep(0.01)
-        session.update_timestamp()
-        assert session.updated_at > old_time
+        project.update_timestamp()
+        assert project.updated_at > old_time

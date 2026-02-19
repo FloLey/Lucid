@@ -1,13 +1,16 @@
 """Main FastAPI application for Lucid."""
 
+import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.routes import (
-    sessions,
+    projects,
+    templates,
     stage1,
     stage_style,
     stage2,
@@ -22,10 +25,31 @@ from app.routes import (
 from app.services.gemini_service import GeminiError
 from app.services.llm_logger import start_flow, _flow_name_from_path
 
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialise the database and seed defaults on startup."""
+    from app.db.database import init_db
+    from app.dependencies import container
+
+    try:
+        await init_db()
+        await container.template_manager.seed_defaults()
+        await container.project_manager.load_all()
+        logger.info("Database initialised successfully")
+    except Exception as e:
+        logger.error(f"Database initialisation failed: {e}", exc_info=True)
+
+    yield
+
+
 app = FastAPI(
     title="Lucid API",
     description="Transform rough drafts into polished social-media carousels",
-    version="0.1.0",
+    version="0.2.0",
+    lifespan=lifespan,
 )
 
 # Configure CORS for frontend
@@ -43,7 +67,8 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
+app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
+app.include_router(templates.router, prefix="/api/templates", tags=["templates"])
 app.include_router(stage1.router, prefix="/api/stage1", tags=["stage1"])
 app.include_router(stage_style.router, prefix="/api/stage-style", tags=["stage-style"])
 app.include_router(stage2.router, prefix="/api/stage2", tags=["stage2"])

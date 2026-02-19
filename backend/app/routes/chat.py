@@ -12,7 +12,7 @@ router = APIRouter()
 class ChatMessageRequest(BaseModel):
     """Request model for a user chat message."""
 
-    session_id: str
+    project_id: str
     message: str
 
 

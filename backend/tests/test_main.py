@@ -54,9 +54,9 @@ def test_export_placeholder(client):
     assert data["feature"] == "export"
 
 
-def test_sessions_list(client):
-    """Test sessions list endpoint."""
-    response = client.get("/api/sessions/")
+def test_projects_list(client):
+    """Test projects list endpoint."""
+    response = client.get("/api/projects/")
     assert response.status_code == 200
     data = response.json()
-    assert "sessions" in data
+    assert "projects" in data

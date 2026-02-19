@@ -10,13 +10,13 @@ from app.models.slide import Slide, SlideText
 from tests.conftest import run_async
 
 stage1_service = container.stage1
-session_manager = container.session_manager
+project_manager = container.project_manager
 
 
 @pytest.fixture
 def client():
     """Create a test client."""
-    session_manager.clear_all()
+    project_manager.clear_all()
     return TestClient(app)
 
 
@@ -43,92 +43,108 @@ def mock_gemini():
 class TestStage1Service:
     """Tests for Stage1Service."""
 
-    def test_generate_slide_texts_creates_session(self, mock_gemini):
-        """Test that generate_slide_texts creates a session."""
-        session_manager.clear_all()
-        session = run_async(
+    def test_generate_slide_texts_creates_slides(self, mock_gemini):
+        """Test that generate_slide_texts populates slides on a project."""
+        project_manager.clear_all()
+        created = run_async(project_manager.create_project())
+        project = run_async(
             stage1_service.generate_slide_texts(
-                session_id="test-stage1-001",
+                project_id=created.project_id,
                 draft_text="This is a test draft about productivity tips.",
                 num_slides=3,
                 include_titles=True,
             )
         )
-        assert session is not None
-        assert session.session_id == "test-stage1-001"
-        assert len(session.slides) == 3
+        assert project is not None
+        assert project.project_id == created.project_id
+        assert len(project.slides) == 3
 
     def test_generate_slide_texts_stores_inputs(self, mock_gemini):
-        """Test that inputs are stored in session."""
-        session_manager.clear_all()
-        session = run_async(
+        """Test that inputs are stored in project."""
+        project_manager.clear_all()
+        created = run_async(project_manager.create_project())
+        project = run_async(
             stage1_service.generate_slide_texts(
-                session_id="test-stage1-002",
+                project_id=created.project_id,
                 draft_text="Test draft content",
                 num_slides=5,
                 include_titles=False,
                 additional_instructions="Make it funny",
             )
         )
-        assert session.draft_text == "Test draft content"
-        assert session.num_slides == 5
-        assert session.include_titles is False
-        assert session.additional_instructions == "Make it funny"
+        assert project.draft_text == "Test draft content"
+        assert project.num_slides == 5
+        assert project.include_titles is False
+        assert project.additional_instructions == "Make it funny"
 
     def test_generate_slide_texts_with_titles(self, mock_gemini):
         """Test slide generation with titles."""
-        session_manager.clear_all()
-        session = run_async(
+        project_manager.clear_all()
+        created = run_async(project_manager.create_project())
+        project = run_async(
             stage1_service.generate_slide_texts(
-                session_id="test-stage1-003",
+                project_id=created.project_id,
                 draft_text="Test content for slides",
                 num_slides=3,
                 include_titles=True,
             )
         )
         # All slides should have content
-        for slide in session.slides:
+        for slide in project.slides:
             assert slide.text.title is not None or slide.text.body != ""
+
+    def test_generate_slide_texts_nonexistent_project(self, mock_gemini):
+        """Test that generate_slide_texts returns None for nonexistent project."""
+        project_manager.clear_all()
+        result = run_async(
+            stage1_service.generate_slide_texts(
+                project_id="nonexistent",
+                draft_text="Test draft",
+                num_slides=3,
+            )
+        )
+        assert result is None
 
     def test_regenerate_all_requires_draft(self, mock_gemini):
         """Test that regenerate_all requires existing draft."""
-        session_manager.clear_all()
-        run_async(session_manager.create_session("test-stage1-004"))
+        project_manager.clear_all()
+        created = run_async(project_manager.create_project())
         result = run_async(
-            stage1_service.regenerate_all_slide_texts("test-stage1-004")
+            stage1_service.regenerate_all_slide_texts(created.project_id)
         )
         assert result is None  # No draft stored
 
     def test_regenerate_single_slide(self, mock_gemini):
         """Test regenerating a single slide."""
-        session_manager.clear_all()
+        project_manager.clear_all()
+        created = run_async(project_manager.create_project())
         run_async(
             stage1_service.generate_slide_texts(
-                session_id="test-stage1-005",
+                project_id=created.project_id,
                 draft_text="Test content",
                 num_slides=3,
             )
         )
 
-        session = run_async(
+        project = run_async(
             stage1_service.regenerate_slide_text(
-                session_id="test-stage1-005",
+                project_id=created.project_id,
                 slide_index=1,
             )
         )
-        assert session is not None
-        assert len(session.slides) == 3
+        assert project is not None
+        assert len(project.slides) == 3
 
     def test_update_slide_text(self):
         """Test manually updating slide text."""
-        session_manager.clear_all()
-        session = run_async(session_manager.create_session("test-stage1-006"))
-        session.slides = [Slide(index=0)]
-        run_async(session_manager.update_session(session))
+        project_manager.clear_all()
+        created = run_async(project_manager.create_project())
+        created.slides = [Slide(index=0)]
+        run_async(project_manager.update_project(created))
 
         result = run_async(
             stage1_service.update_slide_text(
-                session_id="test-stage1-006",
+                project_id=created.project_id,
                 slide_index=0,
                 title="New Title",
                 body="New Body",
@@ -140,16 +156,16 @@ class TestStage1Service:
 
     def test_update_slide_text_partial(self):
         """Test partially updating slide text."""
-        session_manager.clear_all()
-        session = run_async(session_manager.create_session("test-stage1-007"))
-        session.slides = [
+        project_manager.clear_all()
+        created = run_async(project_manager.create_project())
+        created.slides = [
             Slide(index=0, text=SlideText(title="Original", body="Original body"))
         ]
-        run_async(session_manager.update_session(session))
+        run_async(project_manager.update_project(created))
 
         result = run_async(
             stage1_service.update_slide_text(
-                session_id="test-stage1-007",
+                project_id=created.project_id,
                 slide_index=0,
                 body="Updated body only",
             )
@@ -159,11 +175,11 @@ class TestStage1Service:
 
     def test_update_nonexistent_slide(self):
         """Test updating a nonexistent slide."""
-        session_manager.clear_all()
-        run_async(session_manager.create_session("test-stage1-008"))
+        project_manager.clear_all()
+        created = run_async(project_manager.create_project())
         result = run_async(
             stage1_service.update_slide_text(
-                session_id="test-stage1-008",
+                project_id=created.project_id,
                 slide_index=99,
                 body="New content",
             )
@@ -176,10 +192,13 @@ class TestStage1Routes:
 
     def test_generate_slide_texts_route(self, client, mock_gemini):
         """Test the generate slide texts endpoint."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
         response = client.post(
             "/api/stage1/generate",
             json={
-                "session_id": "route-test-001",
+                "project_id": project_id,
                 "draft_text": "This is my draft about social media tips.",
                 "num_slides": 4,
                 "include_titles": True,
@@ -187,16 +206,19 @@ class TestStage1Routes:
         )
         assert response.status_code == 200
         data = response.json()
-        assert "session" in data
-        assert data["session"]["session_id"] == "route-test-001"
-        assert len(data["session"]["slides"]) == 4
+        assert "project" in data
+        assert data["project"]["project_id"] == project_id
+        assert len(data["project"]["slides"]) == 4
 
     def test_generate_slide_texts_validation(self, client):
         """Test input validation for generate endpoint."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
         response = client.post(
             "/api/stage1/generate",
             json={
-                "session_id": "route-test-002",
+                "project_id": project_id,
                 "draft_text": "",
                 "num_slides": 5,
             },
@@ -205,10 +227,13 @@ class TestStage1Routes:
 
     def test_generate_slide_texts_num_slides_bounds(self, client):
         """Test num_slides bounds validation."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
         response = client.post(
             "/api/stage1/generate",
             json={
-                "session_id": "route-test-003",
+                "project_id": project_id,
                 "draft_text": "Test draft",
                 "num_slides": 25,  # Max is 20
             },
@@ -217,52 +242,63 @@ class TestStage1Routes:
 
     def test_regenerate_all_route(self, client, mock_gemini):
         """Test regenerate all endpoint."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
         client.post(
             "/api/stage1/generate",
             json={
-                "session_id": "route-test-004",
+                "project_id": project_id,
                 "draft_text": "Original draft content",
                 "num_slides": 3,
             },
         )
         response = client.post(
             "/api/stage1/regenerate-all",
-            json={"session_id": "route-test-004"},
+            json={"project_id": project_id},
         )
         assert response.status_code == 200
-        assert len(response.json()["session"]["slides"]) == 3
+        assert len(response.json()["project"]["slides"]) == 3
 
     def test_regenerate_all_no_draft(self, client):
         """Test regenerate all without prior generation."""
-        client.post("/api/sessions/create", json={"session_id": "route-test-005"})
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
         response = client.post(
             "/api/stage1/regenerate-all",
-            json={"session_id": "route-test-005"},
+            json={"project_id": project_id},
         )
         assert response.status_code == 404
 
     def test_regenerate_single_route(self, client, mock_gemini):
         """Test regenerate single slide endpoint."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
         client.post(
             "/api/stage1/generate",
             json={
-                "session_id": "route-test-006",
+                "project_id": project_id,
                 "draft_text": "Test content for slides",
                 "num_slides": 3,
             },
         )
         response = client.post(
             "/api/stage1/regenerate",
-            json={"session_id": "route-test-006", "slide_index": 1},
+            json={"project_id": project_id, "slide_index": 1},
         )
         assert response.status_code == 200
 
     def test_update_slide_route(self, client, mock_gemini):
         """Test update slide text endpoint."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
         client.post(
             "/api/stage1/generate",
             json={
-                "session_id": "route-test-007",
+                "project_id": project_id,
                 "draft_text": "Test content",
                 "num_slides": 2,
             },
@@ -270,7 +306,7 @@ class TestStage1Routes:
         response = client.post(
             "/api/stage1/update",
             json={
-                "session_id": "route-test-007",
+                "project_id": project_id,
                 "slide_index": 0,
                 "title": "Custom Title",
                 "body": "Custom body content",
@@ -278,8 +314,8 @@ class TestStage1Routes:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["session"]["slides"][0]["text"]["title"] == "Custom Title"
-        assert data["session"]["slides"][0]["text"]["body"] == "Custom body content"
+        assert data["project"]["slides"][0]["text"]["title"] == "Custom Title"
+        assert data["project"]["slides"][0]["text"]["body"] == "Custom body content"
 
     def test_placeholder_still_works(self, client):
         """Test that placeholder endpoint still works."""

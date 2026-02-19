@@ -11,7 +11,7 @@ services:
       - ./backend/tests:/app/tests
       - ./backend/prompts:/app/prompts
       - ./backend/fonts:/app/fonts
-      - ./backend/data:/app/data
+      - lucid-data:/app/data
       - ./config.json:/app/config.json:delegated
       - ./backend/logs:/app/logs
     env_file:
@@ -44,3 +44,6 @@ services:
 networks:
   lucid-network:
     driver: bridge
+
+volumes:
+  lucid-data:
