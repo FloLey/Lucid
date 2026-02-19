@@ -103,9 +103,3 @@ async def update_style(
         ),
         "Project not found",
     )
-
-
-@router.get("/placeholder")
-def placeholder():
-    """Placeholder endpoint for backwards compatibility."""
-    return {"stage": 2, "status": "active"}

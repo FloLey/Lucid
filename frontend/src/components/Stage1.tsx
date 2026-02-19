@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
-import { useSessionContext } from '../contexts/SessionContext';
+import { useProject } from '../contexts/ProjectContext';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { SLIDE_COUNT_OPTIONS, LANGUAGES } from '../constants';
 import Spinner from './Spinner';
@@ -10,13 +10,13 @@ import StageLayout from './StageLayout';
 export default function Stage1() {
   const {
     projectId,
-    project,
-    loading,
-    setLoading,
+    currentProject: project,
+    stageLoading: loading,
+    setStageLoading: setLoading,
     setError,
     updateProject,
-    onNext,
-  } = useSessionContext();
+    advanceStage: onNext,
+  } = useProject();
 
   const config = useAppConfig();
   const [draftText, setDraftText] = useState('');

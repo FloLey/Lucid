@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
-import { useSessionContext } from '../contexts/SessionContext';
+import { useProject } from '../contexts/ProjectContext';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { PROPOSAL_COUNT_OPTIONS } from '../constants';
 import Spinner from './Spinner';
@@ -10,14 +10,14 @@ import StageLayout from './StageLayout';
 export default function Stage2() {
   const {
     projectId,
-    project,
-    loading,
-    setLoading,
+    currentProject: project,
+    stageLoading: loading,
+    setStageLoading: setLoading,
     setError,
     updateProject,
-    onNext,
-    onBack,
-  } = useSessionContext();
+    advanceStage: onNext,
+    previousStage: onBack,
+  } = useProject();
 
   const config = useAppConfig();
   const [numProposals, setNumProposals] = useState(3);

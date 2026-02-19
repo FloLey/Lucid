@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useSession } from './hooks/useSession';
-import { SessionContext } from './contexts/SessionContext';
+import { useState } from 'react';
+import { ProjectProvider, useProject } from './contexts/ProjectContext';
 import Stage1 from './components/Stage1';
 import Stage2 from './components/Stage2';
 import Stage3 from './components/Stage3';
@@ -13,25 +12,19 @@ import NewProjectModal from './components/NewProjectModal';
 import TemplatesPage from './components/TemplatesPage';
 import ConfigSettings from './components/ConfigSettings';
 
-function App() {
+function AppContent() {
   const {
     projects,
     projectsLoading,
     currentProject,
-    projectId,
-    stageLoading,
     error,
-    setStageLoading,
     setError,
-    updateProject,
     openProject,
     closeProject,
     createNewProject,
     deleteProject,
-    advanceStage,
-    previousStage,
     goToStage,
-  } = useSession();
+  } = useProject();
 
   const [showSettings, setShowSettings] = useState(false);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
@@ -39,31 +32,14 @@ function App() {
 
   const currentStage = currentProject?.current_stage ?? 1;
 
-  const sessionContextValue = useMemo(() => ({
-    projectId,
-    project: currentProject,
-    loading: stageLoading,
-    setLoading: setStageLoading,
-    setError,
-    updateProject,
-    onNext: advanceStage,
-    onBack: previousStage,
-  }), [projectId, currentProject, stageLoading, setStageLoading, setError, updateProject, advanceStage, previousStage]);
-
   const renderCurrentStage = () => {
     switch (currentStage) {
-      case 1:
-        return <Stage1 />;
-      case 2:
-        return <Stage2 />;
-      case 3:
-        return <Stage3 />;
-      case 4:
-        return <Stage4 />;
-      case 5:
-        return <Stage5 />;
-      default:
-        return <Stage1 />;
+      case 1: return <Stage1 />;
+      case 2: return <Stage2 />;
+      case 3: return <Stage3 />;
+      case 4: return <Stage4 />;
+      case 5: return <Stage5 />;
+      default: return <Stage1 />;
     }
   };
 
@@ -96,9 +72,7 @@ function App() {
           {currentProject ? (
             <div className="px-4 py-6">
               <div className="max-w-6xl mx-auto">
-                <SessionContext.Provider value={sessionContextValue}>
-                  {renderCurrentStage()}
-                </SessionContext.Provider>
+                {renderCurrentStage()}
               </div>
             </div>
           ) : (
@@ -132,6 +106,14 @@ function App() {
         <TemplatesPage onClose={() => setShowTemplatesPage(false)} />
       )}
     </>
+  );
+}
+
+function App() {
+  return (
+    <ProjectProvider>
+      <AppContent />
+    </ProjectProvider>
   );
 }
 

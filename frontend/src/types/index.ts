@@ -88,11 +88,6 @@ export interface ProjectCard {
   updated_at: string;
 }
 
-export interface ApiResponse<T> {
-  project?: T;
-  error?: string;
-}
-
 export interface StageInstructionsConfig {
   stage1: string | null;
   stage_style: string | null;

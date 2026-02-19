@@ -1,21 +1,21 @@
 import { useState } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
-import { useSessionContext } from '../contexts/SessionContext';
+import { useProject } from '../contexts/ProjectContext';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
 
 export default function Stage4() {
   const {
     projectId,
-    project,
-    loading,
-    setLoading,
+    currentProject: project,
+    stageLoading: loading,
+    setStageLoading: setLoading,
     setError,
     updateProject,
-    onNext,
-    onBack,
-  } = useSessionContext();
+    advanceStage: onNext,
+    previousStage: onBack,
+  } = useProject();
 
   const [regeneratingImages, setRegeneratingImages] = useState<Set<number>>(new Set());
 

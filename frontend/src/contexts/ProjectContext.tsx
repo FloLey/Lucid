@@ -1,9 +1,31 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import type { ReactNode } from 'react';
 import type { Project, ProjectCard } from '../types';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 
-/** Ensure array fields are never undefined. */
+interface ProjectContextValue {
+  projects: ProjectCard[];
+  projectsLoading: boolean;
+  currentProject: Project | null;
+  projectId: string;
+  stageLoading: boolean;
+  error: string | null;
+  setStageLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  updateProject: (project: Project) => void;
+  openProject: (projectId: string) => Promise<void>;
+  closeProject: () => void;
+  createNewProject: (mode?: string, slideCount?: number, templateId?: string) => Promise<void>;
+  deleteProject: (projectId: string) => Promise<void>;
+  refreshProjects: () => Promise<void>;
+  advanceStage: () => Promise<void>;
+  previousStage: () => Promise<void>;
+  goToStage: (stage: number) => Promise<void>;
+}
+
+const ProjectContext = createContext<ProjectContextValue | null>(null);
+
 function normalizeProject(project: Project): Project {
   return {
     ...project,
@@ -12,7 +34,7 @@ function normalizeProject(project: Project): Project {
   };
 }
 
-export function useSession() {
+export function ProjectProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<ProjectCard[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [projectsLoading, setProjectsLoading] = useState(true);
@@ -23,7 +45,6 @@ export function useSession() {
     setCurrentProject(normalizeProject(proj));
   }, []);
 
-  // Load project list on mount
   useEffect(() => {
     const loadProjects = async () => {
       try {
@@ -118,7 +139,7 @@ export function useSession() {
     }
   }, [currentProject, setNormalizedProject]);
 
-  return {
+  const value: ProjectContextValue = {
     projects,
     projectsLoading,
     currentProject,
@@ -137,4 +158,15 @@ export function useSession() {
     previousStage,
     goToStage,
   };
+
+  return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useProject(): ProjectContextValue {
+  const ctx = useContext(ProjectContext);
+  if (!ctx) {
+    throw new Error('useProject must be used within a ProjectProvider');
+  }
+  return ctx;
 }

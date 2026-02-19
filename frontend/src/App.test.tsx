@@ -26,10 +26,11 @@ vi.mock('./components/TemplatesPage', () => ({ default: ({ onClose }: { onClose:
   </div>
 )}));
 
-// Mock useSession to control app state
-const mockUseSession = vi.fn();
-vi.mock('./hooks/useSession', () => ({
-  useSession: () => mockUseSession(),
+// Mock useProject to control app state
+const mockUseProject = vi.fn();
+vi.mock('./contexts/ProjectContext', () => ({
+  ProjectProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useProject: () => mockUseProject(),
 }));
 
 const makeSessionState = (overrides = {}) => ({
@@ -57,7 +58,7 @@ import App from './App';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockUseSession.mockReturnValue(makeSessionState());
+  mockUseProject.mockReturnValue(makeSessionState());
 });
 
 describe('App routing', () => {
@@ -73,7 +74,7 @@ describe('App routing', () => {
   });
 
   it('shows stage pipeline when a project is open', () => {
-    mockUseSession.mockReturnValue(makeSessionState({
+    mockUseProject.mockReturnValue(makeSessionState({
       currentProject: {
         project_id: 'proj-1',
         name: 'Test Project',
@@ -102,7 +103,7 @@ describe('App routing', () => {
   });
 
   it('shows StageIndicator in pipeline mode', () => {
-    mockUseSession.mockReturnValue(makeSessionState({
+    mockUseProject.mockReturnValue(makeSessionState({
       currentProject: {
         project_id: 'proj-1',
         name: 'Test Project',
@@ -131,7 +132,7 @@ describe('App routing', () => {
   });
 
   it('shows project name in header when project is open', () => {
-    mockUseSession.mockReturnValue(makeSessionState({
+    mockUseProject.mockReturnValue(makeSessionState({
       currentProject: {
         project_id: 'proj-1',
         name: 'My Awesome Project',
@@ -184,7 +185,7 @@ describe('App routing', () => {
   });
 
   it('dismisses error when Dismiss is clicked', () => {
-    mockUseSession.mockReturnValue(makeSessionState({ error: 'Something went wrong' }));
+    mockUseProject.mockReturnValue(makeSessionState({ error: 'Something went wrong' }));
     render(<App />);
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Dismiss'));

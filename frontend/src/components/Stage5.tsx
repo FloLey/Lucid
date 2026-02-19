@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
-import { useSessionContext } from '../contexts/SessionContext';
+import { useProject } from '../contexts/ProjectContext';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useDragResize } from '../hooks/useDragResize';
 import { useStyleManager } from '../hooks/useStyleManager';
@@ -16,12 +16,12 @@ type SelectedBox = 'title' | 'body';
 export default function Stage5() {
   const {
     projectId,
-    project,
-    loading,
+    currentProject: project,
+    stageLoading: loading,
     setError,
     updateProject,
-    onBack,
-  } = useSessionContext();
+    previousStage: onBack,
+  } = useProject();
 
   const config = useAppConfig();
   const [selectedSlide, setSelectedSlide] = useState(0);

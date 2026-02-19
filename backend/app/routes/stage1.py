@@ -110,9 +110,3 @@ async def update_slide_text(
         ),
         "Project or slide not found",
     )
-
-
-@router.get("/placeholder")
-def placeholder():
-    """Placeholder endpoint for backwards compatibility."""
-    return {"stage": 1, "status": "active"}
