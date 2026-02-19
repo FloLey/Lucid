@@ -41,17 +41,20 @@ class ServiceContainer:
         self.stage1 = Stage1Service(
             project_manager=self.project_manager,
             gemini_service=self.gemini_service,
+            prompt_loader=self.prompt_loader,
         )
 
         self.stage_style = StageStyleService(
             project_manager=self.project_manager,
             gemini_service=self.gemini_service,
             image_service=self.image_service,
+            prompt_loader=self.prompt_loader,
         )
 
         self.stage2 = Stage2Service(
             project_manager=self.project_manager,
             gemini_service=self.gemini_service,
+            prompt_loader=self.prompt_loader,
         )
 
         self.stage3 = Stage3Service(

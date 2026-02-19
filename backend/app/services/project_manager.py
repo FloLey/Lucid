@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import threading
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -89,23 +88,13 @@ class ProjectManager:
             session_factory or _default_session_factory
         )
         self._cache: Dict[str, ProjectState] = {}
-        self._global_lock = threading.Lock()
-        self._project_locks: Dict[str, threading.Lock] = {}
+        self._global_lock = asyncio.Lock()
+        self._project_locks: Dict[str, asyncio.Lock] = {}
 
-    def _get_project_lock(self, project_id: str) -> threading.Lock:
-        with self._global_lock:
-            if project_id not in self._project_locks:
-                self._project_locks[project_id] = threading.Lock()
-            return self._project_locks[project_id]
-
-    @asynccontextmanager
-    async def _async_global_lock(self):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, self._global_lock.acquire)
-        try:
-            yield
-        finally:
-            self._global_lock.release()
+    def _get_project_lock(self, project_id: str) -> asyncio.Lock:
+        if project_id not in self._project_locks:
+            self._project_locks[project_id] = asyncio.Lock()
+        return self._project_locks[project_id]
 
     async def load_all(self) -> None:
         """Populate the in-memory cache from the DB (called at startup)."""
@@ -147,7 +136,7 @@ class ProjectManager:
         )
 
         await self._save_to_db(project)
-        async with self._async_global_lock():
+        async with self._global_lock:
             self._cache[project_id] = project
 
         logger.info(f"Created project {project_id} ({auto_name})")
@@ -155,7 +144,7 @@ class ProjectManager:
 
     async def get_project(self, project_id: str) -> Optional[ProjectState]:
         """Return the cached project (or reload from DB if missing)."""
-        async with self._async_global_lock():
+        async with self._global_lock:
             if project_id in self._cache:
                 return self._cache[project_id]
 
@@ -166,21 +155,21 @@ class ProjectManager:
             return None
 
         project = _db_row_to_state(row)
-        async with self._async_global_lock():
+        async with self._global_lock:
             self._cache[project_id] = project
         return project
 
     async def update_project(self, project: ProjectState) -> ProjectState:
         """Persist changes to *project* (cache + DB)."""
         project.update_timestamp()
-        async with self._async_global_lock():
+        async with self._global_lock:
             self._cache[project.project_id] = project
         await self._save_to_db(project)
         return project
 
     async def delete_project(self, project_id: str) -> bool:
         """Remove a project from cache and DB. Returns True if it existed."""
-        async with self._async_global_lock():
+        async with self._global_lock:
             existed = project_id in self._cache
             self._cache.pop(project_id, None)
             self._project_locks.pop(project_id, None)
@@ -279,12 +268,8 @@ class ProjectManager:
     async def project_context(self, project_id: str):
         """Async context manager providing per-project lock."""
         lock = self._get_project_lock(project_id)
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, lock.acquire)
-        try:
+        async with lock:
             yield await self.get_project(project_id)
-        finally:
-            lock.release()
 
     # ------------------------------------------------------------------
     # Test helpers
@@ -292,9 +277,8 @@ class ProjectManager:
 
     def clear_all(self) -> None:
         """Wipe all projects from memory and DB.  Used in tests."""
-        with self._global_lock:
-            self._cache.clear()
-            self._project_locks.clear()
+        self._cache.clear()
+        self._project_locks.clear()
 
         # Run a synchronous delete in a new event loop if needed
         try:

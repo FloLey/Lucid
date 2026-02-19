@@ -6,7 +6,7 @@ import logging
 from typing import Optional, TYPE_CHECKING
 
 from app.models.project import ProjectState
-from app.services.prompt_loader import load_prompt_file
+from app.services.prompt_loader import PromptLoader
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -25,6 +25,7 @@ class Stage2Service:
         self,
         project_manager: Optional[ProjectManager] = None,
         gemini_service: Optional[GeminiService] = None,
+        prompt_loader: Optional[PromptLoader] = None,
     ):
         if not project_manager:
             raise ValueError("project_manager dependency is required")
@@ -33,11 +34,7 @@ class Stage2Service:
 
         self.project_manager = project_manager
         self.gemini_service = gemini_service
-
-    def _get_prompt(self, project: ProjectState, name: str) -> str:
-        return project.project_config.get_prompt(name) or load_prompt_file(
-            f"{name}.prompt"
-        )
+        self.prompt_loader = prompt_loader or PromptLoader()
 
     def _build_slide_prompt(
         self,
@@ -68,7 +65,7 @@ class Stage2Service:
             else ""
         )
 
-        prompt_template = self._get_prompt(project, "generate_single_image_prompt")
+        prompt_template = self.prompt_loader.resolve_prompt(project, "generate_single_image_prompt")
         return prompt_template.format(
             slide_text=project.slides[slide_index].text.get_full_text(),
             shared_theme=shared_theme,
