@@ -1,13 +1,13 @@
 import { createContext, useContext } from 'react';
-import type { Session } from '../types';
+import type { Project } from '../types';
 
 export interface SessionContextValue {
-  sessionId: string;
-  session: Session | null;
+  projectId: string;
+  project: Project | null;
   loading: boolean;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  updateSession: (session: Session) => void;
+  updateProject: (project: Project) => void;
   onNext: () => Promise<void>;
   onBack: () => Promise<void>;
 }

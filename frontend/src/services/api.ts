@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Session, AppConfig } from '../types';
+import type { Project, ProjectCard, AppConfig } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -20,206 +20,228 @@ api.interceptors.response.use(
   },
 );
 
-// Session APIs
-export const createSession = async (sessionId: string): Promise<Session> => {
-  const response = await api.post('/sessions/create', { session_id: sessionId });
-  return response.data.session;
+// Project APIs
+export const listProjects = async (): Promise<ProjectCard[]> => {
+  const response = await api.get('/projects/');
+  return response.data.projects;
 };
 
-export const getSession = async (sessionId: string): Promise<Session> => {
-  const response = await api.get(`/sessions/${sessionId}`);
-  return response.data.session;
+export const createProject = async (
+  mode: string = 'carousel',
+  slideCount: number = 5,
+  templateId?: string
+): Promise<Project> => {
+  const response = await api.post('/projects/', {
+    mode,
+    slide_count: slideCount,
+    template_id: templateId,
+  });
+  return response.data.project;
 };
 
-export const advanceStage = async (sessionId: string): Promise<Session> => {
-  const response = await api.post('/sessions/next-stage', { session_id: sessionId });
-  return response.data.session;
+export const getProject = async (projectId: string): Promise<Project> => {
+  const response = await api.get(`/projects/${projectId}`);
+  return response.data.project;
 };
 
-export const previousStage = async (sessionId: string): Promise<Session> => {
-  const response = await api.post('/sessions/previous-stage', { session_id: sessionId });
-  return response.data.session;
+export const deleteProject = async (projectId: string): Promise<void> => {
+  await api.delete(`/projects/${projectId}`);
 };
 
-export const goToStage = async (sessionId: string, stage: number): Promise<Session> => {
-  const response = await api.post(`/sessions/${sessionId}/stage/${stage}`);
-  return response.data.session;
+export const renameProject = async (projectId: string, name: string): Promise<Project> => {
+  const response = await api.patch(`/projects/${projectId}/name`, { name });
+  return response.data.project;
+};
+
+export const advanceStage = async (projectId: string): Promise<Project> => {
+  const response = await api.post(`/projects/${projectId}/next-stage`);
+  return response.data.project;
+};
+
+export const previousStage = async (projectId: string): Promise<Project> => {
+  const response = await api.post(`/projects/${projectId}/prev-stage`);
+  return response.data.project;
+};
+
+export const goToStage = async (projectId: string, stage: number): Promise<Project> => {
+  const response = await api.post(`/projects/${projectId}/goto-stage/${stage}`);
+  return response.data.project;
 };
 
 // Stage 1 APIs
 export const generateSlideTexts = async (
-  sessionId: string,
+  projectId: string,
   draftText: string,
   numSlides?: number,
   includeTitles?: boolean,
   additionalInstructions?: string,
   language: string = 'English'
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage1/generate', {
-    session_id: sessionId,
+    project_id: projectId,
     draft_text: draftText,
     num_slides: numSlides,
     include_titles: includeTitles,
     additional_instructions: additionalInstructions,
     language,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 export const regenerateSlideText = async (
-  sessionId: string,
+  projectId: string,
   slideIndex: number,
   instruction?: string
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage1/regenerate', {
-    session_id: sessionId,
+    project_id: projectId,
     slide_index: slideIndex,
     instruction,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 export const updateSlideText = async (
-  sessionId: string,
+  projectId: string,
   slideIndex: number,
   title?: string,
   body?: string
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage1/update', {
-    session_id: sessionId,
+    project_id: projectId,
     slide_index: slideIndex,
     title,
     body,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 // Stage Style APIs
 export const generateStyleProposals = async (
-  sessionId: string,
+  projectId: string,
   numProposals: number = 3,
   additionalInstructions?: string
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage-style/generate', {
-    session_id: sessionId,
+    project_id: projectId,
     num_proposals: numProposals,
     additional_instructions: additionalInstructions,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 export const selectStyleProposal = async (
-  sessionId: string,
+  projectId: string,
   proposalIndex: number
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage-style/select', {
-    session_id: sessionId,
+    project_id: projectId,
     proposal_index: proposalIndex,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 // Stage 2 APIs (Prompts)
 export const generatePrompts = async (
-  sessionId: string,
+  projectId: string,
   styleInstructions?: string
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage2/generate', {
-    session_id: sessionId,
+    project_id: projectId,
     image_style_instructions: styleInstructions,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 export const regeneratePrompt = async (
-  sessionId: string,
+  projectId: string,
   slideIndex: number
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage2/regenerate', {
-    session_id: sessionId,
+    project_id: projectId,
     slide_index: slideIndex,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 export const updatePrompt = async (
-  sessionId: string,
+  projectId: string,
   slideIndex: number,
   prompt: string
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage2/update', {
-    session_id: sessionId,
+    project_id: projectId,
     slide_index: slideIndex,
     prompt,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 // Stage 3 APIs
-export const generateImages = async (sessionId: string): Promise<Session> => {
-  const response = await api.post('/stage3/generate', { session_id: sessionId });
-  return response.data.session;
+export const generateImages = async (projectId: string): Promise<Project> => {
+  const response = await api.post('/stage3/generate', { project_id: projectId });
+  return response.data.project;
 };
 
 export const regenerateImage = async (
-  sessionId: string,
+  projectId: string,
   slideIndex: number
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage3/regenerate', {
-    session_id: sessionId,
+    project_id: projectId,
     slide_index: slideIndex,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 // Stage 4 APIs
-export const applyTextToAll = async (sessionId: string): Promise<Session> => {
-  const response = await api.post('/stage4/apply-all', { session_id: sessionId });
-  return response.data.session;
+export const applyTextToAll = async (projectId: string): Promise<Project> => {
+  const response = await api.post('/stage4/apply-all', { project_id: projectId });
+  return response.data.project;
 };
 
 export const applyTextToSlide = async (
-  sessionId: string,
+  projectId: string,
   slideIndex: number
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage4/apply', {
-    session_id: sessionId,
+    project_id: projectId,
     slide_index: slideIndex,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 export const updateStyle = async (
-  sessionId: string,
+  projectId: string,
   slideIndex: number,
   style: Record<string, unknown>
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage4/update-style', {
-    session_id: sessionId,
+    project_id: projectId,
     slide_index: slideIndex,
     style,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 export const applyStyleToAll = async (
-  sessionId: string,
+  projectId: string,
   style: Record<string, unknown>
-): Promise<Session> => {
+): Promise<Project> => {
   const response = await api.post('/stage4/apply-style-all', {
-    session_id: sessionId,
+    project_id: projectId,
     style,
   });
-  return response.data.session;
+  return response.data.project;
 };
 
 // Export API
-export const getExportZipUrl = (sessionId: string): string => {
-  return `/api/export/zip/${sessionId}`;
+export const getExportZipUrl = (projectId: string): string => {
+  return `/api/export/zip/${projectId}`;
 };
 
-export const getExportSlideUrl = (sessionId: string, slideIndex: number): string => {
-  return `/api/export/slide/${sessionId}/${slideIndex}`;
+export const getExportSlideUrl = (projectId: string, slideIndex: number): string => {
+  return `/api/export/slide/${projectId}/${slideIndex}`;
 };
 
 // Config APIs

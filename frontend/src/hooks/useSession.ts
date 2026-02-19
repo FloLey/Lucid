@@ -1,119 +1,136 @@
 import { useState, useEffect, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { Session } from '../types';
+import type { Project, ProjectCard } from '../types';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 
-const SESSION_KEY = 'lucid_session_id';
-
 /** Ensure array fields are never undefined. */
-function normalizeSession(session: Session): Session {
+function normalizeProject(project: Project): Project {
   return {
-    ...session,
-    slides: session.slides ?? [],
-    style_proposals: session.style_proposals ?? [],
+    ...project,
+    slides: project.slides ?? [],
+    style_proposals: project.style_proposals ?? [],
   };
 }
 
 export function useSession() {
-  const [sessionId, setSessionId] = useState<string>('');
-  const [session, setSession] = useState<Session | null>(null);
+  const [projects, setProjects] = useState<ProjectCard[]>([]);
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const [stageLoading, setStageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const setNormalizedSession = useCallback((sess: Session) => {
-    setSession(normalizeSession(sess));
+  const setNormalizedProject = useCallback((proj: Project) => {
+    setCurrentProject(normalizeProject(proj));
   }, []);
 
-  // Initialize session
+  // Load project list on mount
   useEffect(() => {
-    const initSession = async () => {
-      let id = localStorage.getItem(SESSION_KEY);
-      if (!id) {
-        id = uuidv4();
-        localStorage.setItem(SESSION_KEY, id);
-      }
-      setSessionId(id);
-
+    const loadProjects = async () => {
       try {
-        const sess = await api.createSession(id);
-        setNormalizedSession(sess);
+        const cards = await api.listProjects();
+        setProjects(cards);
       } catch (err) {
-        console.error('Failed to create session:', err);
+        console.error('Failed to load projects:', err);
+      } finally {
+        setProjectsLoading(false);
       }
     };
+    loadProjects();
+  }, []);
 
-    initSession();
-  }, [setNormalizedSession]);
-
-  const refreshSession = useCallback(async () => {
-    if (!sessionId) return;
+  const refreshProjects = useCallback(async () => {
     try {
-      const sess = await api.getSession(sessionId);
-      setNormalizedSession(sess);
+      const cards = await api.listProjects();
+      setProjects(cards);
     } catch (err) {
-      console.error('Failed to refresh session:', err);
+      console.error('Failed to refresh projects:', err);
     }
-  }, [sessionId, setNormalizedSession]);
+  }, []);
 
-  const updateSession = useCallback((newSession: Session) => {
-    setNormalizedSession(newSession);
-  }, [setNormalizedSession]);
+  const openProject = useCallback(async (projectId: string) => {
+    try {
+      const proj = await api.getProject(projectId);
+      setNormalizedProject(proj);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to open project'));
+    }
+  }, [setNormalizedProject]);
+
+  const closeProject = useCallback(() => {
+    setCurrentProject(null);
+    refreshProjects();
+  }, [refreshProjects]);
+
+  const createNewProject = useCallback(async () => {
+    try {
+      const proj = await api.createProject();
+      setNormalizedProject(proj);
+      await refreshProjects();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to create project'));
+    }
+  }, [setNormalizedProject, refreshProjects]);
+
+  const deleteProject = useCallback(async (projectId: string) => {
+    try {
+      await api.deleteProject(projectId);
+      await refreshProjects();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to delete project'));
+    }
+  }, [refreshProjects]);
+
+  const updateProject = useCallback((newProject: Project) => {
+    setNormalizedProject(newProject);
+  }, [setNormalizedProject]);
 
   const advanceStage = useCallback(async () => {
-    if (!sessionId) return;
+    if (!currentProject) return;
     try {
-      const sess = await api.advanceStage(sessionId);
-      setNormalizedSession(sess);
+      const proj = await api.advanceStage(currentProject.project_id);
+      setNormalizedProject(proj);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to advance stage'));
     }
-  }, [sessionId, setNormalizedSession]);
+  }, [currentProject, setNormalizedProject]);
 
   const previousStage = useCallback(async () => {
-    if (!sessionId) return;
+    if (!currentProject) return;
     try {
-      const sess = await api.previousStage(sessionId);
-      setNormalizedSession(sess);
+      const proj = await api.previousStage(currentProject.project_id);
+      setNormalizedProject(proj);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to go back'));
     }
-  }, [sessionId, setNormalizedSession]);
+  }, [currentProject, setNormalizedProject]);
 
   const goToStage = useCallback(async (stage: number) => {
-    if (!sessionId) return;
+    if (!currentProject) return;
     try {
-      const sess = await api.goToStage(sessionId, stage);
-      setNormalizedSession(sess);
+      const proj = await api.goToStage(currentProject.project_id, stage);
+      setNormalizedProject(proj);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to navigate to stage'));
     }
-  }, [sessionId, setNormalizedSession]);
-
-  const startNewSession = useCallback(async () => {
-    const id = uuidv4();
-    localStorage.setItem(SESSION_KEY, id);
-    setSessionId(id);
-    try {
-      const sess = await api.createSession(id);
-      setNormalizedSession(sess);
-    } catch (err) {
-      setError(getErrorMessage(err, 'Failed to create new session'));
-    }
-  }, [setNormalizedSession]);
+  }, [currentProject, setNormalizedProject]);
 
   return {
-    sessionId,
-    session,
+    projects,
+    projectsLoading,
+    currentProject,
+    projectId: currentProject?.project_id ?? '',
     stageLoading,
     error,
     setStageLoading,
     setError,
-    updateSession,
-    refreshSession,
+    updateProject,
+    openProject,
+    closeProject,
+    createNewProject,
+    deleteProject,
+    refreshProjects,
     advanceStage,
     previousStage,
     goToStage,
-    startNewSession,
   };
 }

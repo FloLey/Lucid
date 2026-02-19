@@ -7,12 +7,12 @@ import StageLayout from './StageLayout';
 
 export default function Stage4() {
   const {
-    sessionId,
-    session,
+    projectId,
+    project,
     loading,
     setLoading,
     setError,
-    updateSession,
+    updateProject,
     onNext,
     onBack,
   } = useSessionContext();
@@ -23,8 +23,8 @@ export default function Stage4() {
     setLoading(true);
     setError(null);
     try {
-      const sess = await api.generateImages(sessionId);
-      updateSession(sess);
+      const sess = await api.generateImages(projectId);
+      updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate images'));
     } finally {
@@ -35,8 +35,8 @@ export default function Stage4() {
   const handleRegenerateImage = async (index: number) => {
     setRegeneratingImages((prev) => new Set(prev).add(index));
     try {
-      const sess = await api.regenerateImage(sessionId, index);
-      updateSession(sess);
+      const sess = await api.regenerateImage(projectId, index);
+      updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, `Failed to regenerate image ${index + 1}`));
     } finally {
@@ -48,7 +48,7 @@ export default function Stage4() {
     }
   };
 
-  const slides = session?.slides || [];
+  const slides = project?.slides || [];
   const hasImages = slides.some((s) => s.image_data);
 
   return (
@@ -67,10 +67,10 @@ export default function Stage4() {
             </div>
           </div>
 
-          {session?.shared_prompt_prefix && (
+          {project?.shared_prompt_prefix && (
             <div className="p-3 bg-lucid-50 rounded-lg mb-2">
               <span className="text-xs font-medium text-lucid-700">Shared Style:</span>
-              <p className="text-sm text-lucid-900">{session.shared_prompt_prefix}</p>
+              <p className="text-sm text-lucid-900">{project?.shared_prompt_prefix}</p>
             </div>
           )}
 

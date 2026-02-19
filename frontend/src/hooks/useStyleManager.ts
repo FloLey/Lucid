@@ -3,14 +3,14 @@ import type { TextStyle, AppConfig } from '../types';
 import * as api from '../services/api';
 
 interface UseStyleManagerOptions {
-  sessionId: string;
+  projectId: string;
   slideIndex: number;
   initialStyle: TextStyle | null;
   config?: AppConfig | null;
 }
 
 export function useStyleManager({
-  sessionId,
+  projectId,
   slideIndex,
   initialStyle,
   config
@@ -72,7 +72,7 @@ export function useStyleManager({
 
     setIsUpdating(true);
     try {
-      await api.updateStyle(sessionId, slideIndex, newStyle as unknown as Record<string, unknown>);
+      await api.updateStyle(projectId, slideIndex, newStyle as unknown as Record<string, unknown>);
     } catch (error) {
       console.error('Failed to update style:', error);
       // Revert on error
@@ -81,7 +81,7 @@ export function useStyleManager({
     } finally {
       setIsUpdating(false);
     }
-  }, [sessionId, slideIndex, style]);
+  }, [projectId, slideIndex, style]);
 
   const resetToDefaults = useCallback(() => {
     if (!initialStyle) return;

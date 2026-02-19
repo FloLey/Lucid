@@ -8,37 +8,43 @@ import Stage4 from './components/Stage4';
 import Stage5 from './components/Stage5';
 import Header from './components/Header';
 import StageIndicator from './components/StageIndicator';
+import ProjectHome from './components/ProjectHome';
 import ConfigSettings from './components/ConfigSettings';
 
 function App() {
   const {
-    sessionId,
-    session,
+    projects,
+    projectsLoading,
+    currentProject,
+    projectId,
     stageLoading,
     error,
     setStageLoading,
     setError,
-    updateSession,
+    updateProject,
+    openProject,
+    closeProject,
+    createNewProject,
+    deleteProject,
     advanceStage,
     previousStage,
     goToStage,
-    startNewSession,
   } = useSession();
 
   const [showSettings, setShowSettings] = useState(false);
 
-  const currentStage = session?.current_stage ?? 1;
+  const currentStage = currentProject?.current_stage ?? 1;
 
   const sessionContextValue = useMemo(() => ({
-    sessionId,
-    session,
+    projectId,
+    project: currentProject,
     loading: stageLoading,
     setLoading: setStageLoading,
     setError,
-    updateSession,
+    updateProject,
     onNext: advanceStage,
     onBack: previousStage,
-  }), [sessionId, session, stageLoading, setStageLoading, setError, updateSession, advanceStage, previousStage]);
+  }), [projectId, currentProject, stageLoading, setStageLoading, setError, updateProject, advanceStage, previousStage]);
 
   const renderCurrentStage = () => {
     switch (currentStage) {
@@ -60,34 +66,46 @@ function App() {
   return (
     <>
       <div className="h-screen flex flex-col overflow-hidden">
-        <Header onNewSession={startNewSession} onSettings={() => setShowSettings(true)} />
+        <Header
+          projectName={currentProject?.name ?? null}
+          onBack={currentProject ? closeProject : null}
+          onSettings={() => setShowSettings(true)}
+        />
 
-        <StageIndicator currentStage={currentStage} onStageClick={goToStage} />
+        {currentProject && (
+          <StageIndicator currentStage={currentStage} onStageClick={goToStage} />
+        )}
 
-        <main className="flex-1 min-h-0 px-4 py-6 overflow-y-auto">
-          <div className="max-w-6xl mx-auto">
-            {error && (
-              <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
-                {error}
-                <button
-                  onClick={() => setError(null)}
-                  className="ml-2 text-red-500 hover:text-red-700"
-                >
-                  Dismiss
-                </button>
+        <main className="flex-1 min-h-0 overflow-y-auto">
+          {error && (
+            <div className="mx-4 mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
+              {error}
+              <button
+                onClick={() => setError(null)}
+                className="ml-2 text-red-500 hover:text-red-700"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {currentProject ? (
+            <div className="px-4 py-6">
+              <div className="max-w-6xl mx-auto">
+                <SessionContext.Provider value={sessionContextValue}>
+                  {renderCurrentStage()}
+                </SessionContext.Provider>
               </div>
-            )}
-
-            {session ? (
-              <SessionContext.Provider value={sessionContextValue}>
-                {renderCurrentStage()}
-              </SessionContext.Provider>
-            ) : (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-gray-500">Loading session...</div>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <ProjectHome
+              projects={projects}
+              loading={projectsLoading}
+              onOpen={openProject}
+              onCreate={createNewProject}
+              onDelete={deleteProject}
+            />
+          )}
         </main>
       </div>
 

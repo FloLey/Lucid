@@ -55,13 +55,16 @@ export interface StyleProposal {
   preview_image: string | null;
 }
 
-export interface Session {
-  session_id: string;
+export interface Project {
+  project_id: string;
+  name: string;
+  mode: string;
+  slide_count: number;
   created_at: string;
   updated_at: string;
   current_stage: number;
   draft_text: string;
-  num_slides: number;
+  num_slides: number | null;
   include_titles: boolean;
   additional_instructions: string | null;
   language: string;
@@ -70,10 +73,22 @@ export interface Session {
   image_style_instructions: string | null;
   shared_prompt_prefix: string | null;
   slides: Slide[];
+  thumbnail_b64: string | null;
+}
+
+export interface ProjectCard {
+  project_id: string;
+  name: string;
+  mode: string;
+  current_stage: number;
+  slide_count: number;
+  thumbnail_b64: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ApiResponse<T> {
-  session?: T;
+  project?: T;
   error?: string;
 }
 
