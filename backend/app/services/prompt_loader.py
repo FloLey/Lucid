@@ -1,8 +1,13 @@
 """Centralized prompt template I/O — read, write, list."""
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import TYPE_CHECKING, Dict
+
+if TYPE_CHECKING:
+    from app.models.project import ProjectState
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +80,18 @@ class PromptLoader:
         filepath = PROMPTS_DIR / PROMPT_FILES[prompt_name]
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
+
+    def resolve_prompt(self, project: ProjectState, name: str) -> str:
+        """Return prompt from project config override, falling back to disk.
+
+        Args:
+            project: The current project (may carry per-project prompt overrides).
+            name: Logical prompt name without extension (e.g. "slide_generation").
+
+        Returns:
+            Prompt string — project-specific override if set, else file content.
+        """
+        return project.project_config.get_prompt(name) or self.load(f"{name}.prompt")
 
     def is_known(self, prompt_name: str) -> bool:
         """Check if a prompt name is registered."""

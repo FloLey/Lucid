@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../services/api';
-import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useDragResize } from '../hooks/useDragResize';
 import { useStyleManager } from '../hooks/useStyleManager';
 import { useApiAction } from '../hooks/useApiAction';
+import { useDebouncedRender } from '../hooks/useDebouncedRender';
 import CarouselCanvas from './CarouselCanvas';
 import SlideThumbnails from './SlideThumbnails';
 import StyleToolbar from './StyleToolbar';
@@ -43,59 +43,32 @@ export default function Stage5() {
   // Local text state
   const [localTitle, setLocalTitle] = useState<string | null>(currentSlide?.text.title || null);
   const [localBody, setLocalBody] = useState<string>(currentSlide?.text.body || '');
-  const textSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasTitle = !!(localTitle);
 
-  // Use ApiAction for renderSlide (defined early — used by scheduleTextSyncAndRender)
+  // Render slide on style changes
   const { execute: renderSlide, isLoading: rendering } = useApiAction({
     action: () => api.applyTextToSlide(projectId, selectedSlide),
     onSuccess: (newSession) => updateProject(newSession),
     onError: (error) => setError(error)
   });
 
-  // Sync text to backend
-  const syncTextToBackend = useCallback(async () => {
-    try {
-      const sess = await api.updateSlideText(projectId, selectedSlide, localTitle ?? undefined, localBody);
-      updateProject(sess);
-    } catch (err) {
-      setError(getErrorMessage(err, 'Failed to save text'));
-    }
-  }, [projectId, selectedSlide, localTitle, localBody, updateProject, setError]);
-
-  // Schedule text sync and render
-  const scheduleTextSyncAndRender = useCallback(() => {
-    if (textSyncTimerRef.current) {
-      clearTimeout(textSyncTimerRef.current);
-    }
-    textSyncTimerRef.current = setTimeout(async () => {
-      await syncTextToBackend();
-      // Schedule render after sync completes
-      setTimeout(() => {
-        renderSlide();
-      }, 100);
-    }, 1000);
-  }, [syncTextToBackend, renderSlide]);
+  // Debounced text save → render (sequential: save first, then render)
+  const { schedule: scheduleTextSyncAndRender, flush: flushTextSync } = useDebouncedRender({
+    projectId,
+    slideIndex: selectedSlide,
+    onSuccess: updateProject,
+    onError: (error) => setError(error),
+  });
 
   // Text change handler
   const handleTextChange = useCallback((which: 'title' | 'body', text: string) => {
-    if (which === 'title') {
-      setLocalTitle(text);
-    } else {
-      setLocalBody(text);
-    }
-    scheduleTextSyncAndRender();
-  }, [scheduleTextSyncAndRender]);
-
-  // Cleanup timer
-  useEffect(() => {
-    return () => {
-      if (textSyncTimerRef.current) {
-        clearTimeout(textSyncTimerRef.current);
-      }
-    };
-  }, []);
+    const newTitle = which === 'title' ? text : localTitle;
+    const newBody = which === 'body' ? text : localBody;
+    if (which === 'title') setLocalTitle(text);
+    else setLocalBody(text);
+    scheduleTextSyncAndRender(newTitle, newBody);
+  }, [scheduleTextSyncAndRender, localTitle, localBody]);
 
   // Update local text when selected slide changes
   useEffect(() => {
@@ -141,26 +114,14 @@ export default function Stage5() {
   }, [styleUpdating, renderSlide]);
 
   const handleBack = useCallback(async () => {
-    // Sync any pending text changes before navigating back
-    if (textSyncTimerRef.current) {
-      clearTimeout(textSyncTimerRef.current);
-      await syncTextToBackend();
-      // Also trigger render for current slide before leaving
-      await renderSlide();
-    }
+    await flushTextSync();
     onBack();
-  }, [syncTextToBackend, renderSlide, onBack]);
+  }, [flushTextSync, onBack]);
 
   const handleSlideChange = useCallback(async (index: number) => {
-    // Sync any pending text changes before switching slides
-    if (textSyncTimerRef.current) {
-      clearTimeout(textSyncTimerRef.current);
-      await syncTextToBackend();
-      // Also trigger render for current slide before switching
-      await renderSlide();
-    }
+    await flushTextSync();
     setSelectedSlide(index);
-  }, [syncTextToBackend, renderSlide]);
+  }, [flushTextSync]);
 
   const { handleBoxMouseDown, handleResizeMouseDown } = useDragResize({
     containerRef,

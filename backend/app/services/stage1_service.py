@@ -7,7 +7,7 @@ from typing import Optional, TYPE_CHECKING
 
 from app.models.slide import Slide, SlideText
 from app.models.project import ProjectState
-from app.services.prompt_loader import load_prompt_file
+from app.services.prompt_loader import PromptLoader
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -26,6 +26,7 @@ class Stage1Service:
         self,
         project_manager: Optional[ProjectManager] = None,
         gemini_service: Optional[GeminiService] = None,
+        prompt_loader: Optional[PromptLoader] = None,
     ):
         if not project_manager:
             raise ValueError("project_manager dependency is required")
@@ -34,6 +35,7 @@ class Stage1Service:
 
         self.project_manager = project_manager
         self.gemini_service = gemini_service
+        self.prompt_loader = prompt_loader or PromptLoader()
 
     @staticmethod
     def _build_title_instruction(include_titles: bool) -> str:
@@ -52,12 +54,6 @@ class Stage1Service:
         if include_titles:
             return '{"slides": [{"title": "Hook", "body": "Grab attention here"}, ...]}'
         return '{"slides": [{"body": "First slide content"}, ...]}'
-
-    def _get_prompt(self, project: ProjectState, name: str) -> str:
-        """Return prompt template from project config (falls back to file)."""
-        return project.project_config.get_prompt(name) or load_prompt_file(
-            f"{name}.prompt"
-        )
 
     async def generate_slide_texts(
         self,
@@ -99,7 +95,7 @@ class Stage1Service:
             else ""
         )
 
-        prompt_template = self._get_prompt(project, "slide_generation")
+        prompt_template = self.prompt_loader.resolve_prompt(project, "slide_generation")
 
         prompt = prompt_template.format(
             num_slides_instruction=num_slides_instruction,
@@ -165,7 +161,7 @@ class Stage1Service:
                 for s in project.slides[:6]
             )
 
-            prompt_template = self._get_prompt(project, "generate_project_title")
+            prompt_template = self.prompt_loader.resolve_prompt(project, "generate_project_title")
             prompt = prompt_template.format(slides_summary=slides_summary)
 
             result = await self.gemini_service.generate_json(
@@ -225,7 +221,7 @@ class Stage1Service:
             all_slides_parts.append(f"Slide {i + 1}: {s.text.get_full_text()}{marker}")
         all_slides_context = "\n".join(all_slides_parts)
 
-        prompt_template = self._get_prompt(project, "regenerate_single_slide")
+        prompt_template = self.prompt_loader.resolve_prompt(project, "regenerate_single_slide")
 
         prompt = prompt_template.format(
             draft_text=project.draft_text,

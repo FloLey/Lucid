@@ -15,7 +15,7 @@ class TestFontManager:
     def test_font_manager_init(self):
         """Test font manager initialization."""
         fm = FontManager()
-        assert fm._font_cache == {}
+        assert fm.get_font.cache_info().currsize == 0
         assert fm._available_fonts is None
 
     def test_weight_patterns_structure(self):
@@ -72,7 +72,7 @@ class TestFontManager:
         assert fm._available_fonts is not None
         fm.clear_cache()
         assert fm._available_fonts is None
-        assert fm._font_cache == {}
+        assert fm.get_font.cache_info().currsize == 0
 
     def test_get_font_returns_font(self):
         """Test that get_font returns a font object."""

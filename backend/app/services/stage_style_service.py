@@ -7,7 +7,7 @@ from typing import Optional, TYPE_CHECKING
 
 from app.models.project import ProjectState
 from app.models.style_proposal import StyleProposal
-from app.services.prompt_loader import load_prompt_file
+from app.services.prompt_loader import PromptLoader
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -29,6 +29,7 @@ class StageStyleService:
         project_manager: Optional[ProjectManager] = None,
         gemini_service: Optional[GeminiService] = None,
         image_service: Optional[ImageService] = None,
+        prompt_loader: Optional[PromptLoader] = None,
     ):
         if not project_manager:
             raise ValueError("project_manager dependency is required")
@@ -40,11 +41,7 @@ class StageStyleService:
         self.project_manager = project_manager
         self.gemini_service = gemini_service
         self.image_service = image_service
-
-    def _get_prompt(self, project: ProjectState, name: str) -> str:
-        return project.project_config.get_prompt(name) or load_prompt_file(
-            f"{name}.prompt"
-        )
+        self.prompt_loader = prompt_loader or PromptLoader()
 
     async def generate_proposals(
         self,
@@ -70,7 +67,7 @@ class StageStyleService:
             else ""
         )
 
-        prompt_template = self._get_prompt(project, "style_proposal")
+        prompt_template = self.prompt_loader.resolve_prompt(project, "style_proposal")
 
         response_format = (
             """{{\n    "proposals": [\n        {{\n"""
