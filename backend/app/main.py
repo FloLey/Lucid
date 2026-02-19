@@ -20,7 +20,6 @@ from app.routes import (
     fonts,
     config,
     prompts,
-    chat,
 )
 from app.services.gemini_service import GeminiError
 from app.services.llm_logger import start_flow, _flow_name_from_path
@@ -78,7 +77,6 @@ app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(fonts.router, prefix="/api/fonts", tags=["fonts"])
 app.include_router(config.router, prefix="/api/config", tags=["config"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
-app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 
 
 @app.middleware("http")
