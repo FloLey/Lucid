@@ -24,11 +24,12 @@ interface ProjectHomeProps {
   projects: ProjectCard[];
   loading: boolean;
   onOpen: (projectId: string) => void;
-  onCreate: () => void;
+  onNewProject: () => void;
   onDelete: (projectId: string) => void;
+  onTemplates: () => void;
 }
 
-export default function ProjectHome({ projects, loading, onOpen, onCreate, onDelete }: ProjectHomeProps) {
+export default function ProjectHome({ projects, loading, onOpen, onNewProject, onDelete, onTemplates }: ProjectHomeProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (e: React.MouseEvent, projectId: string) => {
@@ -50,15 +51,26 @@ export default function ProjectHome({ projects, loading, onOpen, onCreate, onDel
           <h2 className="text-2xl font-bold text-gray-900">Your Projects</h2>
           <p className="text-gray-500 mt-1">Pick up where you left off, or start something new.</p>
         </div>
-        <button
-          onClick={onCreate}
-          className="flex items-center gap-2 px-5 py-2.5 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          New Project
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onTemplates}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Templates
+          </button>
+          <button
+            onClick={onNewProject}
+            className="flex items-center gap-2 px-5 py-2.5 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New Project
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -85,7 +97,7 @@ export default function ProjectHome({ projects, loading, onOpen, onCreate, onDel
             Create your first project to start turning rough drafts into polished carousels.
           </p>
           <button
-            onClick={onCreate}
+            onClick={onNewProject}
             className="px-6 py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
           >
             Create your first project

@@ -33,6 +33,7 @@ export interface TextStyle {
   stroke: StrokeStyle;
   shadow: ShadowStyle;
   max_lines: number;
+  text_enabled: boolean;
 }
 
 export interface SlideText {
@@ -129,4 +130,12 @@ export interface AppConfig {
   global_defaults: GlobalDefaultsConfig;
   image: ImageConfig;
   style: StyleConfig;
+}
+
+export interface TemplateData {
+  id: string;
+  name: string;
+  default_mode: string;
+  default_slide_count: number;
+  created_at: string;
 }

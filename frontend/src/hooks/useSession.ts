@@ -61,9 +61,13 @@ export function useSession() {
     refreshProjects();
   }, [refreshProjects]);
 
-  const createNewProject = useCallback(async () => {
+  const createNewProject = useCallback(async (
+    mode: string = 'carousel',
+    slideCount: number = 5,
+    templateId?: string
+  ) => {
     try {
-      const proj = await api.createProject();
+      const proj = await api.createProject(mode, slideCount, templateId);
       setNormalizedProject(proj);
       await refreshProjects();
     } catch (err) {

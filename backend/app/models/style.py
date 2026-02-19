@@ -56,3 +56,4 @@ class TextStyle(BaseModel):
     stroke: StrokeStyle = Field(default_factory=StrokeStyle)
     shadow: ShadowStyle = Field(default_factory=ShadowStyle)
     max_lines: int = Field(default=12, ge=1, le=20)
+    text_enabled: bool = Field(default=True, description="Whether text is rendered on this slide")

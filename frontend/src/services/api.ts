@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Project, ProjectCard, AppConfig } from '../types';
+import type { Project, ProjectCard, AppConfig, TemplateData } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -289,5 +289,33 @@ export interface PromptValidationResponse {
 
 export const validatePrompts = async (prompts: Record<string, string>): Promise<PromptValidationResponse> => {
   const response = await api.post('/prompts/validate', { prompts });
+  return response.data;
+};
+
+// Templates API
+export const listTemplates = async (): Promise<TemplateData[]> => {
+  const response = await api.get('/templates/');
+  return response.data.templates;
+};
+
+export const createTemplate = async (
+  name: string,
+  defaultMode: string = 'carousel',
+  defaultSlideCount: number = 5
+): Promise<TemplateData> => {
+  const response = await api.post('/templates/', {
+    name,
+    default_mode: defaultMode,
+    default_slide_count: defaultSlideCount,
+  });
+  return response.data;
+};
+
+export const deleteTemplate = async (templateId: string): Promise<void> => {
+  await api.delete(`/templates/${templateId}`);
+};
+
+export const renameTemplate = async (templateId: string, name: string): Promise<TemplateData> => {
+  const response = await api.patch(`/templates/${templateId}`, { name });
   return response.data;
 };

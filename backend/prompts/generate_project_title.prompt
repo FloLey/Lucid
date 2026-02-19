@@ -1,0 +1,13 @@
+Generate a short, descriptive title for a social media carousel project based on its slide content.
+
+The title should:
+- Be 2-6 words
+- Capture the main topic or theme
+- Be suitable as a project name (not a social media caption)
+- NOT include quotes or punctuation marks
+
+Slides content:
+{slides_summary}
+
+Return ONLY a JSON object with a single "title" field:
+{{"title": "Your Short Title Here"}}

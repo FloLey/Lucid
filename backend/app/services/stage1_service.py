@@ -1,6 +1,7 @@
 """Stage 1 service - Draft to Slide texts transformation."""
 
 from __future__ import annotations
+import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
@@ -143,7 +144,38 @@ class Stage1Service:
         project.num_slides = len(project.slides)
 
         await self.project_manager.update_project(project)
+
+        # Fire background task to auto-name the project from slide content
+        if project.name == "Untitled Project":
+            asyncio.create_task(
+                self._generate_project_title(project.project_id)
+            )
+
         return project
+
+    async def _generate_project_title(self, project_id: str) -> None:
+        """Background task: generate and set a descriptive project title."""
+        try:
+            project = await self.project_manager.get_project(project_id)
+            if not project or project.name != "Untitled Project":
+                return
+
+            slides_summary = "\n".join(
+                f"Slide {s.index + 1}: {s.text.get_full_text()[:120]}"
+                for s in project.slides[:6]
+            )
+
+            prompt_template = self._get_prompt(project, "generate_project_title")
+            prompt = prompt_template.format(slides_summary=slides_summary)
+
+            result = await self.gemini_service.generate_json(
+                prompt, caller="stage1_service._generate_project_title"
+            )
+            title = result.get("title", "").strip()
+            if title and len(title) <= 80:
+                await self.project_manager.rename_project(project_id, title)
+        except Exception:
+            logger.exception("Background title generation failed for %s", project_id)
 
     async def regenerate_all_slide_texts(
         self,

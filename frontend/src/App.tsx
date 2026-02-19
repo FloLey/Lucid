@@ -9,6 +9,8 @@ import Stage5 from './components/Stage5';
 import Header from './components/Header';
 import StageIndicator from './components/StageIndicator';
 import ProjectHome from './components/ProjectHome';
+import NewProjectModal from './components/NewProjectModal';
+import TemplatesPage from './components/TemplatesPage';
 import ConfigSettings from './components/ConfigSettings';
 
 function App() {
@@ -32,6 +34,8 @@ function App() {
   } = useSession();
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [showTemplatesPage, setShowTemplatesPage] = useState(false);
 
   const currentStage = currentProject?.current_stage ?? 1;
 
@@ -102,8 +106,9 @@ function App() {
               projects={projects}
               loading={projectsLoading}
               onOpen={openProject}
-              onCreate={createNewProject}
+              onNewProject={() => setShowNewProjectModal(true)}
               onDelete={deleteProject}
+              onTemplates={() => setShowTemplatesPage(true)}
             />
           )}
         </main>
@@ -111,6 +116,20 @@ function App() {
 
       {showSettings && (
         <ConfigSettings onClose={() => setShowSettings(false)} />
+      )}
+
+      {showNewProjectModal && (
+        <NewProjectModal
+          onClose={() => setShowNewProjectModal(false)}
+          onCreate={async (mode, slideCount, templateId) => {
+            await createNewProject(mode, slideCount, templateId);
+            setShowNewProjectModal(false);
+          }}
+        />
+      )}
+
+      {showTemplatesPage && (
+        <TemplatesPage onClose={() => setShowTemplatesPage(false)} />
       )}
     </>
   );
