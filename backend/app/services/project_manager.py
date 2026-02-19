@@ -279,16 +279,7 @@ class ProjectManager:
         """Wipe all projects from memory and DB.  Used in tests."""
         self._cache.clear()
         self._project_locks.clear()
-
-        # Run a synchronous delete in a new event loop if needed
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(self._async_clear_db())
-            else:
-                loop.run_until_complete(self._async_clear_db())
-        except RuntimeError:
-            asyncio.run(self._async_clear_db())
+        asyncio.run(self._async_clear_db())
 
     async def _async_clear_db(self) -> None:
         async with self._session_factory() as session:

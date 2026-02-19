@@ -1,7 +1,6 @@
 """Stage 1 service - Draft to Slide texts transformation."""
 
 from __future__ import annotations
-import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
@@ -141,15 +140,9 @@ class Stage1Service:
 
         await self.project_manager.update_project(project)
 
-        # Fire background task to auto-name the project from slide content
-        if project.name == "Untitled Project":
-            asyncio.create_task(
-                self._generate_project_title(project.project_id)
-            )
-
         return project
 
-    async def _generate_project_title(self, project_id: str) -> None:
+    async def generate_project_title(self, project_id: str) -> None:
         """Background task: generate and set a descriptive project title."""
         try:
             project = await self.project_manager.get_project(project_id)
