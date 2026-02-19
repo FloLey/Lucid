@@ -46,14 +46,6 @@ def test_stage_placeholders(client):
         assert data["stage"] == stage_num
 
 
-def test_chat_placeholder(client):
-    """Test chat placeholder endpoint."""
-    response = client.get("/api/chat/placeholder")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["feature"] == "chat"
-
-
 def test_export_placeholder(client):
     """Test export placeholder endpoint."""
     response = client.get("/api/export/placeholder")

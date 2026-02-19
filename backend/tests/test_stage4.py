@@ -1,18 +1,20 @@
 """Tests for Stage 4 - Typography/Layout rendering."""
 
-import asyncio
 import base64
 import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.session_manager import session_manager
-from app.services.stage4_service import stage4_service
-from app.services.rendering_service import rendering_service
-from app.services.image_service import image_service
+from app.dependencies import container
 from app.models.slide import Slide, SlideText
 from app.models.style import TextStyle
+from tests.conftest import run_async
+
+stage4_service = container.stage4
+session_manager = container.session_manager
+rendering_service = container.rendering_service
+image_service = container.image_service
 
 
 @pytest.fixture
@@ -32,7 +34,7 @@ def sample_image_base64():
 def session_with_images(sample_image_base64):
     """Create a session with background images."""
     session_manager.clear_all()
-    session = session_manager.create_session("test-stage4")
+    session = run_async(session_manager.create_session("test-stage4"))
     session.slides = [
         Slide(
             index=0,
@@ -50,13 +52,14 @@ def session_with_images(sample_image_base64):
             image_data=sample_image_base64,
         ),
     ]
-    session_manager.update_session(session)
+    run_async(session_manager.update_session(session))
     return session
 
 
 @pytest.fixture
 def mock_gemini():
     """Mock the Gemini service."""
+
     async def mock_generate_json(*args, **kwargs):
         return {
             "font_family": "Montserrat",
@@ -73,7 +76,7 @@ def mock_gemini():
             "stroke": {"enabled": True, "width_px": 2, "color": "#000000"},
         }
 
-    with patch("app.services.stage4_service.gemini_service") as mock:
+    with patch("app.dependencies.container.image_service.gemini_service") as mock:
         mock.generate_json = mock_generate_json
         yield mock
 
@@ -84,6 +87,7 @@ class TestRenderingService:
     def test_wrap_text_single_line(self, sample_image_base64):
         """Test text wrapping for single line."""
         from PIL import Image, ImageDraw
+
         img = Image.new("RGB", (1080, 1350))
         draw = ImageDraw.Draw(img)
         font = font_manager_import().get_font("Inter", 700, 48)
@@ -95,6 +99,7 @@ class TestRenderingService:
     def test_wrap_text_multi_line(self, sample_image_base64):
         """Test text wrapping for multiple lines."""
         from PIL import Image, ImageDraw
+
         img = Image.new("RGB", (1080, 1350))
         draw = ImageDraw.Draw(img)
         font = font_manager_import().get_font("Inter", 700, 48)
@@ -123,7 +128,7 @@ class TestRenderingService:
 
         result = rendering_service.render_text_on_image(
             background_base64=sample_image_base64,
-            text="Hello World",
+            body="Hello World",
             style=style,
         )
 
@@ -145,7 +150,7 @@ class TestRenderingService:
 
         result = rendering_service.render_text_on_image(
             background_base64=sample_image_base64,
-            text="Stroked Text",
+            body="Stroked Text",
             style=style,
         )
 
@@ -164,7 +169,7 @@ class TestRenderingService:
 
         result = rendering_service.render_text_on_image(
             background_base64=sample_image_base64,
-            text="Shadow Text",
+            body="Shadow Text",
             style=style,
         )
 
@@ -187,7 +192,7 @@ class TestStage4Service:
 
     def test_apply_text_to_all_images(self, session_with_images):
         """Test applying text to all images."""
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage4_service.apply_text_to_all_images(session_id="test-stage4")
         )
         assert session is not None
@@ -196,7 +201,7 @@ class TestStage4Service:
 
     def test_apply_text_to_single_image(self, session_with_images):
         """Test applying text to a single image."""
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage4_service.apply_text_to_image(
                 session_id="test-stage4",
                 slide_index=1,
@@ -208,21 +213,23 @@ class TestStage4Service:
     def test_apply_text_no_session(self):
         """Test applying text with no session."""
         session_manager.clear_all()
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage4_service.apply_text_to_all_images(session_id="nonexistent")
         )
         assert session is None
 
     def test_update_style(self, session_with_images):
         """Test updating style properties."""
-        session = stage4_service.update_style(
-            session_id="test-stage4",
-            slide_index=0,
-            style_updates={
-                "font_size_px": 96,
-                "text_color": "#FF0000",
-                "alignment": "left",
-            },
+        session = run_async(
+            stage4_service.update_style(
+                session_id="test-stage4",
+                slide_index=0,
+                style_updates={
+                    "font_size_px": 96,
+                    "text_color": "#FF0000",
+                    "alignment": "left",
+                },
+            )
         )
         assert session is not None
         assert session.slides[0].style.font_size_px == 96
@@ -231,16 +238,18 @@ class TestStage4Service:
 
     def test_update_style_title_box(self, session_with_images):
         """Test updating title_box style properties."""
-        session = stage4_service.update_style(
-            session_id="test-stage4",
-            slide_index=0,
-            style_updates={
-                "title_box": {
-                    "x_pct": 0.2,
-                    "y_pct": 0.4,
-                    "w_pct": 0.6,
+        session = run_async(
+            stage4_service.update_style(
+                session_id="test-stage4",
+                slide_index=0,
+                style_updates={
+                    "title_box": {
+                        "x_pct": 0.2,
+                        "y_pct": 0.4,
+                        "w_pct": 0.6,
+                    },
                 },
-            },
+            )
         )
         assert session.slides[0].style.title_box.x_pct == 0.2
         assert session.slides[0].style.title_box.y_pct == 0.4
@@ -248,25 +257,29 @@ class TestStage4Service:
 
     def test_update_style_stroke(self, session_with_images):
         """Test updating stroke style properties."""
-        session = stage4_service.update_style(
-            session_id="test-stage4",
-            slide_index=0,
-            style_updates={
-                "stroke": {
-                    "enabled": True,
-                    "width_px": 4,
-                    "color": "#FF0000",
+        session = run_async(
+            stage4_service.update_style(
+                session_id="test-stage4",
+                slide_index=0,
+                style_updates={
+                    "stroke": {
+                        "enabled": True,
+                        "width_px": 4,
+                        "color": "#FF0000",
+                    },
                 },
-            },
+            )
         )
         assert session.slides[0].style.stroke.enabled is True
         assert session.slides[0].style.stroke.width_px == 4
 
     def test_apply_style_to_all(self, session_with_images):
         """Test applying style to all slides."""
-        session = stage4_service.apply_style_to_all(
-            session_id="test-stage4",
-            style_updates={"font_size_px": 80},
+        session = run_async(
+            stage4_service.apply_style_to_all(
+                session_id="test-stage4",
+                style_updates={"font_size_px": 80},
+            )
         )
         assert session is not None
         for slide in session.slides:
@@ -274,7 +287,7 @@ class TestStage4Service:
 
     def test_suggest_style(self, session_with_images):
         """Test image-based style suggestion."""
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage4_service.suggest_style(
                 session_id="test-stage4",
                 slide_index=0,
@@ -339,6 +352,5 @@ class TestStage4Routes:
 
 
 def font_manager_import():
-    """Helper to import font manager."""
-    from app.services.font_manager import font_manager
-    return font_manager
+    """Helper to get font manager from DI container."""
+    return container.font_manager

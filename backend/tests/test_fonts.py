@@ -3,7 +3,10 @@
 import pytest
 from PIL import ImageFont
 
-from app.services.font_manager import FontManager, font_manager
+from app.services.font_manager import FontManager
+from app.dependencies import container
+
+font_manager = container.font_manager
 
 
 class TestFontManager:
@@ -35,7 +38,10 @@ class TestFontManager:
         fm = FontManager()
         assert fm._parse_family_from_filename("Inter-Regular.ttf") == "Inter"
         assert fm._parse_family_from_filename("Roboto-Bold.ttf") == "Roboto"
-        assert fm._parse_family_from_filename("PlayfairDisplay-Regular.ttf") == "PlayfairDisplay"
+        assert (
+            fm._parse_family_from_filename("PlayfairDisplay-Regular.ttf")
+            == "PlayfairDisplay"
+        )
 
     def test_normalize_family_name(self):
         """Test family name normalization."""
@@ -96,7 +102,7 @@ class TestFontManager:
     def test_refresh(self):
         """Test refreshing the font index."""
         fm = FontManager()
-        fonts_before = fm.get_available_fonts()
+        fm.get_available_fonts()
         fm.refresh()
         fonts_after = fm.get_available_fonts()
         # Should still work after refresh
@@ -116,6 +122,7 @@ class TestFontRoutes:
         """Create a test client."""
         from fastapi.testclient import TestClient
         from app.main import app
+
         return TestClient(app)
 
     def test_list_fonts(self, client):

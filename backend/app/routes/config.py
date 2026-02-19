@@ -1,19 +1,12 @@
 """Configuration API routes."""
 
 from typing import Optional, Dict
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
-from app.models.config import (
-    AppConfig,
-    PromptsConfig,
-    StageInstructionsConfig,
-    GlobalDefaultsConfig,
-    ImageConfig,
-    StyleConfig,
-)
-from app.services.config_manager import config_manager
-from app.services.prompt_validator import validate_all_prompts
+from app.models.config import AppConfig
+from app.dependencies import get_config_manager
+from app.services.config_manager import ConfigManager
 
 router = APIRouter()
 
@@ -21,12 +14,18 @@ router = APIRouter()
 # Request models
 class UpdateStageInstructionsRequest(BaseModel):
     """Request to update stage instructions."""
-    stage: str = Field(..., description="Stage name (stage1, stage_style, stage2, stage3)")
-    instructions: Optional[str] = Field(None, description="Instructions (None to clear)")
+
+    stage: str = Field(
+        ..., description="Stage name (stage1, stage_style, stage2, stage3)"
+    )
+    instructions: Optional[str] = Field(
+        None, description="Instructions (None to clear)"
+    )
 
 
 class UpdateGlobalDefaultsRequest(BaseModel):
     """Request to update global defaults."""
+
     num_slides: Optional[int] = Field(None, ge=1, le=10)
     language: Optional[str] = None
     include_titles: Optional[bool] = None
@@ -34,6 +33,7 @@ class UpdateGlobalDefaultsRequest(BaseModel):
 
 class UpdateImageConfigRequest(BaseModel):
     """Request to update image config."""
+
     width: Optional[int] = Field(None, ge=256, le=4096)
     height: Optional[int] = Field(None, ge=256, le=4096)
     aspect_ratio: Optional[str] = None
@@ -41,6 +41,7 @@ class UpdateImageConfigRequest(BaseModel):
 
 class UpdateStyleConfigRequest(BaseModel):
     """Request to update style config."""
+
     default_font_family: Optional[str] = None
     default_font_weight: Optional[int] = Field(None, ge=100, le=900)
     default_font_size_px: Optional[int] = Field(None, ge=12, le=200)
@@ -51,23 +52,26 @@ class UpdateStyleConfigRequest(BaseModel):
 # Response models
 class ConfigResponse(BaseModel):
     """Standard config response."""
+
     config: AppConfig
 
 
 class ValidatePromptsRequest(BaseModel):
     """Request to validate prompts."""
+
     prompts: Dict[str, str]
 
 
 class ValidatePromptsResponse(BaseModel):
     """Response from prompt validation."""
+
     valid: bool
     errors: Dict[str, str]  # Maps prompt name to error message
     warnings: Dict[str, str]  # Maps prompt name to warning message
 
 
 @router.get("", response_model=ConfigResponse)
-def get_config():
+def get_config(config_manager: ConfigManager = Depends(get_config_manager)):
     """Get complete configuration.
 
     Returns:
@@ -77,7 +81,9 @@ def get_config():
 
 
 @router.put("", response_model=ConfigResponse)
-def update_config(config: AppConfig):
+def update_config(
+    config: AppConfig, config_manager: ConfigManager = Depends(get_config_manager)
+):
     """Replace entire configuration.
 
     Note: This does NOT include prompts. Use /api/prompts to edit prompt files.
@@ -101,7 +107,10 @@ def update_config(config: AppConfig):
 
 
 @router.patch("/stage-instructions", response_model=ConfigResponse)
-def update_stage_instructions(request: UpdateStageInstructionsRequest):
+def update_stage_instructions(
+    request: UpdateStageInstructionsRequest,
+    config_manager: ConfigManager = Depends(get_config_manager),
+):
     """Update instructions for a specific stage.
 
     Args:
@@ -112,8 +121,7 @@ def update_stage_instructions(request: UpdateStageInstructionsRequest):
     """
     try:
         updated_config = config_manager.update_stage_instructions(
-            request.stage,
-            request.instructions
+            request.stage, request.instructions
         )
         return ConfigResponse(config=updated_config)
     except ValueError as e:
@@ -123,7 +131,10 @@ def update_stage_instructions(request: UpdateStageInstructionsRequest):
 
 
 @router.patch("/global-defaults", response_model=ConfigResponse)
-def update_global_defaults(request: UpdateGlobalDefaultsRequest):
+def update_global_defaults(
+    request: UpdateGlobalDefaultsRequest,
+    config_manager: ConfigManager = Depends(get_config_manager),
+):
     """Update global default parameters.
 
     Args:
@@ -142,7 +153,10 @@ def update_global_defaults(request: UpdateGlobalDefaultsRequest):
 
 
 @router.patch("/image", response_model=ConfigResponse)
-def update_image_config(request: UpdateImageConfigRequest):
+def update_image_config(
+    request: UpdateImageConfigRequest,
+    config_manager: ConfigManager = Depends(get_config_manager),
+):
     """Update image configuration.
 
     Args:
@@ -161,7 +175,10 @@ def update_image_config(request: UpdateImageConfigRequest):
 
 
 @router.patch("/style", response_model=ConfigResponse)
-def update_style_config(request: UpdateStyleConfigRequest):
+def update_style_config(
+    request: UpdateStyleConfigRequest,
+    config_manager: ConfigManager = Depends(get_config_manager),
+):
     """Update style configuration.
 
     Args:
@@ -180,7 +197,7 @@ def update_style_config(request: UpdateStyleConfigRequest):
 
 
 @router.post("/reset", response_model=ConfigResponse)
-def reset_config():
+def reset_config(config_manager: ConfigManager = Depends(get_config_manager)):
     """Reset entire configuration to defaults.
 
     Returns:

@@ -1,7 +1,7 @@
 """Prompt validation service to ensure required variables are present."""
 
 import re
-from typing import Dict, List, Set
+from typing import Dict, Set
 
 
 # Required variables for each prompt type
@@ -36,12 +36,6 @@ REQUIRED_VARIABLES: Dict[str, Set[str]] = {
         "current_text",
         "instruction_text",
         "title_instruction",
-        "response_format",
-    },
-    "chat_routing": {
-        "current_stage",
-        "tool_descriptions",
-        "message",
         "response_format",
     },
 }
@@ -97,7 +91,7 @@ def validate_prompt(prompt_name: str, prompt_text: str) -> tuple[bool, str]:
 
 def validate_all_prompts(prompts: Dict[str, str]) -> Dict[str, str]:
     """
-    Validate all prompts in a PromptsConfig dict.
+    Validate all prompts in a dict.
 
     Args:
         prompts: Dictionary mapping prompt names to prompt text
@@ -113,3 +107,26 @@ def validate_all_prompts(prompts: Dict[str, str]) -> Dict[str, str]:
             results[prompt_name] = message
 
     return results
+
+
+class PromptValidator:
+    """Service for validating that prompt templates contain required variables."""
+
+    def validate_prompt(self, prompt_name: str, prompt_text: str) -> tuple[bool, str]:
+        """
+        Validate that a specific prompt contains all required variables.
+
+        Args:
+            prompt_name: Name of the prompt type.
+            prompt_text: The raw prompt string.
+        """
+        return validate_prompt(prompt_name, prompt_text)
+
+    def validate_all_prompts(self, prompts: Dict[str, str]) -> Dict[str, str]:
+        """
+        Validate a dictionary of prompts.
+
+        Args:
+            prompts: Map of prompt names to their content.
+        """
+        return validate_all_prompts(prompts)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { AppConfig, StageInstructionsConfig, GlobalDefaultsConfig, ImageConfig, StyleConfig } from '../types';
 import * as api from '../services/api';
+import { getErrorMessage } from '../utils/error';
 import Spinner from './Spinner';
 import PromptsTab from './config-tabs/PromptsTab';
 import InstructionsTab from './config-tabs/InstructionsTab';
@@ -45,8 +46,8 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
       ]);
       setConfig(configData);
       setPrompts(promptsData);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to load configuration');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load configuration'));
     } finally {
       setLoading(false);
     }
@@ -66,8 +67,8 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
       ]);
 
       showSuccess('Configuration saved successfully!');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to save configuration');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to save configuration'));
     } finally {
       setSaving(false);
     }
@@ -84,8 +85,8 @@ export default function ConfigSettings({ onClose }: ConfigSettingsProps) {
       const data = await api.resetConfig();
       setConfig(data);
       showSuccess('Configuration reset to defaults');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to reset configuration');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to reset configuration'));
     } finally {
       setSaving(false);
     }

@@ -1,14 +1,16 @@
 """Tests for Stage 1 - Draft to Slide texts."""
 
-import asyncio
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.session_manager import session_manager
-from app.services.stage1_service import stage1_service
+from app.dependencies import container
 from app.models.slide import Slide, SlideText
+from tests.conftest import run_async
+
+stage1_service = container.stage1
+session_manager = container.session_manager
 
 
 @pytest.fixture
@@ -21,16 +23,6 @@ def client():
 @pytest.fixture
 def mock_gemini():
     """Mock the Gemini service to return predictable results."""
-    import json
-    mock_response = json.dumps({
-        "slides": [
-            {"title": "Slide 1", "body": "Content 1"},
-            {"title": "Slide 2", "body": "Content 2"},
-            {"title": "Slide 3", "body": "Content 3"},
-            {"title": "Slide 4", "body": "Content 4"},
-            {"title": "Slide 5", "body": "Content 5"},
-        ]
-    })
 
     async def mock_generate_json(*args, **kwargs):
         return {
@@ -43,7 +35,7 @@ def mock_gemini():
             ]
         }
 
-    with patch("app.services.stage1_service.gemini_service") as mock:
+    with patch("app.dependencies.container.stage1.gemini_service") as mock:
         mock.generate_json = mock_generate_json
         yield mock
 
@@ -54,7 +46,7 @@ class TestStage1Service:
     def test_generate_slide_texts_creates_session(self, mock_gemini):
         """Test that generate_slide_texts creates a session."""
         session_manager.clear_all()
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage1_service.generate_slide_texts(
                 session_id="test-stage1-001",
                 draft_text="This is a test draft about productivity tips.",
@@ -69,7 +61,7 @@ class TestStage1Service:
     def test_generate_slide_texts_stores_inputs(self, mock_gemini):
         """Test that inputs are stored in session."""
         session_manager.clear_all()
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage1_service.generate_slide_texts(
                 session_id="test-stage1-002",
                 draft_text="Test draft content",
@@ -86,7 +78,7 @@ class TestStage1Service:
     def test_generate_slide_texts_with_titles(self, mock_gemini):
         """Test slide generation with titles."""
         session_manager.clear_all()
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage1_service.generate_slide_texts(
                 session_id="test-stage1-003",
                 draft_text="Test content for slides",
@@ -101,8 +93,8 @@ class TestStage1Service:
     def test_regenerate_all_requires_draft(self, mock_gemini):
         """Test that regenerate_all requires existing draft."""
         session_manager.clear_all()
-        session_manager.create_session("test-stage1-004")
-        result = asyncio.get_event_loop().run_until_complete(
+        run_async(session_manager.create_session("test-stage1-004"))
+        result = run_async(
             stage1_service.regenerate_all_slide_texts("test-stage1-004")
         )
         assert result is None  # No draft stored
@@ -110,7 +102,7 @@ class TestStage1Service:
     def test_regenerate_single_slide(self, mock_gemini):
         """Test regenerating a single slide."""
         session_manager.clear_all()
-        asyncio.get_event_loop().run_until_complete(
+        run_async(
             stage1_service.generate_slide_texts(
                 session_id="test-stage1-005",
                 draft_text="Test content",
@@ -118,7 +110,7 @@ class TestStage1Service:
             )
         )
 
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage1_service.regenerate_slide_text(
                 session_id="test-stage1-005",
                 slide_index=1,
@@ -130,15 +122,17 @@ class TestStage1Service:
     def test_update_slide_text(self):
         """Test manually updating slide text."""
         session_manager.clear_all()
-        session = session_manager.create_session("test-stage1-006")
+        session = run_async(session_manager.create_session("test-stage1-006"))
         session.slides = [Slide(index=0)]
-        session_manager.update_session(session)
+        run_async(session_manager.update_session(session))
 
-        result = stage1_service.update_slide_text(
-            session_id="test-stage1-006",
-            slide_index=0,
-            title="New Title",
-            body="New Body",
+        result = run_async(
+            stage1_service.update_slide_text(
+                session_id="test-stage1-006",
+                slide_index=0,
+                title="New Title",
+                body="New Body",
+            )
         )
         assert result is not None
         assert result.slides[0].text.title == "New Title"
@@ -147,16 +141,18 @@ class TestStage1Service:
     def test_update_slide_text_partial(self):
         """Test partially updating slide text."""
         session_manager.clear_all()
-        session = session_manager.create_session("test-stage1-007")
+        session = run_async(session_manager.create_session("test-stage1-007"))
         session.slides = [
             Slide(index=0, text=SlideText(title="Original", body="Original body"))
         ]
-        session_manager.update_session(session)
+        run_async(session_manager.update_session(session))
 
-        result = stage1_service.update_slide_text(
-            session_id="test-stage1-007",
-            slide_index=0,
-            body="Updated body only",
+        result = run_async(
+            stage1_service.update_slide_text(
+                session_id="test-stage1-007",
+                slide_index=0,
+                body="Updated body only",
+            )
         )
         assert result.slides[0].text.title == "Original"  # Unchanged
         assert result.slides[0].text.body == "Updated body only"
@@ -164,11 +160,13 @@ class TestStage1Service:
     def test_update_nonexistent_slide(self):
         """Test updating a nonexistent slide."""
         session_manager.clear_all()
-        session_manager.create_session("test-stage1-008")
-        result = stage1_service.update_slide_text(
-            session_id="test-stage1-008",
-            slide_index=99,
-            body="New content",
+        run_async(session_manager.create_session("test-stage1-008"))
+        result = run_async(
+            stage1_service.update_slide_text(
+                session_id="test-stage1-008",
+                slide_index=99,
+                body="New content",
+            )
         )
         assert result is None
 

@@ -11,7 +11,6 @@ Lucid is a containerized web application that turns your ideas into beautiful 4:
 - **Typography Rendering**: PIL-based text rendering with binary search fitting algorithm
 - **Fuzzy Font Matching**: Intelligent font loading with weight approximation
 - **Session Persistence**: Sessions survive Docker hot-reloads during development
-- **Stage-Scoped Chat**: Context-aware commands with autocomplete
 - **Bi-Directional Navigation**: Navigate back and forth between stages
 - **Style Presets**: Modern, Bold, Elegant, Minimal, and Impact styles
 - **Export**: Download as ZIP with all slides and metadata
@@ -170,29 +169,6 @@ npm run dev
 - `/back` command in chat
 - Fix upstream content without starting over
 
-## Chat Commands
-
-**Stage 1 (Draft → Slides):**
-- `/next` - Advance to Stage 2
-- `/generate` - Generate slides from draft
-- `/regen slide 2` - Regenerate slide 2
-
-**Stage 2 (Slides → Prompts):**
-- `/back` - Return to Stage 1
-- `/next` - Advance to Stage 3
-- `/generate` - Generate image prompts
-- `/regen prompt 2` - Regenerate prompt 2
-
-**Stage 3 (Prompts → Images):**
-- `/back` - Return to Stage 2
-- `/next` - Advance to Stage 4
-- `/generate` - Generate background images
-- `/regen image 2` - Regenerate image 2
-
-**Stage 4 (Typography):**
-- `/back` - Return to Stage 3
-- `/style modern|bold|elegant|minimal|impact` - Apply preset
-- `/export` - Export carousel as ZIP
 
 ## API Endpoints
 
@@ -205,8 +181,6 @@ npm run dev
 ### Stage 1-4
 Full CRUD operations for each stage. See `/api/docs` when running.
 
-### Chat
-- `POST /chat/message` - Send chat message with stage-aware routing
 
 ## Project Structure
 
@@ -228,13 +202,11 @@ Lucid/
 │   │       ├── font_manager.py      # Fuzzy font matching
 │   │       ├── rendering_service.py # Binary search fitting
 │   │       ├── session_manager.py   # JSON persistence
-│   │       └── chat_service.py      # Stage-scoped tools
 │   └── tests/
 └── frontend/
     ├── Dockerfile
     └── src/
         ├── components/
-        │   ├── ChatBar.tsx     # Autocomplete commands
         │   ├── Stage2.tsx      # Back button
         │   ├── Stage3.tsx      # Back button
         │   └── Stage4.tsx      # Back button

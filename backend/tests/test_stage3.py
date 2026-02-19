@@ -1,16 +1,18 @@
 """Tests for Stage 3 - Image prompts to Images."""
 
-import asyncio
 import base64
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.session_manager import session_manager
-from app.services.stage3_service import stage3_service
-from app.services.image_service import image_service
+from app.dependencies import container
 from app.models.slide import Slide, SlideText
+from tests.conftest import run_async
+
+stage3_service = container.stage3
+session_manager = container.session_manager
+image_service = container.image_service
 
 
 @pytest.fixture
@@ -24,7 +26,7 @@ def client():
 def session_with_prompts():
     """Create a session with image prompts."""
     session_manager.clear_all()
-    session = session_manager.create_session("test-stage3")
+    session = run_async(session_manager.create_session("test-stage3"))
     session.shared_prompt_prefix = "Modern minimalist style"
     session.slides = [
         Slide(
@@ -43,13 +45,14 @@ def session_with_prompts():
             image_prompt="Green nature-inspired pattern",
         ),
     ]
-    session_manager.update_session(session)
+    run_async(session_manager.update_session(session))
     return session
 
 
 @pytest.fixture
 def mock_image_service():
     """Mock the image service."""
+
     # Create a simple 10x10 PNG as mock data
     async def mock_generate(*args, **kwargs):
         return "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADq3/"
@@ -91,7 +94,7 @@ class TestStage3Service:
 
     def test_generate_all_images(self, session_with_prompts, mock_image_service):
         """Test generating images for all slides."""
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage3_service.generate_all_images(session_id="test-stage3")
         )
         assert session is not None
@@ -103,7 +106,7 @@ class TestStage3Service:
     def test_generate_images_no_session(self, mock_image_service):
         """Test generating images with no session."""
         session_manager.clear_all()
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage3_service.generate_all_images(session_id="nonexistent")
         )
         assert session is None
@@ -111,13 +114,13 @@ class TestStage3Service:
     def test_generate_images_fills_missing_prompts(self, mock_image_service):
         """Test that missing prompts are filled with defaults."""
         session_manager.clear_all()
-        session = session_manager.create_session("test-fill")
+        session = run_async(session_manager.create_session("test-fill"))
         session.slides = [
             Slide(index=0, text=SlideText(body="Content")),  # No prompt
         ]
-        session_manager.update_session(session)
+        run_async(session_manager.update_session(session))
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = run_async(
             stage3_service.generate_all_images(session_id="test-fill")
         )
         assert result.slides[0].image_prompt is not None
@@ -126,14 +129,12 @@ class TestStage3Service:
     def test_regenerate_image(self, session_with_prompts, mock_image_service):
         """Test regenerating a single image."""
         # First generate all
-        asyncio.get_event_loop().run_until_complete(
+        run_async(
             stage3_service.generate_all_images(session_id="test-stage3")
         )
 
-        original_data = session_manager.get_session("test-stage3").slides[1].image_data
-
         # Regenerate slide 1
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage3_service.regenerate_image(
                 session_id="test-stage3",
                 slide_index=1,
@@ -143,9 +144,11 @@ class TestStage3Service:
         # Image should be regenerated (we can't guarantee it's different with mocks)
         assert session.slides[1].image_data is not None
 
-    def test_regenerate_image_invalid_index(self, session_with_prompts, mock_image_service):
+    def test_regenerate_image_invalid_index(
+        self, session_with_prompts, mock_image_service
+    ):
         """Test regenerating image with invalid index."""
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage3_service.regenerate_image(
                 session_id="test-stage3",
                 slide_index=99,
@@ -156,20 +159,24 @@ class TestStage3Service:
     def test_set_image_data(self, session_with_prompts):
         """Test setting image data directly."""
         custom_data = "custombase64imagedata"
-        session = stage3_service.set_image_data(
-            session_id="test-stage3",
-            slide_index=0,
-            image_data=custom_data,
+        session = run_async(
+            stage3_service.set_image_data(
+                session_id="test-stage3",
+                slide_index=0,
+                image_data=custom_data,
+            )
         )
         assert session is not None
         assert session.slides[0].image_data == custom_data
 
     def test_set_image_data_invalid_index(self, session_with_prompts):
         """Test setting image data with invalid index."""
-        session = stage3_service.set_image_data(
-            session_id="test-stage3",
-            slide_index=99,
-            image_data="test",
+        session = run_async(
+            stage3_service.set_image_data(
+                session_id="test-stage3",
+                slide_index=99,
+                image_data="test",
+            )
         )
         assert session is None
 
@@ -180,13 +187,15 @@ class TestStage3Routes:
     def test_generate_images_route(self, client, mock_image_service):
         """Test the generate images endpoint."""
         # Create session with slides and prompts
-        session_manager.create_session("route-test-001")
-        session = session_manager.get_session("route-test-001")
+        run_async(session_manager.create_session("route-test-001"))
+        session = run_async(session_manager.get_session("route-test-001"))
         session.slides = [
             Slide(index=0, text=SlideText(body="Content"), image_prompt="Test prompt"),
-            Slide(index=1, text=SlideText(body="Content 2"), image_prompt="Test prompt 2"),
+            Slide(
+                index=1, text=SlideText(body="Content 2"), image_prompt="Test prompt 2"
+            ),
         ]
-        session_manager.update_session(session)
+        run_async(session_manager.update_session(session))
 
         response = client.post(
             "/api/stage3/generate",
@@ -208,12 +217,17 @@ class TestStage3Routes:
     def test_regenerate_image_route(self, client, mock_image_service):
         """Test the regenerate image endpoint."""
         # Create session with slides and images
-        session_manager.create_session("route-test-002")
-        session = session_manager.get_session("route-test-002")
+        run_async(session_manager.create_session("route-test-002"))
+        session = run_async(session_manager.get_session("route-test-002"))
         session.slides = [
-            Slide(index=0, text=SlideText(body="Content"), image_prompt="Prompt", image_data="existing"),
+            Slide(
+                index=0,
+                text=SlideText(body="Content"),
+                image_prompt="Prompt",
+                image_data="existing",
+            ),
         ]
-        session_manager.update_session(session)
+        run_async(session_manager.update_session(session))
 
         response = client.post(
             "/api/stage3/regenerate",
@@ -223,10 +237,10 @@ class TestStage3Routes:
 
     def test_upload_image_route(self, client):
         """Test the upload/set image endpoint."""
-        session_manager.create_session("route-test-003")
-        session = session_manager.get_session("route-test-003")
+        run_async(session_manager.create_session("route-test-003"))
+        session = run_async(session_manager.get_session("route-test-003"))
         session.slides = [Slide(index=0, text=SlideText(body="Content"))]
-        session_manager.update_session(session)
+        run_async(session_manager.update_session(session))
 
         response = client.post(
             "/api/stage3/upload",

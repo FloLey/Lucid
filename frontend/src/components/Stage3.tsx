@@ -4,6 +4,7 @@ import { getErrorMessage } from '../utils/error';
 import { useSessionContext } from '../contexts/SessionContext';
 import { useAppConfig } from '../hooks/useAppConfig';
 import Spinner from './Spinner';
+import StageLayout from './StageLayout';
 
 export default function Stage3() {
   const {
@@ -78,9 +79,8 @@ export default function Stage3() {
   const hasPrompts = slides.some((s) => s.image_prompt);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0">
-      {/* Left Column - Slide Texts */}
-      <div className="space-y-6 overflow-y-auto min-h-0">
+    <StageLayout
+      leftPanel={
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Slide Texts</h2>
 
@@ -126,90 +126,90 @@ export default function Stage3() {
             ) : hasPrompts ? 'Regenerate All Prompts' : 'Generate Image Prompts'}
           </button>
         </div>
-      </div>
-
-      {/* Right Column - Image Prompts */}
-      <div className="flex flex-col min-h-0">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBack}
-              className="px-3 py-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              ← Back
-            </button>
-            <h2 className="text-lg font-semibold text-gray-900">Image Prompts</h2>
-          </div>
-          {hasPrompts && (
-            <button
-              onClick={onNext}
-              className="px-4 py-2 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
-            >
-              Next: Generate Images →
-            </button>
-          )}
-        </div>
-
-        <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
-        {session?.shared_prompt_prefix && (
-          <div className="p-3 bg-lucid-50 rounded-lg">
-            <span className="text-xs font-medium text-lucid-700">Shared Style:</span>
-            <p className="text-sm text-lucid-900">{session.shared_prompt_prefix}</p>
-          </div>
-        )}
-
-        {!hasPrompts ? (
-          <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
-            <p className="text-gray-500">
-              Click "Generate Image Prompts" to create visual concepts for each slide
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {slides.map((slide, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+      }
+      rightPanel={
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onBack}
+                className="px-3 py-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <div className="flex items-start justify-between mb-2">
-                  <span className="text-sm font-medium text-lucid-600">
-                    Slide {index + 1}
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditingPrompt(editingPrompt === index ? null : index)}
-                      className="text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      {editingPrompt === index ? 'Cancel' : 'Edit'}
-                    </button>
-                    <button
-                      onClick={() => handleRegeneratePrompt(index)}
-                      disabled={loading}
-                      className="text-xs text-lucid-600 hover:text-lucid-700"
-                    >
-                      Regenerate
-                    </button>
-                  </div>
-                </div>
-
-                {editingPrompt === index ? (
-                  <PromptEditor
-                    prompt={slide.image_prompt || ''}
-                    onSave={(prompt) => handleUpdatePrompt(index, prompt)}
-                    onCancel={() => setEditingPrompt(null)}
-                  />
-                ) : (
-                  <p className="text-gray-700 text-sm">
-                    {slide.image_prompt || 'No prompt generated'}
-                  </p>
-                )}
-              </div>
-            ))}
+                ← Back
+              </button>
+              <h2 className="text-lg font-semibold text-gray-900">Image Prompts</h2>
+            </div>
+            {hasPrompts && (
+              <button
+                onClick={onNext}
+                className="px-4 py-2 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
+              >
+                Next: Generate Images →
+              </button>
+            )}
           </div>
-        )}
-        </div>
-      </div>
-    </div>
+
+          <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
+          {session?.shared_prompt_prefix && (
+            <div className="p-3 bg-lucid-50 rounded-lg">
+              <span className="text-xs font-medium text-lucid-700">Shared Style:</span>
+              <p className="text-sm text-lucid-900">{session.shared_prompt_prefix}</p>
+            </div>
+          )}
+
+          {!hasPrompts ? (
+            <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
+              <p className="text-gray-500">
+                Click "Generate Image Prompts" to create visual concepts for each slide
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {slides.map((slide, index) => (
+                <div
+                  key={index}
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-sm font-medium text-lucid-600">
+                      Slide {index + 1}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingPrompt(editingPrompt === index ? null : index)}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        {editingPrompt === index ? 'Cancel' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={() => handleRegeneratePrompt(index)}
+                        disabled={loading}
+                        className="text-xs text-lucid-600 hover:text-lucid-700"
+                      >
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+
+                  {editingPrompt === index ? (
+                    <PromptEditor
+                      prompt={slide.image_prompt || ''}
+                      onSave={(prompt) => handleUpdatePrompt(index, prompt)}
+                      onCancel={() => setEditingPrompt(null)}
+                    />
+                  ) : (
+                    <p className="text-gray-700 text-sm">
+                      {slide.image_prompt || 'No prompt generated'}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          </div>
+        </>
+      }
+    />
   );
 }
 

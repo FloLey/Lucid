@@ -5,6 +5,7 @@ import { useSessionContext } from '../contexts/SessionContext';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { SLIDE_COUNT_OPTIONS, LANGUAGES } from '../constants';
 import Spinner from './Spinner';
+import StageLayout from './StageLayout';
 
 export default function Stage1() {
   const {
@@ -39,6 +40,10 @@ export default function Stage1() {
       if (config.stage_instructions.stage1) {
         setInstructions(config.stage_instructions.stage1);
       }
+      // Draft may have been stored via chat before slides are generated
+      if (session?.draft_text) {
+        setDraftText(session.draft_text);
+      }
     } else {
       // Use session values for existing sessions
       setDraftText(session?.draft_text || '');
@@ -66,7 +71,7 @@ export default function Stage1() {
       const sess = await api.generateSlideTexts(
         sessionId,
         draftText,
-        numSlides ?? 5,
+        numSlides ?? undefined,
         includeTitles,
         instructions || undefined,
         language
@@ -111,9 +116,8 @@ export default function Stage1() {
   const hasSlides = slides.length > 0;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0">
-      {/* Left Column - Inputs */}
-      <div className="space-y-6 overflow-y-auto min-h-0">
+    <StageLayout
+      leftPanel={
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Draft</h2>
 
@@ -194,130 +198,130 @@ export default function Stage1() {
             {loading ? 'Generating...' : hasSlides ? 'Regenerate All' : 'Generate Slides'}
           </button>
         </div>
-      </div>
-
-      {/* Right Column - Generated Slides */}
-      <div className="flex flex-col min-h-0">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Slide Texts</h2>
-          {hasSlides && !loading && regeneratingSlides.size === 0 && (
-            <button
-              onClick={onNext}
-              className="px-4 py-2 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
-            >
-              Next: Choose Style &rarr;
-            </button>
-          )}
-        </div>
-
-        <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1">
-          {loading && regeneratingSlides.size === 0 ? (
-            // Generating all slides — show spinner placeholders
-            Array.from({ length: numSlides ?? 5 }).map((_, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+      }
+      rightPanel={
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Slide Texts</h2>
+            {hasSlides && !loading && regeneratingSlides.size === 0 && (
+              <button
+                onClick={onNext}
+                className="px-4 py-2 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
               >
-                <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
-                <div className="flex items-center gap-3 mt-3 text-gray-400">
-                  <Spinner size="sm" />
-                  <span className="text-sm">Generating...</span>
-                </div>
-              </div>
-            ))
-          ) : !hasSlides ? (
-            <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
-              <p className="text-gray-500">
-                Enter your draft and click "Generate Slides" to create slide texts
-              </p>
-            </div>
-          ) : (
-            slides.map((slide, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <span className="text-sm font-medium text-lucid-600">
-                    Slide {index + 1}
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditingSlide(editingSlide === index ? null : index)}
-                      className="text-xs text-gray-500 hover:text-gray-700"
-                      disabled={regeneratingSlides.has(index)}
-                    >
-                      {editingSlide === index ? 'Cancel' : 'Edit'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (regenInstructionSlide === index) {
-                          setRegenInstructionSlide(null);
-                          setRegenInstruction('');
-                        } else {
-                          setRegenInstructionSlide(index);
-                          setRegenInstruction('');
-                        }
-                      }}
-                      disabled={regeneratingSlides.has(index)}
-                      className="text-xs text-lucid-600 hover:text-lucid-700"
-                    >
-                      Regenerate
-                    </button>
-                  </div>
-                </div>
+                Next: Choose Style &rarr;
+              </button>
+            )}
+          </div>
 
-                {regenInstructionSlide === index && !regeneratingSlides.has(index) && (
-                  <div className="mb-2 flex gap-2">
-                    <input
-                      type="text"
-                      value={regenInstruction}
-                      onChange={(e) => setRegenInstruction(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRegenerateSlide(index, regenInstruction);
-                        if (e.key === 'Escape') { setRegenInstructionSlide(null); setRegenInstruction(''); }
-                      }}
-                      placeholder="Instruction (optional), Enter to regenerate"
-                      className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
-                      autoFocus
-                    />
-                    <button
-                      onClick={() => handleRegenerateSlide(index, regenInstruction)}
-                      className="px-2 py-1 text-xs bg-lucid-600 text-white rounded-lg hover:bg-lucid-700"
-                    >
-                      Go
-                    </button>
-                  </div>
-                )}
-
-                {regeneratingSlides.has(index) ? (
-                  <div className="flex items-center gap-3 text-gray-400">
+          <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1">
+            {loading && regeneratingSlides.size === 0 ? (
+              // Generating all slides — show spinner placeholders
+              Array.from({ length: numSlides ?? 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+                >
+                  <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
+                  <div className="flex items-center gap-3 mt-3 text-gray-400">
                     <Spinner size="sm" />
-                    <span className="text-sm">Regenerating...</span>
+                    <span className="text-sm">Generating...</span>
                   </div>
-                ) : editingSlide === index ? (
-                  <SlideEditor
-                    slide={slide}
-                    includeTitles={includeTitles}
-                    onSave={(title, body) => handleUpdateSlide(index, title, body)}
-                    onCancel={() => setEditingSlide(null)}
-                  />
-                ) : (
-                  <>
-                    {slide.text.title && (
-                      <h3 className="font-semibold text-gray-900 mb-1">
-                        {slide.text.title}
-                      </h3>
-                    )}
-                    <p className="text-gray-700 text-sm">{slide.text.body}</p>
-                  </>
-                )}
+                </div>
+              ))
+            ) : !hasSlides ? (
+              <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
+                <p className="text-gray-500">
+                  Enter your draft and click "Generate Slides" to create slide texts
+                </p>
               </div>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
+            ) : (
+              slides.map((slide, index) => (
+                <div
+                  key={index}
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-sm font-medium text-lucid-600">
+                      Slide {index + 1}
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingSlide(editingSlide === index ? null : index)}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                        disabled={regeneratingSlides.has(index)}
+                      >
+                        {editingSlide === index ? 'Cancel' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (regenInstructionSlide === index) {
+                            setRegenInstructionSlide(null);
+                            setRegenInstruction('');
+                          } else {
+                            setRegenInstructionSlide(index);
+                            setRegenInstruction('');
+                          }
+                        }}
+                        disabled={regeneratingSlides.has(index)}
+                        className="text-xs text-lucid-600 hover:text-lucid-700"
+                      >
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+
+                  {regenInstructionSlide === index && !regeneratingSlides.has(index) && (
+                    <div className="mb-2 flex gap-2">
+                      <input
+                        type="text"
+                        value={regenInstruction}
+                        onChange={(e) => setRegenInstruction(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRegenerateSlide(index, regenInstruction);
+                          if (e.key === 'Escape') { setRegenInstructionSlide(null); setRegenInstruction(''); }
+                        }}
+                        placeholder="Instruction (optional), Enter to regenerate"
+                        className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleRegenerateSlide(index, regenInstruction)}
+                        className="px-2 py-1 text-xs bg-lucid-600 text-white rounded-lg hover:bg-lucid-700"
+                      >
+                        Go
+                      </button>
+                    </div>
+                  )}
+
+                  {regeneratingSlides.has(index) ? (
+                    <div className="flex items-center gap-3 text-gray-400">
+                      <Spinner size="sm" />
+                      <span className="text-sm">Regenerating...</span>
+                    </div>
+                  ) : editingSlide === index ? (
+                    <SlideEditor
+                      slide={slide}
+                      includeTitles={includeTitles}
+                      onSave={(title, body) => handleUpdateSlide(index, title, body)}
+                      onCancel={() => setEditingSlide(null)}
+                    />
+                  ) : (
+                    <>
+                      {slide.text.title && (
+                        <h3 className="font-semibold text-gray-900 mb-1">
+                          {slide.text.title}
+                        </h3>
+                      )}
+                      <p className="text-gray-700 text-sm">{slide.text.body}</p>
+                    </>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      }
+    />
   );
 }
 

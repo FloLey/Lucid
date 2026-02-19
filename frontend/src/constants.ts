@@ -1,4 +1,4 @@
-export const SLIDE_COUNT_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10];
+export const SLIDE_COUNT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 export const PROPOSAL_COUNT_OPTIONS = [1, 2, 3, 4, 5];
 
 export const LANGUAGES = [

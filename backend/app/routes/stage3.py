@@ -1,10 +1,12 @@
 """Stage 3 routes - Image prompts to Images."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from app.services.stage3_service import stage3_service
 from app.models.session import SessionResponse
+from app.dependencies import get_stage3_service
+from app.services.stage3_service import Stage3Service
+from app.routes.utils import execute_service_action
 
 router = APIRouter()
 
@@ -31,45 +33,48 @@ class SetImageRequest(BaseModel):
 
 
 @router.post("/generate", response_model=SessionResponse)
-async def generate_all_images(request: GenerateImagesRequest):
+async def generate_all_images(
+    request: GenerateImagesRequest,
+    stage3_service: Stage3Service = Depends(get_stage3_service),
+):
     """Generate images for all slides."""
-    try:
-        session = await stage3_service.generate_all_images(
+    return await execute_service_action(
+        lambda: stage3_service.generate_all_images(
             session_id=request.session_id,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found or no slides")
-    return {"session": session.model_dump()}
+        ),
+        "Failed to generate images",
+    )
 
 
 @router.post("/regenerate", response_model=SessionResponse)
-async def regenerate_image(request: RegenerateImageRequest):
+async def regenerate_image(
+    request: RegenerateImageRequest,
+    stage3_service: Stage3Service = Depends(get_stage3_service),
+):
     """Regenerate image for a single slide."""
-    try:
-        session = await stage3_service.regenerate_image(
+    return await execute_service_action(
+        lambda: stage3_service.regenerate_image(
             session_id=request.session_id,
             slide_index=request.slide_index,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    if not session:
-        raise HTTPException(status_code=404, detail="Session or slide not found")
-    return {"session": session.model_dump()}
+        ),
+        "Failed to regenerate image",
+    )
 
 
 @router.post("/upload", response_model=SessionResponse)
-async def set_image(request: SetImageRequest):
+async def set_image(
+    request: SetImageRequest,
+    stage3_service: Stage3Service = Depends(get_stage3_service),
+):
     """Set image data directly (for custom uploads)."""
-    session = stage3_service.set_image_data(
-        session_id=request.session_id,
-        slide_index=request.slide_index,
-        image_data=request.image_data,
+    return await execute_service_action(
+        lambda: stage3_service.set_image_data(
+            session_id=request.session_id,
+            slide_index=request.slide_index,
+            image_data=request.image_data,
+        ),
+        "Session or slide not found",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session or slide not found")
-    return {"session": session.model_dump()}
 
 
 @router.get("/placeholder")

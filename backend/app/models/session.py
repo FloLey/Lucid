@@ -20,10 +20,12 @@ class SessionState(BaseModel):
 
     # Stage 1 inputs
     draft_text: str = Field(default="", description="Original draft text")
-    num_slides: int = Field(default=5, ge=1, le=20)
+    num_slides: Optional[int] = Field(default=None, ge=1, le=20)
     include_titles: bool = Field(default=True)
     additional_instructions: Optional[str] = Field(default=None)
-    language: str = Field(default="English", description="Language for generated content")
+    language: str = Field(
+        default="English", description="Language for generated content"
+    )
 
     # Stage 2 (Style) data
     style_proposals: List[StyleProposal] = Field(default_factory=list)

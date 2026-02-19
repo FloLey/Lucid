@@ -1,14 +1,16 @@
 """Tests for Stage 2 - Slide texts to Image prompts."""
 
-import asyncio
 import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.session_manager import session_manager
-from app.services.stage2_service import stage2_service
+from app.dependencies import container
 from app.models.slide import Slide, SlideText
+from tests.conftest import run_async
+
+stage2_service = container.stage2
+session_manager = container.session_manager
 
 
 @pytest.fixture
@@ -22,32 +24,24 @@ def client():
 def session_with_slides():
     """Create a session with slides for testing."""
     session_manager.clear_all()
-    session = session_manager.create_session("test-stage2")
+    session = run_async(session_manager.create_session("test-stage2"))
     session.slides = [
         Slide(index=0, text=SlideText(title="Hook", body="Grab attention")),
         Slide(index=1, text=SlideText(title="Point 1", body="First key point")),
         Slide(index=2, text=SlideText(title="Point 2", body="Second key point")),
     ]
-    session_manager.update_session(session)
+    run_async(session_manager.update_session(session))
     return session
 
 
 @pytest.fixture
 def mock_gemini():
     """Mock the Gemini service for Stage 2."""
-    async def mock_generate_json(*args, **kwargs):
-        return {
-            "shared_prefix": "Modern minimalist style with soft gradients",
-            "prompts": [
-                "Abstract gradient background with warm colors",
-                "Clean geometric shapes on neutral background",
-                "Soft bokeh lights on dark background",
-                "Nature-inspired organic shapes",
-                "Professional business aesthetic",
-            ]
-        }
 
-    with patch("app.services.stage2_service.gemini_service") as mock:
+    async def mock_generate_json(*args, **kwargs):
+        return {"prompt": "Generated image prompt for slide"}
+
+    with patch("app.dependencies.container.stage2.gemini_service") as mock:
         mock.generate_json = mock_generate_json
         yield mock
 
@@ -57,7 +51,7 @@ class TestStage2Service:
 
     def test_generate_all_prompts(self, session_with_slides, mock_gemini):
         """Test generating prompts for all slides."""
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage2_service.generate_all_prompts(
                 session_id="test-stage2",
                 image_style_instructions="Warm, inviting colors",
@@ -65,14 +59,13 @@ class TestStage2Service:
         )
         assert session is not None
         assert session.image_style_instructions == "Warm, inviting colors"
-        assert session.shared_prompt_prefix == "Modern minimalist style with soft gradients"
         for slide in session.slides:
             assert slide.image_prompt is not None
 
     def test_generate_prompts_no_session(self, mock_gemini):
         """Test generating prompts with no session."""
         session_manager.clear_all()
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage2_service.generate_all_prompts(session_id="nonexistent")
         )
         assert session is None
@@ -80,8 +73,8 @@ class TestStage2Service:
     def test_generate_prompts_no_slides(self, mock_gemini):
         """Test generating prompts with no slides."""
         session_manager.clear_all()
-        session_manager.create_session("empty-session")
-        session = asyncio.get_event_loop().run_until_complete(
+        run_async(session_manager.create_session("empty-session"))
+        session = run_async(
             stage2_service.generate_all_prompts(session_id="empty-session")
         )
         assert session is None
@@ -89,7 +82,7 @@ class TestStage2Service:
     def test_regenerate_prompt(self, session_with_slides, mock_gemini):
         """Test regenerating a single prompt."""
         # First generate all prompts
-        asyncio.get_event_loop().run_until_complete(
+        run_async(
             stage2_service.generate_all_prompts(session_id="test-stage2")
         )
 
@@ -99,7 +92,7 @@ class TestStage2Service:
 
         mock_gemini.generate_json = mock_single
 
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage2_service.regenerate_prompt(
                 session_id="test-stage2",
                 slide_index=1,
@@ -110,7 +103,7 @@ class TestStage2Service:
 
     def test_regenerate_prompt_invalid_index(self, session_with_slides, mock_gemini):
         """Test regenerating prompt with invalid index."""
-        session = asyncio.get_event_loop().run_until_complete(
+        session = run_async(
             stage2_service.regenerate_prompt(
                 session_id="test-stage2",
                 slide_index=99,
@@ -120,28 +113,34 @@ class TestStage2Service:
 
     def test_update_prompt(self, session_with_slides):
         """Test manually updating a prompt."""
-        session = stage2_service.update_prompt(
-            session_id="test-stage2",
-            slide_index=0,
-            prompt="Custom image prompt",
+        session = run_async(
+            stage2_service.update_prompt(
+                session_id="test-stage2",
+                slide_index=0,
+                prompt="Custom image prompt",
+            )
         )
         assert session is not None
         assert session.slides[0].image_prompt == "Custom image prompt"
 
     def test_update_prompt_invalid_index(self, session_with_slides):
         """Test updating prompt with invalid index."""
-        session = stage2_service.update_prompt(
-            session_id="test-stage2",
-            slide_index=99,
-            prompt="Custom prompt",
+        session = run_async(
+            stage2_service.update_prompt(
+                session_id="test-stage2",
+                slide_index=99,
+                prompt="Custom prompt",
+            )
         )
         assert session is None
 
     def test_update_style_instructions(self, session_with_slides):
         """Test updating style instructions."""
-        session = stage2_service.update_style_instructions(
-            session_id="test-stage2",
-            style_instructions="Vintage, retro aesthetic",
+        session = run_async(
+            stage2_service.update_style_instructions(
+                session_id="test-stage2",
+                style_instructions="Vintage, retro aesthetic",
+            )
         )
         assert session is not None
         assert session.image_style_instructions == "Vintage, retro aesthetic"
@@ -149,9 +148,11 @@ class TestStage2Service:
     def test_update_style_no_session(self):
         """Test updating style with no session."""
         session_manager.clear_all()
-        session = stage2_service.update_style_instructions(
-            session_id="nonexistent",
-            style_instructions="Test",
+        session = run_async(
+            stage2_service.update_style_instructions(
+                session_id="nonexistent",
+                style_instructions="Test",
+            )
         )
         assert session is None
 
@@ -162,13 +163,13 @@ class TestStage2Routes:
     def test_generate_prompts_route(self, client, mock_gemini):
         """Test the generate prompts endpoint."""
         # Create session with slides first
-        session_manager.create_session("route-test-001")
-        session = session_manager.get_session("route-test-001")
+        run_async(session_manager.create_session("route-test-001"))
+        session = run_async(session_manager.get_session("route-test-001"))
         session.slides = [
             Slide(index=0, text=SlideText(body="Test content 1")),
             Slide(index=1, text=SlideText(body="Test content 2")),
         ]
-        session_manager.update_session(session)
+        run_async(session_manager.update_session(session))
 
         response = client.post(
             "/api/stage2/generate",
@@ -193,13 +194,13 @@ class TestStage2Routes:
     def test_regenerate_prompt_route(self, client, mock_gemini):
         """Test the regenerate prompt endpoint."""
         # Create session with slides and prompts
-        session_manager.create_session("route-test-002")
-        session = session_manager.get_session("route-test-002")
+        run_async(session_manager.create_session("route-test-002"))
+        session = run_async(session_manager.get_session("route-test-002"))
         session.slides = [
             Slide(index=0, text=SlideText(body="Content"), image_prompt="Original"),
             Slide(index=1, text=SlideText(body="Content 2"), image_prompt="Original 2"),
         ]
-        session_manager.update_session(session)
+        run_async(session_manager.update_session(session))
 
         response = client.post(
             "/api/stage2/regenerate",
@@ -210,10 +211,10 @@ class TestStage2Routes:
     def test_update_prompt_route(self, client):
         """Test the update prompt endpoint."""
         # Create session with slides
-        session_manager.create_session("route-test-003")
-        session = session_manager.get_session("route-test-003")
+        run_async(session_manager.create_session("route-test-003"))
+        session = run_async(session_manager.get_session("route-test-003"))
         session.slides = [Slide(index=0, text=SlideText(body="Content"))]
-        session_manager.update_session(session)
+        run_async(session_manager.update_session(session))
 
         response = client.post(
             "/api/stage2/update",
@@ -225,11 +226,14 @@ class TestStage2Routes:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["session"]["slides"][0]["image_prompt"] == "Custom image: sunset over mountains"
+        assert (
+            data["session"]["slides"][0]["image_prompt"]
+            == "Custom image: sunset over mountains"
+        )
 
     def test_update_style_route(self, client):
         """Test the update style endpoint."""
-        session_manager.create_session("route-test-004")
+        run_async(session_manager.create_session("route-test-004"))
 
         response = client.post(
             "/api/stage2/style",
@@ -240,7 +244,9 @@ class TestStage2Routes:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["session"]["image_style_instructions"] == "Vibrant, energetic colors"
+        assert (
+            data["session"]["image_style_instructions"] == "Vibrant, energetic colors"
+        )
 
     def test_placeholder_works(self, client):
         """Test that placeholder endpoint still works."""

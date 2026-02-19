@@ -6,8 +6,21 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.routes import sessions, stage1, stage_style, stage2, stage3, stage4, chat, export, fonts, config, prompts
+from app.routes import (
+    sessions,
+    stage1,
+    stage_style,
+    stage2,
+    stage3,
+    stage4,
+    export,
+    fonts,
+    config,
+    prompts,
+    chat,
+)
 from app.services.gemini_service import GeminiError
+from app.services.llm_logger import start_flow, _flow_name_from_path
 
 app = FastAPI(
     title="Lucid API",
@@ -36,11 +49,18 @@ app.include_router(stage_style.router, prefix="/api/stage-style", tags=["stage-s
 app.include_router(stage2.router, prefix="/api/stage2", tags=["stage2"])
 app.include_router(stage3.router, prefix="/api/stage3", tags=["stage3"])
 app.include_router(stage4.router, prefix="/api/stage4", tags=["stage4"])
-app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(fonts.router, prefix="/api/fonts", tags=["fonts"])
 app.include_router(config.router, prefix="/api/config", tags=["config"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
+app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
+
+
+@app.middleware("http")
+async def llm_log_flow(request: Request, call_next):
+    """Assign a per-request log flow so all LLM calls land in one file."""
+    start_flow(_flow_name_from_path(request.url.path))
+    return await call_next(request)
 
 
 @app.exception_handler(GeminiError)

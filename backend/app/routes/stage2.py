@@ -1,15 +1,13 @@
 """Stage 2 routes - Slide texts to Image prompts."""
 
-import logging
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from app.services.stage2_service import stage2_service
-from app.services.gemini_service import GeminiError
 from app.models.session import SessionResponse
-
-logger = logging.getLogger(__name__)
+from app.dependencies import get_stage2_service
+from app.services.stage2_service import Stage2Service
+from app.routes.utils import execute_service_action
 
 router = APIRouter()
 
@@ -47,64 +45,64 @@ class UpdateStyleRequest(BaseModel):
 
 
 @router.post("/generate", response_model=SessionResponse)
-async def generate_all_prompts(request: GeneratePromptsRequest):
+async def generate_all_prompts(
+    request: GeneratePromptsRequest,
+    stage2_service: Stage2Service = Depends(get_stage2_service),
+):
     """Generate image prompts for all slides."""
-    try:
-        session = await stage2_service.generate_all_prompts(
+    return await execute_service_action(
+        lambda: stage2_service.generate_all_prompts(
             session_id=request.session_id,
             image_style_instructions=request.image_style_instructions,
-        )
-    except GeminiError:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to generate prompts: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to generate prompts: {e}")
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found or no slides")
-    return {"session": session.model_dump()}
+        ),
+        "Failed to generate prompts",
+    )
 
 
 @router.post("/regenerate", response_model=SessionResponse)
-async def regenerate_prompt(request: RegeneratePromptRequest):
+async def regenerate_prompt(
+    request: RegeneratePromptRequest,
+    stage2_service: Stage2Service = Depends(get_stage2_service),
+):
     """Regenerate image prompt for a single slide."""
-    try:
-        session = await stage2_service.regenerate_prompt(
+    return await execute_service_action(
+        lambda: stage2_service.regenerate_prompt(
             session_id=request.session_id,
             slide_index=request.slide_index,
-        )
-    except GeminiError:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to regenerate prompt: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to regenerate prompt: {e}")
-    if not session:
-        raise HTTPException(status_code=404, detail="Session or slide not found")
-    return {"session": session.model_dump()}
+        ),
+        "Failed to regenerate prompt",
+    )
 
 
 @router.post("/update", response_model=SessionResponse)
-def update_prompt(request: UpdatePromptRequest):
+async def update_prompt(
+    request: UpdatePromptRequest,
+    stage2_service: Stage2Service = Depends(get_stage2_service),
+):
     """Manually update an image prompt."""
-    session = stage2_service.update_prompt(
-        session_id=request.session_id,
-        slide_index=request.slide_index,
-        prompt=request.prompt,
+    return await execute_service_action(
+        lambda: stage2_service.update_prompt(
+            session_id=request.session_id,
+            slide_index=request.slide_index,
+            prompt=request.prompt,
+        ),
+        "Session or slide not found",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session or slide not found")
-    return {"session": session.model_dump()}
 
 
 @router.post("/style", response_model=SessionResponse)
-def update_style(request: UpdateStyleRequest):
+async def update_style(
+    request: UpdateStyleRequest,
+    stage2_service: Stage2Service = Depends(get_stage2_service),
+):
     """Update the shared style instructions."""
-    session = stage2_service.update_style_instructions(
-        session_id=request.session_id,
-        style_instructions=request.style_instructions,
+    return await execute_service_action(
+        lambda: stage2_service.update_style_instructions(
+            session_id=request.session_id,
+            style_instructions=request.style_instructions,
+        ),
+        "Session not found",
     )
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return {"session": session.model_dump()}
 
 
 @router.get("/placeholder")

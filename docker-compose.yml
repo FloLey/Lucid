@@ -3,19 +3,23 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    user: "${UID:-1000}:${GID:-1000}"
     ports:
       - "8000:8000"
     volumes:
       - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
       - ./backend/prompts:/app/prompts
       - ./backend/fonts:/app/fonts
-      - ./backend/sessions_db.json:/app/sessions_db.json
+      - ./backend/data:/app/data
       - ./config.json:/app/config.json:delegated
+      - ./backend/logs:/app/logs
     env_file:
       - path: .env
         required: false
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - LLM_DEBUG_LOG=${LLM_DEBUG_LOG:-}
     networks:
       - lucid-network
 

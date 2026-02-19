@@ -54,17 +54,6 @@ const PROMPT_LIST = [
       '{response_format} → \'{"title": "New Title", "body": "New body text"}\' or \'{"body": "New body text"}\''
     ]
   },
-  {
-    key: 'chat_routing',
-    label: 'Chat Routing',
-    description: 'Route chat commands to tools',
-    variables: [
-      '{current_stage} → "1" or "2" or "3" or "4" or "5"',
-      '{tool_descriptions} → "- auto_generate: Generate all content\\n- regenerate_slide: Regenerate one slide\\n..."',
-      '{message} → User\'s chat message',
-      '{response_format} → \'{"tool": "tool_name", "params": {}, "response": "A brief response to the user"}\' or \'{"tool": null, "response": "Your helpful response"}\''
-    ]
-  },
 ];
 
 interface PromptsTabProps {

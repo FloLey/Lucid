@@ -1,8 +1,11 @@
 """Application configuration."""
 
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables (check project root .env first, then backend/.env)
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
@@ -14,7 +17,19 @@ FONTS_DIR = BASE_DIR / "fonts"
 OUTPUT_DIR = BASE_DIR / "output"
 
 # Ensure output directory exists
-OUTPUT_DIR.mkdir(exist_ok=True)
+try:
+    OUTPUT_DIR.mkdir(exist_ok=True)
+except PermissionError:
+    logger.warning(
+        f"Permission denied creating output directory {OUTPUT_DIR}. Falling back to /tmp/lucid_output"
+    )
+    # Fall back to temporary directory
+    OUTPUT_DIR = Path("/tmp/lucid_output")
+    try:
+        OUTPUT_DIR.mkdir(exist_ok=True)
+    except Exception as e:
+        logger.error(f"Failed to create fallback output directory {OUTPUT_DIR}: {e}")
+        raise
 
 # API Keys
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")

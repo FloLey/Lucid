@@ -3,9 +3,8 @@
 import logging
 import os
 import re
-from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from PIL import ImageFont
 
 from app.config import FONTS_DIR
@@ -66,9 +65,11 @@ class FontManager:
     # Maximum number of font objects to keep cached
     MAX_CACHE_SIZE = 128
 
-    def __init__(self):
-        self._font_cache: Dict[Tuple[str, int, int], ImageFont.FreeTypeFont] = {}
-        self._cache_order: list[Tuple[str, int, int]] = []
+    def __init__(self) -> None:
+        self._font_cache: Dict[
+            Tuple[str, int, int], Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]
+        ] = {}
+        self._cache_order: List[Tuple[str, int, int]] = []
         self._font_index: Dict[str, Dict[int, Path]] = {}
         self._available_fonts: Optional[List[str]] = None
         self._scan_fonts_directory()
@@ -78,7 +79,7 @@ class FontManager:
         name_lower = filename.lower()
 
         # Remove extension
-        name_lower = re.sub(r'\.(ttf|otf|woff2?)$', '', name_lower)
+        name_lower = re.sub(r"\.(ttf|otf|woff2?)$", "", name_lower)
 
         # Check for weight patterns
         for pattern, weight in self.WEIGHT_PATTERNS.items():
@@ -86,7 +87,7 @@ class FontManager:
                 return weight
 
         # Check for numeric weight (e.g., "Inter-400.ttf")
-        numeric_match = re.search(r'[-_](\d{3})(?:[-_.]|$)', name_lower)
+        numeric_match = re.search(r"[-_](\d{3})(?:[-_.]|$)", name_lower)
         if numeric_match:
             return int(numeric_match.group(1))
 
@@ -98,21 +99,21 @@ class FontManager:
         name = filename
 
         # Remove extension
-        name = re.sub(r'\.(ttf|otf|woff2?)$', '', name)
+        name = re.sub(r"\.(ttf|otf|woff2?)$", "", name)
 
         # Remove weight suffix patterns
         for pattern in self.WEIGHT_PATTERNS.keys():
-            name = re.sub(rf'[-_]?{pattern}$', '', name, flags=re.IGNORECASE)
+            name = re.sub(rf"[-_]?{pattern}$", "", name, flags=re.IGNORECASE)
 
         # Remove numeric weight suffix
-        name = re.sub(r'[-_]?\d{3}$', '', name)
+        name = re.sub(r"[-_]?\d{3}$", "", name)
 
         # Clean up remaining separators
-        name = name.rstrip('-_')
+        name = name.rstrip("-_")
 
         return name
 
-    def _scan_fonts_directory(self):
+    def _scan_fonts_directory(self) -> None:
         """Scan the fonts directory and build the font index."""
         self._font_index.clear()
 
@@ -217,7 +218,7 @@ class FontManager:
 
     def get_font(
         self, family: str, weight: int = 400, size: int = 72
-    ) -> ImageFont.FreeTypeFont:
+    ) -> Union[ImageFont.FreeTypeFont, ImageFont.ImageFont]:
         """
         Get a PIL font object with fuzzy matching.
 
@@ -244,9 +245,11 @@ class FontManager:
                 font_path = self._font_index[resolved_family][closest_weight]
 
                 try:
-                    font = ImageFont.truetype(str(font_path), size)
-                    self._cache_put(cache_key, font)
-                    return font
+                    loaded_font: Union[ImageFont.FreeTypeFont, ImageFont.ImageFont] = (
+                        ImageFont.truetype(str(font_path), size)
+                    )
+                    self._cache_put(cache_key, loaded_font)
+                    return loaded_font
                 except Exception as e:
                     logger.warning(f"Failed to load font {font_path}: {e}")
 
@@ -255,17 +258,25 @@ class FontManager:
             fallback_path = self._get_fallback_font_path()
             if fallback_path:
                 try:
-                    font = ImageFont.truetype(fallback_path, size)
-                    self._cache_put(cache_key, font)
-                    return font
+                    fallback_font: Union[
+                        ImageFont.FreeTypeFont, ImageFont.ImageFont
+                    ] = ImageFont.truetype(fallback_path, size)
+                    self._cache_put(cache_key, fallback_font)
+                    return fallback_font
                 except Exception:
                     pass
 
         # Ultimate fallback: PIL's default font
-        font = ImageFont.load_default()
-        return font
+        default_font: Union[ImageFont.FreeTypeFont, ImageFont.ImageFont] = (
+            ImageFont.load_default()
+        )
+        return default_font
 
-    def _cache_put(self, key: Tuple[str, int, int], font: ImageFont.FreeTypeFont) -> None:
+    def _cache_put(
+        self,
+        key: Tuple[str, int, int],
+        font: Union[ImageFont.FreeTypeFont, ImageFont.ImageFont],
+    ) -> None:
         """Store a font in the cache, evicting the oldest entry if full."""
         if len(self._font_cache) >= self.MAX_CACHE_SIZE:
             oldest = self._cache_order.pop(0)
@@ -273,19 +284,15 @@ class FontManager:
         self._font_cache[key] = font
         self._cache_order.append(key)
 
-    def refresh(self):
+    def refresh(self) -> None:
         """Refresh the font index by rescanning the directory."""
         self._font_cache.clear()
         self._cache_order.clear()
         self._available_fonts = None
         self._scan_fonts_directory()
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear the font cache."""
         self._font_cache.clear()
         self._cache_order.clear()
         self._available_fonts = None
-
-
-# Global font manager instance
-font_manager = FontManager()

@@ -24,7 +24,13 @@ class Slide(BaseModel):
 
     index: int = Field(ge=0, description="Slide index (0-based)")
     text: SlideText = Field(default_factory=SlideText)
-    image_prompt: Optional[str] = Field(default=None, description="Generated image prompt")
-    image_data: Optional[str] = Field(default=None, description="Base64 encoded background image")
+    image_prompt: Optional[str] = Field(
+        default=None, description="Generated image prompt"
+    )
+    image_data: Optional[str] = Field(
+        default=None, description="Base64 encoded background image"
+    )
     style: TextStyle = Field(default_factory=TextStyle)
-    final_image: Optional[str] = Field(default=None, description="Base64 encoded final rendered image")
+    final_image: Optional[str] = Field(
+        default=None, description="Base64 encoded final rendered image"
+    )

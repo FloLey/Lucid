@@ -1,13 +1,16 @@
 """Stage 1 service - Draft to Slide texts transformation."""
 
+from __future__ import annotations
 import logging
-from typing import List, Optional
+from typing import Optional, TYPE_CHECKING
 
 from app.models.slide import Slide, SlideText
 from app.models.session import SessionState
-from app.services.gemini_service import gemini_service
-from app.services.session_manager import session_manager
 from app.services.prompt_loader import load_prompt_file
+
+if TYPE_CHECKING:
+    from app.services.session_manager import SessionManager
+    from app.services.gemini_service import GeminiService
 
 logger = logging.getLogger(__name__)
 
@@ -15,33 +18,60 @@ logger = logging.getLogger(__name__)
 class Stage1Service:
     """Service for Stage 1: Draft to Slide texts transformation."""
 
+    session_manager: SessionManager
+    gemini_service: GeminiService
+
+    def __init__(
+        self,
+        session_manager: Optional[SessionManager] = None,
+        gemini_service: Optional[GeminiService] = None,
+    ):
+        # Validate dependencies before assignment
+        if not session_manager:
+            raise ValueError("session_manager dependency is required")
+        if not gemini_service:
+            raise ValueError("gemini_service dependency is required")
+
+        self.session_manager = session_manager
+        self.gemini_service = gemini_service
+
+    @staticmethod
+    def _build_title_instruction(include_titles: bool) -> str:
+        """Generate instructions for the LLM regarding slide titles."""
+        if include_titles:
+            return "Each slide MUST have both a title and body."
+        return "Each slide should only have body text (no titles)."
+
+    @staticmethod
+    def _build_slide_format(include_titles: bool) -> str:
+        """Describe the expected JSON fields per slide."""
+        if include_titles:
+            return '"title" (string) and "body" (string)'
+        return '"body" (string) only'
+
+    @staticmethod
+    def _build_response_format(include_titles: bool) -> str:
+        """Provide a JSON schema example for the LLM response."""
+        if include_titles:
+            return '{"slides": [{"title": "Hook", "body": "Grab attention here"}, ...]}'
+        return '{"slides": [{"body": "First slide content"}, ...]}'
+
     async def generate_slide_texts(
         self,
         session_id: str,
         draft_text: str,
         num_slides: Optional[int] = None,
-        include_titles: Optional[bool] = None,
+        include_titles: bool = True,
         additional_instructions: Optional[str] = None,
-        language: Optional[str] = None,
+        language: str = "English",
     ) -> Optional[SessionState]:
-        """Generate slide texts from a draft."""
-        # Load config for defaults
-        from app.services.config_manager import config_manager
-        config = config_manager.get_config()
+        """Generate slide texts from a draft.
 
-        # Fallback chain: explicit param -> config default -> built-in default
-        if num_slides is None:
-            num_slides = config.global_defaults.num_slides  # Can also be None!
-        if language is None:
-            language = config.global_defaults.language
-        if include_titles is None:
-            include_titles = config.global_defaults.include_titles
-        if additional_instructions is None:
-            additional_instructions = config.stage_instructions.stage1
-
-        session = session_manager.get_session(session_id)
+        All config defaults should be resolved by the caller (route handler).
+        """
+        session = await self.session_manager.get_session(session_id)
         if not session:
-            session = session_manager.create_session(session_id)
+            session = await self.session_manager.create_session(session_id)
 
         # Store inputs
         session.draft_text = draft_text
@@ -58,23 +88,9 @@ class Stage1Service:
 
         language_instruction = f"Write ALL slide content in {language}."
 
-        title_instruction = (
-            "Each slide MUST have both a title and body."
-            if include_titles
-            else "Each slide should only have body text (no titles)."
-        )
-
-        slide_format = (
-            '"title" (string) and "body" (string)'
-            if include_titles
-            else '"body" (string) only'
-        )
-
-        response_format = (
-            '{"slides": [{"title": "Hook", "body": "Grab attention here"}, ...]}'
-            if include_titles
-            else '{"slides": [{"body": "First slide content"}, ...]}'
-        )
+        title_instruction = self._build_title_instruction(include_titles)
+        slide_format = self._build_slide_format(include_titles)
+        response_format = self._build_response_format(include_titles)
 
         additional = (
             f"Additional instructions: {additional_instructions}"
@@ -95,7 +111,9 @@ class Stage1Service:
         )
 
         # Generate with Gemini
-        result = await gemini_service.generate_json(prompt)
+        result = await self.gemini_service.generate_json(
+            prompt, caller="stage1_service.generate_slide_texts"
+        )
 
         # Parse and store slides
         slides_data = result.get("slides", [])
@@ -128,7 +146,7 @@ class Stage1Service:
         # Update session.num_slides to reflect actual count
         session.num_slides = len(session.slides)
 
-        session_manager.update_session(session)
+        await self.session_manager.update_session(session)
         return session
 
     async def regenerate_all_slide_texts(
@@ -136,7 +154,7 @@ class Stage1Service:
         session_id: str,
     ) -> Optional[SessionState]:
         """Regenerate all slide texts using stored inputs."""
-        session = session_manager.get_session(session_id)
+        session = await self.session_manager.get_session(session_id)
         if not session or not session.draft_text:
             return None
 
@@ -156,59 +174,56 @@ class Stage1Service:
         instruction: Optional[str] = None,
     ) -> Optional[SessionState]:
         """Regenerate a single slide text."""
-        session = session_manager.get_session(session_id)
+        session = await self.session_manager.get_session(session_id)
         if not session or slide_index >= len(session.slides):
             return None
 
-        # Get context from surrounding slides
-        prev_context = ""
-        next_context = ""
+        instruction_text = (
+            f"\nSpecific instruction: {instruction}" if instruction else ""
+        )
 
-        if slide_index > 0:
-            prev_slide = session.slides[slide_index - 1]
-            prev_context = f"Previous slide: {prev_slide.text.get_full_text()}"
-
-        if slide_index < len(session.slides) - 1:
-            next_slide = session.slides[slide_index + 1]
-            next_context = f"Next slide: {next_slide.text.get_full_text()}"
-
-        instruction_text = f"\nSpecific instruction: {instruction}" if instruction else ""
+        language_instruction = f"Write ALL slide content in {session.language}."
 
         title_instruction = (
             "Include both title and body."
             if session.include_titles
             else "Only provide body text."
         )
-
         response_format = '{"title": "...", "body": "..."}'
+
+        # Build all-slides context with current slide marked
+        all_slides_parts = []
+        for i, s in enumerate(session.slides):
+            marker = " ← CURRENT SLIDE" if i == slide_index else ""
+            all_slides_parts.append(f"Slide {i + 1}: {s.text.get_full_text()}{marker}")
+        all_slides_context = "\n".join(all_slides_parts)
 
         prompt_template = load_prompt_file("regenerate_single_slide.prompt")
 
         prompt = prompt_template.format(
-            slide_num=slide_index + 1,
-            total_slides=len(session.slides),
-            language=session.language,
             draft_text=session.draft_text,
-            prev_context=prev_context,
-            next_context=next_context,
+            language_instruction=language_instruction,
+            all_slides_context=all_slides_context,
             current_text=session.slides[slide_index].text.get_full_text(),
             instruction_text=instruction_text,
             title_instruction=title_instruction,
             response_format=response_format,
         )
 
-        result = await gemini_service.generate_json(prompt)
+        result = await self.gemini_service.generate_json(
+            prompt, caller="stage1_service.regenerate_slide_text"
+        )
 
         if result:
             session.slides[slide_index].text = SlideText(
                 title=result.get("title") if session.include_titles else None,
                 body=result.get("body", session.slides[slide_index].text.body),
             )
-            session_manager.update_session(session)
+            await self.session_manager.update_session(session)
 
         return session
 
-    def update_slide_text(
+    async def update_slide_text(
         self,
         session_id: str,
         slide_index: int,
@@ -216,7 +231,7 @@ class Stage1Service:
         body: Optional[str] = None,
     ) -> Optional[SessionState]:
         """Manually update a slide's text."""
-        session = session_manager.get_session(session_id)
+        session = await self.session_manager.get_session(session_id)
         if not session or slide_index >= len(session.slides):
             return None
 
@@ -226,9 +241,5 @@ class Stage1Service:
         if body is not None:
             slide.text.body = body
 
-        session_manager.update_session(session)
+        await self.session_manager.update_session(session)
         return session
-
-
-# Global Stage 1 service instance
-stage1_service = Stage1Service()
