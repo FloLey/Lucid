@@ -1,228 +1,83 @@
-# Lucid v0.2
-
-Transform rough drafts into polished social media carousels.
-
-Lucid is a containerized web application that turns your ideas into beautiful 4:5 aspect ratio carousel slides (1080x1350px) ready for Instagram and other social platforms.
-
-## Features
-
-- **5-Stage Workflow**: Draft → Style → Image Prompts → Images → Design
-- **AI-Powered Generation**: Uses Gemini 3 Flash Preview for text and Gemini 2.5 Flash for images
-- **Typography Rendering**: PIL-based text rendering with binary search fitting algorithm
-- **Fuzzy Font Matching**: Intelligent font loading with weight approximation
-- **Session Persistence**: Sessions survive Docker hot-reloads during development
-- **Bi-Directional Navigation**: Navigate back and forth between stages
-- **Style Presets**: Modern, Bold, Elegant, Minimal, and Impact styles
-- **Export**: Download as ZIP with all slides and metadata
-
-## Quick Start
-
-### Option 1: GitHub Codespaces (Recommended)
-
-Click the button below to open a fully configured development environment in the cloud:
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/FloLey/Lucid)
-
-Before creating the Codespace, add your Google API key as a **Codespaces secret** so AI features work out of the box:
-
-1. Go to [github.com/settings/codespaces](https://github.com/settings/codespaces)
-2. Under **Secrets**, click **New secret**
-3. **Name:** `GOOGLE_API_KEY`, **Value:** your key ([get one here](https://aistudio.google.com/apikey))
-4. Under **Repository access**, select the Lucid repository
-
-Then create the Codespace. It will automatically:
-- Build both backend and frontend containers
-- Download fonts during build
-- Inject your API key into the backend
-- Forward ports 5173 (frontend) and 8000 (API)
-- Open the app in your browser
-
-### Option 2: Local Docker
-
+# Lucid 🌠
+**Transform rough drafts into polished, high-converting social media carousels.**
+Lucid is a containerized web application that orchestrates a sophisticated pipeline to convert your messy, unstructured ideas into beautiful, ready-to-publish 4:5 carousel slides. Built with a FastAPI backend and a React/TypeScript frontend, it leverages Google Gemini for creative heavy lifting and a deterministic rendering engine for pixel-perfect typography.
+---
+## The Philosophy: The Progressive Pipeline Architecture
+Why does Lucid exist? Because **Generative AI struggles with rendering text inside images.** Relying on a single zero-shot prompt to generate a complete, spelled-correctly, well-laid-out slide is a recipe for hallucinations and warped artifacts.
+Lucid solves this by implementing a **Progressive Pipeline Architecture**. We treat AI as a chain of specialized workers rather than a magic black box:
+1. **Separation of Concerns:** The AI is strictly relegated to structural writing and generating *text-free* background imagery. A deterministic engine (Pillow/PIL) handles all typography.
+2. **Grounding & Context:** Each stage's output grounds the next. A raw draft is structured into JSON text arrays $\rightarrow$ Text informs global visual styles $\rightarrow$ Styles dictate slide-specific image prompts $\rightarrow$ Prompts generate clean backgrounds $\rightarrow$ Text is accurately layered on top.
+3. **Human-in-the-Loop Intercession:** By breaking the process into 5 discrete stages, users can audit, edit, and safely course-correct at any step without having to start over.
+---
+## The Workflow
+Lucid is designed around a strict, bi-directional 5-stage workflow. At any point, you can regenerate an individual slide, edit the output, or step backward without losing your downstream configurations.
+### 📝 Stage 1: The Draft
+Dump your unstructured notes, bullet points, or stream-of-consciousness text. The AI acts as a content strategist, splitting the draft into a cohesive, logically flowing sequence of slides with distinct Titles and Bodies.
+*Customize language, slide count, and toggle title generation.*
+### 🎨 Stage 2: Style Proposals
+The AI analyzes your slide text and generates distinct "Style Proposals" (e.g., *Minimalist geometric, warm watercolor washes, dark moody photography*). This guarantees that every image generated later will share a consistent visual vocabulary.
+### 🧠 Stage 3: Image Prompts
+Instead of generating images directly, the AI first writes highly specific, text-free image prompts for *each individual slide*, prepending the global style you chose in Stage 2.
+*Don't like a specific slide's concept? Edit the prompt manually or ask the AI to regenerate it.*
+### 🖼️ Stage 4: Image Generation
+Lucid triggers parallel execution of image generation requests, creating clean, consistent background images mapped to your 4:5 layout.
+### 🔤 Stage 5: Typography & Layout
+The deterministic rendering engine takes over. Drag, drop, and resize text boxes directly on the canvas. Adjust fonts, weights, colors, drop shadows, and strokes. The system automatically calculates perfect scaling to fit your text into the layout. Finally, hit **Export ZIP** to download your ready-to-post carousel.
+---
+## Feature Highlights
+Lucid packs several advanced technical implementations to make the pipeline robust and seamless:
+*   **Binary Search Text Fitting:** The `RenderingService` uses an $O(\log n)$ binary search algorithm (`_find_fitting_size`) to calculate the mathematically perfect font size for a given bounding box, replacing brittle linear decrements and ensuring text never overflows.
+*   **Fuzzy Font Matching:** The `FontManager` builds an indexed registry of your TTF/OTF files on startup. If the UI requests "Inter 600" but only "Inter 700" is available, it gracefully degrades to the nearest available mathematical weight.
+*   **Debounced Sync & Render Loop:** The frontend `useDebouncedRender` hook eliminates React state race conditions. It ensures rapid keystrokes trigger a single, synchronous database save followed by a PIL background render, using monotonic request IDs to silently drop stale in-flight responses.
+*   **Hot-Swappable, Validated Prompts:** LLM system instructions live in version-controlled `.prompt` files (e.g., `slide_generation.prompt`), editable directly via the UI. The backend runs AST-style validation to ensure required `{variables}` aren't accidentally deleted by the user.
+*   **Concurrency & Rate Limiting:** Outbound AI calls utilize `asyncio.Semaphore` implementations to strictly limit concurrent LLM text and image requests, preventing `429 Too Many Requests` API limits.
+---
+## Configuration & Customization
+Lucid behavior is highly customizable via the UI Settings panel or the `config.json` file.
+### App Config Schema (`config.json`)
+*   **`global_defaults`**: Set default languages (e.g., "English"), slide counts, and toggle title inclusion.
+*   **`image`**: Controls backend rendering resolutions (defaults to `1080x1350`, aspect ratio `4:5`).
+*   **`style`**: Base typography configurations (`default_font_family`, colors, stroke properties).
+*   **`stage_instructions`**: Pre-seed standard instructions into specific pipeline stages (e.g., "Always use an energetic tone" for Stage 1).
+### Templates
+You can save any project configuration as a reusable **Template**. Future projects launched from a template will inherit the slide counts, configuration defaults, and even the exact prompt logic of the template base.
+---
+## Installation & Requirements
+Lucid is built for containerized, Docker-first development.
+**Prerequisites:**
+- Docker & Docker Compose
+- A Google Generative AI API Key ((https://aistudio.google.com/apikey))
+### 1. Environment Setup
+Clone the repository and set up your `.env` file:
 ```bash
-# Clone and start
-git clone <repo-url>
+git clone https://github.com/your-repo/Lucid.git
 cd Lucid
-cp .env.example .env  # Add your GOOGLE_API_KEY
-
-# Initialize config file (prevents Docker from creating a directory)
-echo '{}' > config.json
-
-# Build and run (fonts download automatically)
-docker-compose up --build
-```
-
-The app will be available at `http://localhost:5173`.
-
-## Setting Up Your Google API Key
-
-Lucid uses the Google Gemini API for text generation and image generation. You need a `GOOGLE_API_KEY` to enable AI features.
-
-**Get a key:** Go to [Google AI Studio](https://aistudio.google.com/apikey) and create an API key.
-
-### GitHub Codespaces
-
-Set the key as a Codespaces secret so it's automatically available in every Codespace:
-
-1. Go to [github.com/settings/codespaces](https://github.com/settings/codespaces)
-2. Under **Secrets**, click **New secret**
-3. **Name:** `GOOGLE_API_KEY`, **Value:** your API key
-4. Under **Repository access**, select the Lucid repository
-5. Click **Add secret**
-6. Create (or rebuild) your Codespace — the key is injected automatically
-
-### Local Docker
-
-Create a `.env` file in the project root:
-
-```bash
 cp .env.example .env
 ```
-
-Then edit `.env` and fill in your key:
-
-```
-GOOGLE_API_KEY=your-api-key-here
-```
-
-Restart containers with `docker compose up` to pick up the change.
-
-### Without an API Key
-
-The app runs without an API key — image generation returns gradient placeholders and text generation is unavailable. This is useful for frontend/UI development.
-
-## Tech Stack
-
-**Backend:**
-- Python 3.13
-- FastAPI
-- Google Generative AI (Gemini 3 Flash Preview, Gemini 2.5 Flash Image)
-- Pillow (PIL)
-- Pydantic
-
-**Frontend:**
-- Node 25
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS
-- Axios
-
-## Manual Setup
-
-### Backend
-
+Add your `GOOGLE_API_KEY` to the `.env` file. *(Note: Without an API key, the app gracefully falls back to generating placeholder gradient images).*
+### 2. Initialize Configuration
+Ensure the base config file exists before Docker boots:
 ```bash
-cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Download fonts (required for typography)
-python download_fonts.py
-
-# Set Google API key (optional - placeholder images work without it)
-export GOOGLE_API_KEY="your-api-key"
-
-# Run the server
-uvicorn app.main:app --reload --port 8000
+echo '{}' > config.json
 ```
-
-### Frontend
-
+### 3. Build and Run
 ```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
+docker-compose up --build
 ```
-
-## v0.2 Improvements
-
-### Docker Infrastructure
-- Zero-config startup with `docker-compose up --build`
-- Fonts download during build (no manual steps required)
-- Hot-reload volumes for development
-
-### Rendering Engine
-- **Binary Search Fitting**: O(log n) text sizing instead of O(n) linear decrement
-- **Fuzzy Font Matching**: Requests "Montserrat 600" but only 700 exists → returns 700
-
-### Session Persistence
-- Sessions persist to `sessions_db.json` during development
-- Survives Docker hot-reloads without losing progress
-
-### Stage-Scoped Chat
-- Commands are validated against current stage
-- Helpful error messages when using wrong-stage commands
-- Frontend autocomplete shows only available commands
-
-### Bi-Directional Navigation
-- Back buttons on Stage 2, 3, and 4
-- `/back` command in chat
-- Fix upstream content without starting over
-
-
-## API Endpoints
-
-### Sessions
-- `POST /sessions/create` - Create a new session
-- `GET /sessions/{id}` - Get session state
-- `POST /sessions/next-stage` - Advance to next stage
-- `POST /sessions/previous-stage` - Go back to previous stage
-
-### Stage 1-4
-Full CRUD operations for each stage. See `/api/docs` when running.
-
-
-## Project Structure
-
-```
-Lucid/
-├── .devcontainer/          # GitHub Codespaces configuration
-│   └── devcontainer.json
-├── docker-compose.yml      # Container orchestration
-├── .env.example            # Environment template
-├── backend/
-│   ├── Dockerfile
-│   ├── download_fonts.py   # Font downloader (runs at build)
-│   ├── sessions_db.json    # Session persistence
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── models/
-│   │   ├── routes/
-│   │   └── services/
-│   │       ├── font_manager.py      # Fuzzy font matching
-│   │       ├── rendering_service.py # Binary search fitting
-│   │       ├── session_manager.py   # JSON persistence
-│   └── tests/
-└── frontend/
-    ├── Dockerfile
-    └── src/
-        ├── components/
-        │   ├── Stage2.tsx      # Back button
-        │   ├── Stage3.tsx      # Back button
-        │   └── Stage4.tsx      # Back button
-        └── hooks/
-            └── useSession.ts   # previousStage support
-```
-
-## Testing
-
-```bash
-cd backend
-pytest -v
-```
-
-158 tests covering all services and API endpoints.
-
-## License
-
-MIT
+*Docker will automatically download the required open-source fonts during the build process.*
+Access the application at **`http://localhost:5173`**.
+Access the Swagger API documentation at **`http://localhost:8000/docs`**.
+---
+## API & CLI Reference
+The FastAPI backend exposes a clean REST API. Here are the core architectural routes:
+| Route | Method | Description |
+| :--- | :--- | :--- |
+| `/api/projects/` | `POST` | Create a new project state (optionally from a Template). |
+| `/api/stage1/generate` | `POST` | Convert draft string $\rightarrow$ JSON slide array using Gemini 3 Flash. |
+| `/api/stage-style/generate` | `POST` | Propose visual theme prompts. |
+| `/api/stage2/generate` | `POST` | Generate individual image prompts in parallel. |
+| `/api/stage3/generate` | `POST` | Render image prompts $\rightarrow$ Base64/Disk PNGs using Gemini 2.5 Image. |
+| `/api/stage4/apply-all` | `POST` | Run PIL typography engine to composite text over backgrounds. |
+| `/api/export/zip` | `POST` | Archive project metadata and final composited images. |
+| `/api/prompts/validate` | `POST` | Dry-run validation of `.prompt` template edits. |
+*Local Dev Note: If running without Docker, utilize the provided `install-deps.sh` script to install Node/Python requirements and trigger the `download_fonts.py` hook.*
