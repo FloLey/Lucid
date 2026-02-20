@@ -20,6 +20,12 @@ class GeneratePromptsRequest(BaseModel):
         default=None,
         description="Style instructions for image generation (mood, palette, style)",
     )
+    concurrency_limit: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Max concurrent LLM requests (1-50). Lower values reduce 429 rate-limit errors.",
+    )
 
 
 class RegeneratePromptRequest(BaseModel):
@@ -54,6 +60,7 @@ async def generate_all_prompts(
         lambda: stage2_service.generate_all_prompts(
             project_id=request.project_id,
             image_style_instructions=request.image_style_instructions,
+            concurrency_limit=request.concurrency_limit,
         ),
         "Failed to generate prompts",
     )

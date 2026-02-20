@@ -15,6 +15,12 @@ class GenerateImagesRequest(BaseModel):
     """Request to generate images for all slides."""
 
     project_id: str
+    concurrency_limit: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Max concurrent image generation requests (1-50). Lower values reduce 429 rate-limit errors.",
+    )
 
 
 class RegenerateImageRequest(BaseModel):
@@ -41,6 +47,7 @@ async def generate_all_images(
     return await execute_service_action(
         lambda: stage3_service.generate_all_images(
             project_id=request.project_id,
+            concurrency_limit=request.concurrency_limit,
         ),
         "Failed to generate images",
     )

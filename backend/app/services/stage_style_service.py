@@ -48,6 +48,7 @@ class StageStyleService:
         project_id: str,
         num_proposals: int = 3,
         additional_instructions: Optional[str] = None,
+        concurrency_limit: int = 5,
     ) -> Optional[ProjectState]:
         """Generate style proposals with preview images."""
         project = await self.project_manager.get_project(project_id)
@@ -88,11 +89,14 @@ class StageStyleService:
 
         raw_proposals = result.get("proposals", [])
 
+        sem = asyncio.Semaphore(concurrency_limit)
+
         async def generate_preview(i: int, proposal_data: dict) -> StyleProposal:
             common_flow = proposal_data.get("description", "")
             preview_path: Optional[str] = None
             try:
-                b64 = await self.image_service.generate_image(common_flow)
+                async with sem:
+                    b64 = await self.image_service.generate_image(common_flow)
                 preview_path = self.image_service.save_image_to_disk(b64)
             except Exception as e:
                 logger.warning(f"Failed to generate preview for proposal {i}: {e}")

@@ -79,6 +79,7 @@ class Stage2Service:
         self,
         project_id: str,
         image_style_instructions: Optional[str] = None,
+        concurrency_limit: int = 10,
     ) -> Optional[ProjectState]:
         """Generate image prompts for all slides in parallel."""
         project = await self.project_manager.get_project(project_id)
@@ -88,15 +89,18 @@ class Stage2Service:
         if image_style_instructions:
             project.image_style_instructions = image_style_instructions
 
+        sem = asyncio.Semaphore(concurrency_limit)
+
         async def generate_single_prompt(slide_index: int) -> str:
-            prompt = self._build_slide_prompt(project, slide_index)
-            result = await self.gemini_service.generate_json(
-                prompt, caller="stage2_service.generate_single_prompt"
-            )
-            return result.get(
-                "prompt",
-                f"Abstract professional background for: {project.slides[slide_index].text.body[:50]}",
-            )
+            async with sem:
+                prompt = self._build_slide_prompt(project, slide_index)
+                result = await self.gemini_service.generate_json(
+                    prompt, caller="stage2_service.generate_single_prompt"
+                )
+                return result.get(
+                    "prompt",
+                    f"Abstract professional background for: {project.slides[slide_index].text.body[:50]}",
+                )
 
         prompts = await asyncio.gather(
             *(generate_single_prompt(i) for i in range(len(project.slides)))

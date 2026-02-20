@@ -28,7 +28,12 @@ class Slide(BaseModel):
         default=None, description="Generated image prompt"
     )
     image_data: Optional[str] = Field(
-        default=None, description="Base64 encoded background image"
+        default=None,
+        description=(
+            "Background image as either a served URL path (e.g. /images/uuid.png) "
+            "when saved to disk via ImageService, or a raw Base64-encoded PNG string "
+            "for direct uploads. Use ImageService.read_image_bytes() to read either form."
+        ),
     )
     style: TextStyle = Field(default_factory=TextStyle)
     final_image: Optional[str] = Field(
