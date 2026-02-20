@@ -1,14 +1,17 @@
 """Stage 1 routes - Draft to Slide texts."""
 
+import logging
 from typing import Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.models.project import ProjectResponse
 from app.dependencies import get_stage1_service
+from app.services.gemini_service import GeminiError
 from app.services.stage1_service import Stage1Service
 from app.routes.utils import execute_service_action
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -49,20 +52,31 @@ class RegenerateAllRequest(BaseModel):
 @router.post("/generate", response_model=ProjectResponse)
 async def generate_slide_texts(
     request: GenerateSlideTextsRequest,
+    background_tasks: BackgroundTasks,
     stage1_service: Stage1Service = Depends(get_stage1_service),
 ):
     """Generate slide texts from a draft."""
-    return await execute_service_action(
-        lambda: stage1_service.generate_slide_texts(
+    try:
+        project = await stage1_service.generate_slide_texts(
             project_id=request.project_id,
             draft_text=request.draft_text,
             num_slides=request.num_slides,
             include_titles=request.include_titles,
             additional_instructions=request.additional_instructions,
             language=request.language,
-        ),
-        "Failed to generate slide texts",
-    )
+        )
+    except GeminiError:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate slide texts: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate slide texts: {e}")
+    if not project:
+        raise HTTPException(status_code=404, detail="Failed to generate slide texts")
+    if project.name.startswith("Untitled"):
+        background_tasks.add_task(
+            stage1_service.generate_project_title, project.project_id
+        )
+    return {"project": project.model_dump()}
 
 
 @router.post("/regenerate-all", response_model=ProjectResponse)
