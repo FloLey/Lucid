@@ -58,7 +58,7 @@ def mock_gemini_and_image():
         }
 
     async def mock_generate_image(prompt, *args, **kwargs):
-        return "fakebase64imagedata"
+        return "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADq3/"
 
     def mock_save_image_to_disk(base64_data):
         return "/images/mock-preview.png"
@@ -66,10 +66,11 @@ def mock_gemini_and_image():
     with (
         patch.object(stage_style_service, "gemini_service") as mock_gemini,
         patch.object(stage_style_service, "image_service") as mock_image,
+        patch.object(stage_style_service, "storage_service") as mock_storage,
     ):
         mock_gemini.generate_json = mock_generate_json
         mock_image.generate_image = mock_generate_image
-        mock_image.save_image_to_disk = mock_save_image_to_disk
+        mock_storage.save_image_to_disk = mock_save_image_to_disk
         yield mock_gemini, mock_image
 
 

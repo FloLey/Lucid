@@ -246,8 +246,3 @@ class TestStage2Routes:
             data["project"]["image_style_instructions"] == "Vibrant, energetic colors"
         )
 
-    def test_placeholder_works(self, client):
-        """Test that placeholder endpoint still works."""
-        response = client.get("/api/stage2/placeholder")
-        assert response.status_code == 200
-        assert response.json()["stage"] == 2
