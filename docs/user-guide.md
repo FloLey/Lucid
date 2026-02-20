@@ -12,6 +12,72 @@ This guide walks you through creating a complete social media carousel from a ro
 
 ---
 
+## Projects
+
+Everything in Lucid lives inside a **project**. The home screen lists all your projects as thumbnail cards showing the project name, mode, slide count, and how far through the pipeline it has reached.
+
+### Creating a project
+
+Click **New Project**. A modal asks for three things:
+
+| Option | Description |
+| :--- | :--- |
+| **Mode** | **Carousel** — multiple slides exported as a set (the default). **Single Image** — one slide only. |
+| **Slide count** | Choose 3, 5, 7, or 10 slides (ignored for Single Image mode). |
+| **Template** | Optional. Pick a saved template to pre-load its configuration. Defaults to *Carousel Default* or *Single Image Default* if none is chosen. |
+
+Click **Create** to open the project at Stage 1.
+
+### Renaming a project
+
+Projects are auto-named (*Untitled • YYYY-MM-DD • …*) when created. Click the project name at the top of the editor to rename it inline.
+
+### Reopening a project
+
+Click any project card on the home screen to reopen it exactly where you left off — the pipeline remembers your current stage and all generated content.
+
+### Deleting a project
+
+Hover over a project card and click the **trash icon** to delete it. This also removes all associated generated images.
+
+---
+
+## Templates
+
+A **template** is a reusable configuration blueprint. It stores defaults for mode, slide count, LLM prompts, typography style, and stage instructions — so you can start a new project with a consistent setup without reconfiguring from scratch.
+
+### Built-in templates
+
+Lucid ships with two default templates seeded on first run:
+
+| Template | Mode | Default slides |
+| :--- | :--- | :--- |
+| **Carousel Default** | Carousel | 5 |
+| **Single Image Default** | Single Image | 1 |
+
+### Viewing and managing templates
+
+Click **Templates** on the home screen to open the Templates panel. Each card shows the template name, mode, and default slide count. From here you can:
+
+- **Create** a new template by typing a name and clicking **Create**.
+- **Delete** a template using the trash icon on its card.
+
+> **Note:** Deleting a template does not affect projects already created from it — each project stores a private copy of its configuration.
+
+### Using a template
+
+When creating a new project, select a template from the **Template** dropdown in the New Project modal. The project will inherit that template's prompt configuration, typography defaults, and stage instructions. Once created, the project's config is independent — changes to the template will not retroactively affect existing projects.
+
+### Customising a template's configuration
+
+Template configuration (prompts, style defaults, image settings) is edited through the **Settings** modal inside a project. If you want to build a custom template, the recommended workflow is:
+
+1. Create a project from an existing template.
+2. Open **Settings** (gear icon) and adjust Prompts, Style, Image, and Instructions tabs to your liking.
+3. Create a new template and note that future projects can use the settings you'd refined — you can port settings by adjusting the template via the API or by iterating in a project first.
+
+---
+
 ## Overview
 
 Lucid uses a 5-stage pipeline. Each stage builds on the last, and you can always step **backward** to revise without losing downstream work.
