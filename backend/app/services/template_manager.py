@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db.database import async_session_factory as _default_session_factory
@@ -23,13 +23,11 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_TEMPLATES = [
     {
-        "name": "Carousel Default",
-        "default_mode": "carousel",
+        "name": "Default (5 slides)",
         "default_slide_count": 5,
     },
     {
-        "name": "Single Image Default",
-        "default_mode": "single_image",
+        "name": "Single Image (1 slide)",
         "default_slide_count": 1,
     },
 ]
@@ -88,14 +86,14 @@ class TemplateManager:
                     row = TemplateDB(
                         id=str(uuid.uuid4()),
                         name=tmpl["name"],
-                        default_mode=tmpl["default_mode"],
+                        default_mode="carousel",
                         default_slide_count=tmpl["default_slide_count"],
                         config=base_config.model_dump(mode="json"),
                         created_at=datetime.utcnow(),
                     )
                     session.add(row)
 
-        logger.info("Seeded default templates: Carousel Default, Single Image Default")
+        logger.info("Seeded default templates")
 
     # ------------------------------------------------------------------
     # Read
@@ -130,7 +128,6 @@ class TemplateManager:
     async def create_template(
         self,
         name: str,
-        default_mode: str = "carousel",
         default_slide_count: int = 5,
         config: Optional[ProjectConfig] = None,
     ) -> TemplateData:
@@ -142,7 +139,7 @@ class TemplateManager:
         row = TemplateDB(
             id=str(uuid.uuid4()),
             name=name,
-            default_mode=default_mode,
+            default_mode="carousel",
             default_slide_count=default_slide_count,
             config=config.model_dump(mode="json"),
             created_at=datetime.utcnow(),
@@ -157,7 +154,6 @@ class TemplateManager:
         self,
         template_id: str,
         name: Optional[str] = None,
-        default_mode: Optional[str] = None,
         default_slide_count: Optional[int] = None,
         config: Optional[ProjectConfig] = None,
     ) -> Optional[TemplateData]:
@@ -169,8 +165,6 @@ class TemplateManager:
                     return None
                 if name is not None:
                     row.name = name
-                if default_mode is not None:
-                    row.default_mode = default_mode
                 if default_slide_count is not None:
                     row.default_slide_count = default_slide_count
                 if config is not None:
@@ -186,6 +180,12 @@ class TemplateManager:
                     return False
                 await session.delete(row)
         return True
+
+    async def _clear_all(self) -> None:
+        """Wipe all templates from the DB.  Used in tests."""
+        async with self._session_factory() as session:
+            async with session.begin():
+                await session.execute(delete(TemplateDB))
 
 
 # Module-level singleton

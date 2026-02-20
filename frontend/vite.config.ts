@@ -27,6 +27,10 @@ export default defineConfig({
           });
         },
       },
+      '/images': {
+        target: process.env.VITE_API_TARGET || 'http://localhost:8000',
+        changeOrigin: true,
+      },
     },
   },
 })

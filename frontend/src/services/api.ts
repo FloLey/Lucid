@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Project, ProjectCard, AppConfig, TemplateData } from '../types';
+import type { Project, ProjectCard, AppConfig, TemplateData, ProjectConfig } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -26,14 +26,8 @@ export const listProjects = async (): Promise<ProjectCard[]> => {
   return response.data.projects;
 };
 
-export const createProject = async (
-  mode: string = 'carousel',
-  slideCount: number = 5,
-  templateId?: string
-): Promise<Project> => {
+export const createProject = async (templateId?: string): Promise<Project> => {
   const response = await api.post('/projects/', {
-    mode,
-    slide_count: slideCount,
     template_id: templateId,
   });
   return response.data.project;
@@ -75,7 +69,8 @@ export const generateSlideTexts = async (
   numSlides?: number,
   includeTitles?: boolean,
   additionalInstructions?: string,
-  language: string = 'English'
+  language: string = 'English',
+  wordsPerSlide?: string
 ): Promise<Project> => {
   const response = await api.post('/stage1/generate', {
     project_id: projectId,
@@ -84,6 +79,7 @@ export const generateSlideTexts = async (
     include_titles: includeTitles,
     additional_instructions: additionalInstructions,
     language,
+    words_per_slide: wordsPerSlide,
   });
   return response.data.project;
 };
@@ -300,22 +296,28 @@ export const listTemplates = async (): Promise<TemplateData[]> => {
 
 export const createTemplate = async (
   name: string,
-  defaultMode: string = 'carousel',
   defaultSlideCount: number = 5
 ): Promise<TemplateData> => {
   const response = await api.post('/templates/', {
     name,
-    default_mode: defaultMode,
     default_slide_count: defaultSlideCount,
   });
   return response.data;
 };
 
-export const deleteTemplate = async (templateId: string): Promise<void> => {
-  await api.delete(`/templates/${templateId}`);
+export const getTemplate = async (templateId: string): Promise<TemplateData> => {
+  const response = await api.get(`/templates/${templateId}`);
+  return response.data;
 };
 
-export const renameTemplate = async (templateId: string, name: string): Promise<TemplateData> => {
-  const response = await api.patch(`/templates/${templateId}`, { name });
+export const updateTemplate = async (
+  templateId: string,
+  data: { name?: string; default_slide_count?: number; config?: ProjectConfig }
+): Promise<TemplateData> => {
+  const response = await api.patch(`/templates/${templateId}`, data);
   return response.data;
+};
+
+export const deleteTemplate = async (templateId: string): Promise<void> => {
+  await api.delete(`/templates/${templateId}`);
 };

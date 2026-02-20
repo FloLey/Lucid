@@ -10,7 +10,6 @@ import StageIndicator from './components/StageIndicator';
 import ProjectHome from './components/ProjectHome';
 import NewProjectModal from './components/NewProjectModal';
 import TemplatesPage from './components/TemplatesPage';
-import ConfigSettings from './components/ConfigSettings';
 
 function AppContent() {
   const {
@@ -26,7 +25,6 @@ function AppContent() {
     goToStage,
   } = useProject();
 
-  const [showSettings, setShowSettings] = useState(false);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showTemplatesPage, setShowTemplatesPage] = useState(false);
 
@@ -49,7 +47,6 @@ function AppContent() {
         <Header
           projectName={currentProject?.name ?? null}
           onBack={currentProject ? closeProject : null}
-          onSettings={() => setShowSettings(true)}
         />
 
         {currentProject && (
@@ -88,15 +85,11 @@ function AppContent() {
         </main>
       </div>
 
-      {showSettings && (
-        <ConfigSettings onClose={() => setShowSettings(false)} />
-      )}
-
       {showNewProjectModal && (
         <NewProjectModal
           onClose={() => setShowNewProjectModal(false)}
-          onCreate={async (mode, slideCount, templateId) => {
-            await createNewProject(mode, slideCount, templateId);
+          onCreate={async (templateId) => {
+            await createNewProject(templateId);
             setShowNewProjectModal(false);
           }}
         />

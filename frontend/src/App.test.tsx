@@ -7,12 +7,6 @@ vi.mock('./components/Stage2', () => ({ default: () => <div>Stage2 Content</div>
 vi.mock('./components/Stage3', () => ({ default: () => <div>Stage3 Content</div> }));
 vi.mock('./components/Stage4', () => ({ default: () => <div>Stage4 Content</div> }));
 vi.mock('./components/Stage5', () => ({ default: () => <div>Stage5 Content</div> }));
-vi.mock('./components/ConfigSettings', () => ({ default: ({ onClose }: { onClose: () => void }) => (
-  <div>
-    <span>Config Settings</span>
-    <button onClick={onClose}>Close Config</button>
-  </div>
-)}));
 vi.mock('./components/NewProjectModal', () => ({ default: ({ onClose }: { onClose: () => void }) => (
   <div>
     <span>New Project Modal</span>
@@ -54,6 +48,27 @@ const makeSessionState = (overrides = {}) => ({
   ...overrides,
 });
 
+const makeProject = (overrides = {}) => ({
+  project_id: 'proj-1',
+  name: 'Test Project',
+  slide_count: 5,
+  current_stage: 1,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  draft_text: '',
+  num_slides: null,
+  include_titles: true,
+  additional_instructions: null,
+  language: 'English',
+  style_proposals: [],
+  selected_style_proposal_index: null,
+  image_style_instructions: null,
+  shared_prompt_prefix: null,
+  slides: [],
+  thumbnail_url: null,
+  ...overrides,
+});
+
 import App from './App';
 
 beforeEach(() => {
@@ -75,26 +90,7 @@ describe('App routing', () => {
 
   it('shows stage pipeline when a project is open', () => {
     mockUseProject.mockReturnValue(makeSessionState({
-      currentProject: {
-        project_id: 'proj-1',
-        name: 'Test Project',
-        mode: 'carousel',
-        slide_count: 5,
-        current_stage: 1,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        draft_text: '',
-        num_slides: null,
-        include_titles: true,
-        additional_instructions: null,
-        language: 'English',
-        style_proposals: [],
-        selected_style_proposal_index: null,
-        image_style_instructions: null,
-        shared_prompt_prefix: null,
-        slides: [],
-        thumbnail_url: null,
-      },
+      currentProject: makeProject(),
       projectId: 'proj-1',
     }));
     render(<App />);
@@ -104,72 +100,25 @@ describe('App routing', () => {
 
   it('shows StageIndicator in pipeline mode', () => {
     mockUseProject.mockReturnValue(makeSessionState({
-      currentProject: {
-        project_id: 'proj-1',
-        name: 'Test Project',
-        mode: 'carousel',
-        slide_count: 5,
-        current_stage: 1,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        draft_text: '',
-        num_slides: null,
-        include_titles: true,
-        additional_instructions: null,
-        language: 'English',
-        style_proposals: [],
-        selected_style_proposal_index: null,
-        image_style_instructions: null,
-        shared_prompt_prefix: null,
-        slides: [],
-        thumbnail_url: null,
-      },
+      currentProject: makeProject(),
       projectId: 'proj-1',
     }));
     render(<App />);
-    // StageIndicator shows stage names
     expect(screen.getByText('Draft')).toBeInTheDocument();
   });
 
   it('shows project name in header when project is open', () => {
     mockUseProject.mockReturnValue(makeSessionState({
-      currentProject: {
-        project_id: 'proj-1',
-        name: 'My Awesome Project',
-        mode: 'carousel',
-        slide_count: 5,
-        current_stage: 1,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        draft_text: '',
-        num_slides: null,
-        include_titles: true,
-        additional_instructions: null,
-        language: 'English',
-        style_proposals: [],
-        selected_style_proposal_index: null,
-        image_style_instructions: null,
-        shared_prompt_prefix: null,
-        slides: [],
-        thumbnail_url: null,
-      },
+      currentProject: makeProject({ name: 'My Awesome Project' }),
       projectId: 'proj-1',
     }));
     render(<App />);
     expect(screen.getByText('My Awesome Project')).toBeInTheDocument();
   });
 
-  it('shows Settings modal when settings button is clicked', () => {
+  it('does not show Settings button (removed)', () => {
     render(<App />);
-    fireEvent.click(screen.getByTitle('Configuration'));
-    expect(screen.getByText('Config Settings')).toBeInTheDocument();
-  });
-
-  it('closes Settings modal when close is clicked', () => {
-    render(<App />);
-    fireEvent.click(screen.getByTitle('Configuration'));
-    fireEvent.click(screen.getByText('Close Config'));
-    expect(screen.queryByText('Config Settings')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Configuration')).not.toBeInTheDocument();
   });
 
   it('shows NewProjectModal when New Project button is clicked on ProjectHome', () => {
@@ -189,7 +138,6 @@ describe('App routing', () => {
     render(<App />);
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Dismiss'));
-    // setError(null) would have been called
-    expect(makeSessionState().setError).not.toHaveBeenCalled(); // cleared via mock
+    expect(makeSessionState().setError).not.toHaveBeenCalled();
   });
 });

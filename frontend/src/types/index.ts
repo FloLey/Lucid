@@ -59,7 +59,6 @@ export interface StyleProposal {
 export interface Project {
   project_id: string;
   name: string;
-  mode: string;
   slide_count: number;
   created_at: string;
   updated_at: string;
@@ -80,7 +79,6 @@ export interface Project {
 export interface ProjectCard {
   project_id: string;
   name: string;
-  mode: string;
   current_stage: number;
   slide_count: number;
   thumbnail_url: string | null;
@@ -127,10 +125,18 @@ export interface AppConfig {
   style: StyleConfig;
 }
 
+export interface ProjectConfig {
+  stage_instructions: StageInstructionsConfig;
+  global_defaults: GlobalDefaultsConfig;
+  image: ImageConfig;
+  style: StyleConfig;
+  prompts: Record<string, string>;
+}
+
 export interface TemplateData {
   id: string;
   name: string;
-  default_mode: string;
   default_slide_count: number;
+  config: ProjectConfig;
   created_at: string;
 }

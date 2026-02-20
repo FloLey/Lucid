@@ -7,7 +7,7 @@ Draft text:
 
 Create slide texts that:
 1. Transform the rough draft into clear, engaging messages
-2. Each slide body should be substantial and detailed — aim for 40-60 words per slide body
+2. {word_count_instruction}
 3. Use conversational language
 4. Maintain logical flow between slides
 5. First slide should hook the reader

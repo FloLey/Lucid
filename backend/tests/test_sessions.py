@@ -28,13 +28,12 @@ class TestProjectManager:
         assert project.current_stage == 1
         assert project.mode == "carousel"
 
-    def test_create_project_single_image(self):
-        """Test creating a single-image project."""
+    def test_create_project_single_slide(self):
+        """Test creating a single-slide project."""
         project_manager.clear_all()
         project = run_async(
-            project_manager.create_project(mode="single_image", slide_count=1)
+            project_manager.create_project(slide_count=1)
         )
-        assert project.mode == "single_image"
         assert project.slide_count == 1
 
     def test_get_project(self):

@@ -31,7 +31,6 @@ async def create_template(
     """Create a new template."""
     template = await template_manager.create_template(
         name=request.name,
-        default_mode=request.default_mode,
         default_slide_count=request.default_slide_count,
         config=request.config,
     )
@@ -60,7 +59,6 @@ async def update_template(
     template = await template_manager.update_template(
         template_id=template_id,
         name=request.name,
-        default_mode=request.default_mode,
         default_slide_count=request.default_slide_count,
         config=request.config,
     )

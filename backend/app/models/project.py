@@ -125,7 +125,6 @@ class ProjectCard(BaseModel):
 
     project_id: str
     name: str
-    mode: str
     current_stage: int
     slide_count: int
     thumbnail_url: Optional[str] = None
@@ -141,8 +140,6 @@ class ProjectCard(BaseModel):
 class CreateProjectRequest(BaseModel):
     """Request body for POST /api/projects."""
 
-    mode: str = Field(default="carousel", pattern=r"^(carousel|single_image)$")
-    slide_count: int = Field(default=5, ge=1, le=20)
     template_id: Optional[str] = Field(default=None)
 
 
@@ -184,7 +181,6 @@ class CreateTemplateRequest(BaseModel):
     """Request body for POST /api/templates."""
 
     name: str = Field(min_length=1, max_length=200)
-    default_mode: str = Field(default="carousel", pattern=r"^(carousel|single_image)$")
     default_slide_count: int = Field(default=5, ge=1, le=20)
     config: Optional[ProjectConfig] = None
 
@@ -193,9 +189,6 @@ class UpdateTemplateRequest(BaseModel):
     """Request body for PATCH /api/templates/{id}."""
 
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    default_mode: Optional[str] = Field(
-        default=None, pattern=r"^(carousel|single_image)$"
-    )
     default_slide_count: Optional[int] = Field(default=None, ge=1, le=20)
     config: Optional[ProjectConfig] = None
 

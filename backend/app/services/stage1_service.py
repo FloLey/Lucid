@@ -37,6 +37,17 @@ class Stage1Service:
         self.prompt_loader = prompt_loader or PromptLoader()
 
     @staticmethod
+    def _build_word_count_instruction(words_per_slide: Optional[str]) -> str:
+        mapping = {
+            "short": "Keep each slide body SHORT: aim for 20–50 words per slide.",
+            "medium": "Keep each slide body at a MEDIUM length: aim for 50–100 words per slide.",
+            "long": "Write DETAILED slide bodies: aim for 100–200 words per slide.",
+        }
+        if words_per_slide in mapping:
+            return mapping[words_per_slide]
+        return "Write as many words as the content requires naturally."
+
+    @staticmethod
     def _build_title_instruction(include_titles: bool) -> str:
         if include_titles:
             return "Each slide MUST have both a title and body."
@@ -62,6 +73,7 @@ class Stage1Service:
         include_titles: bool = True,
         additional_instructions: Optional[str] = None,
         language: str = "English",
+        words_per_slide: Optional[str] = None,
     ) -> Optional[ProjectState]:
         """Generate slide texts from a draft."""
         project = await self.project_manager.get_project(project_id)
@@ -75,6 +87,13 @@ class Stage1Service:
         project.additional_instructions = additional_instructions
         project.language = language
 
+        # Handle "keep as is" — skip AI, use draft text directly as single slide
+        if words_per_slide == "keep_as_is":
+            project.slides = [Slide(index=0, text=SlideText(body=draft_text))]
+            project.num_slides = 1
+            await self.project_manager.update_project(project)
+            return project
+
         if num_slides is not None:
             num_slides_instruction = f"Generate exactly {num_slides} slides."
         else:
@@ -87,6 +106,7 @@ class Stage1Service:
         title_instruction = self._build_title_instruction(include_titles)
         slide_format = self._build_slide_format(include_titles)
         response_format = self._build_response_format(include_titles)
+        word_count_instruction = self._build_word_count_instruction(words_per_slide)
 
         additional = (
             f"Additional instructions: {additional_instructions}"
@@ -100,6 +120,7 @@ class Stage1Service:
             num_slides_instruction=num_slides_instruction,
             language_instruction=language_instruction,
             title_instruction=title_instruction,
+            word_count_instruction=word_count_instruction,
             additional_instructions=additional,
             draft=draft_text,
             slide_format=slide_format,

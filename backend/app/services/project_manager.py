@@ -98,7 +98,6 @@ class ProjectManager:
 
     async def create_project(
         self,
-        mode: str = "carousel",
         slide_count: int = 5,
         project_config: Optional[ProjectConfig] = None,
         name: Optional[str] = None,
@@ -112,7 +111,6 @@ class ProjectManager:
         project = ProjectState(
             project_id=project_id,
             name=auto_name,
-            mode=mode,
             slide_count=slide_count,
             project_config=project_config or ProjectConfig(),
             current_stage=1,
@@ -166,7 +164,6 @@ class ProjectManager:
                 select(
                     ProjectDB.id,
                     ProjectDB.name,
-                    ProjectDB.mode,
                     ProjectDB.current_stage,
                     ProjectDB.slide_count,
                     ProjectDB.thumbnail_b64,
@@ -180,7 +177,6 @@ class ProjectManager:
             ProjectCard(
                 project_id=row.id,
                 name=row.name,
-                mode=row.mode,
                 current_stage=row.current_stage,
                 slide_count=row.slide_count,
                 thumbnail_url=row.thumbnail_b64,
