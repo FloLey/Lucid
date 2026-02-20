@@ -317,8 +317,3 @@ class TestStage1Routes:
         assert data["project"]["slides"][0]["text"]["title"] == "Custom Title"
         assert data["project"]["slides"][0]["text"]["body"] == "Custom body content"
 
-    def test_placeholder_still_works(self, client):
-        """Test that placeholder endpoint still works."""
-        response = client.get("/api/stage1/placeholder")
-        assert response.status_code == 200
-        assert response.json()["stage"] == 1
