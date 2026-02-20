@@ -133,8 +133,8 @@ class TestSlide:
         slide = Slide(index=0)
         assert slide.index == 0
         assert slide.image_prompt is None
-        assert slide.image_data is None
-        assert slide.final_image is None
+        assert slide.background_image_url is None
+        assert slide.final_image_url is None
 
     def test_complete_slide(self):
         """Test slide with all data."""

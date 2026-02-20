@@ -113,9 +113,9 @@ export default function ProjectHome({ projects, loading, onOpen, onNewProject, o
             >
               {/* Thumbnail */}
               <div className="bg-gray-100 relative overflow-hidden" style={{ aspectRatio: '4/5' }}>
-                {project.thumbnail_b64 ? (
+                {project.thumbnail_url ? (
                   <img
-                    src={`data:image/png;base64,${project.thumbnail_b64}`}
+                    src={project.thumbnail_url}
                     alt={project.name}
                     className="w-full h-full object-cover"
                   />

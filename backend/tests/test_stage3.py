@@ -100,9 +100,9 @@ class TestStage3Service:
         )
         assert project is not None
         for slide in project.slides:
-            assert slide.image_data is not None
-            # Images are now stored on disk; image_data is a file path
-            assert slide.image_data.startswith("/images/")
+            assert slide.background_image_url is not None
+            # Images are now stored on disk; background_image_url is a file path
+            assert slide.background_image_url.startswith("/images/")
 
     def test_generate_images_no_project(self, mock_image_service):
         """Test generating images with no project."""
@@ -125,7 +125,7 @@ class TestStage3Service:
             stage3_service.generate_all_images(project_id=created.project_id)
         )
         assert result.slides[0].image_prompt is not None
-        assert result.slides[0].image_data is not None
+        assert result.slides[0].background_image_url is not None
 
     def test_regenerate_image(self, project_with_prompts, mock_image_service):
         """Test regenerating a single image."""
@@ -142,7 +142,7 @@ class TestStage3Service:
             )
         )
         assert project is not None
-        assert project.slides[1].image_data is not None
+        assert project.slides[1].background_image_url is not None
 
     def test_regenerate_image_invalid_index(
         self, project_with_prompts, mock_image_service
@@ -167,7 +167,7 @@ class TestStage3Service:
             )
         )
         assert project is not None
-        assert project.slides[0].image_data == custom_data
+        assert project.slides[0].background_image_url == custom_data
 
     def test_set_image_data_invalid_index(self, project_with_prompts):
         """Test setting image data with invalid index."""
@@ -203,7 +203,7 @@ class TestStage3Routes:
         assert response.status_code == 200
         data = response.json()
         assert "project" in data
-        assert data["project"]["slides"][0]["image_data"] is not None
+        assert data["project"]["slides"][0]["background_image_url"] is not None
 
     def test_generate_images_no_project(self, client):
         """Test generate images with no project."""
@@ -222,7 +222,7 @@ class TestStage3Routes:
                 index=0,
                 text=SlideText(body="Content"),
                 image_prompt="Prompt",
-                image_data="existing",
+                background_image_url="existing",
             ),
         ]
         run_async(project_manager.update_project(created))
@@ -250,5 +250,5 @@ class TestStage3Routes:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["project"]["slides"][0]["image_data"] == "custombase64data"
+        assert data["project"]["slides"][0]["background_image_url"] == "custombase64data"
 

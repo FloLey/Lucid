@@ -24,9 +24,9 @@ export default function SlideThumbnails({
           }`}
         >
           <div className="aspect-[4/5] bg-gray-100">
-            {slide.final_image || slide.image_data ? (
+            {slide.final_image_url || slide.background_image_url ? (
               <img
-                src={`data:image/png;base64,${slide.final_image || slide.image_data}`}
+                src={slide.final_image_url || slide.background_image_url || ''}
                 alt={`Slide ${index + 1}`}
                 className="w-full h-full object-cover"
               />

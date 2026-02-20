@@ -86,7 +86,7 @@ export default function Stage5() {
 
   // Auto-apply to all slides on first render
   useEffect(() => {
-    if (slides.length > 0 && slides.some((s) => s.image_data && !s.final_image)) {
+    if (slides.length > 0 && slides.some((s) => s.background_image_url && !s.final_image_url)) {
       applyToAll();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -147,7 +147,7 @@ export default function Stage5() {
     window.open(api.getExportZipUrl(projectId), '_blank');
   };
 
-  const hasFinalImages = slides.some((s) => s.final_image);
+  const hasFinalImages = slides.some((s) => s.final_image_url);
 
   return (
     <div className="space-y-4">

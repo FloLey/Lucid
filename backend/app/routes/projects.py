@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.dependencies import get_project_manager, get_template_manager
+from app.dependencies import get_project_manager, get_storage_service, get_template_manager
 from app.models.project import (
     CreateProjectRequest,
     ProjectListResponse,
@@ -10,6 +10,7 @@ from app.models.project import (
     RenameProjectRequest,
 )
 from app.services.project_manager import ProjectManager
+from app.services.storage_service import StorageService
 from app.services.template_manager import TemplateManager
 
 router = APIRouter()
@@ -61,9 +62,10 @@ async def get_project(
 async def delete_project(
     project_id: str,
     project_manager: ProjectManager = Depends(get_project_manager),
+    storage_service: StorageService = Depends(get_storage_service),
 ):
-    """Delete a project."""
-    deleted = await project_manager.delete_project(project_id)
+    """Delete a project and its associated image files."""
+    deleted = await project_manager.delete_project(project_id, storage_service=storage_service)
     if not deleted:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"deleted": True}

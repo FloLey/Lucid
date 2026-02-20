@@ -40,9 +40,9 @@ export default function CarouselCanvas({
         className="relative aspect-[4/5] max-w-md mx-auto bg-gray-100 rounded-lg overflow-hidden select-none"
       >
         {/* Background image */}
-        {currentSlide?.image_data && (
+        {currentSlide?.background_image_url && (
           <img
-            src={`data:image/png;base64,${currentSlide.image_data}`}
+            src={currentSlide.background_image_url}
             alt={`Slide ${selectedSlide + 1} background`}
             className="absolute inset-0 w-full h-full object-cover"
             draggable={false}
@@ -86,7 +86,7 @@ export default function CarouselCanvas({
         )}
 
         {/* No image placeholder */}
-        {!currentSlide?.image_data && (
+        {!currentSlide?.background_image_url && (
           <div className="absolute inset-0 flex items-center justify-center text-gray-400">
             No image
           </div>

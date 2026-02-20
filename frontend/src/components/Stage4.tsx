@@ -49,7 +49,7 @@ export default function Stage4() {
   };
 
   const slides = project?.slides || [];
-  const hasImages = slides.some((s) => s.image_data);
+  const hasImages = slides.some((s) => s.background_image_url);
 
   return (
     <StageLayout
@@ -140,9 +140,9 @@ export default function Stage4() {
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
                           <Spinner size="md" />
                         </div>
-                      ) : slide.image_data ? (
+                      ) : slide.background_image_url ? (
                         <img
-                          src={`data:image/png;base64,${slide.image_data}`}
+                          src={slide.background_image_url}
                           alt={`Slide ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
