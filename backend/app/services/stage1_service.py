@@ -146,7 +146,7 @@ class Stage1Service:
         """Background task: generate and set a descriptive project title."""
         try:
             project = await self.project_manager.get_project(project_id)
-            if not project or project.name != "Untitled Project":
+            if not project or not project.name.startswith("Untitled"):
                 return
 
             slides_summary = "\n".join(

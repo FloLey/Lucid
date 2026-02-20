@@ -90,16 +90,17 @@ class StageStyleService:
 
         async def generate_preview(i: int, proposal_data: dict) -> StyleProposal:
             common_flow = proposal_data.get("description", "")
+            preview_path: Optional[str] = None
             try:
-                preview = await self.image_service.generate_image(common_flow)
+                b64 = await self.image_service.generate_image(common_flow)
+                preview_path = self.image_service.save_image_to_disk(b64)
             except Exception as e:
                 logger.warning(f"Failed to generate preview for proposal {i}: {e}")
-                preview = None
 
             return StyleProposal(
                 index=i,
                 description=common_flow,
-                preview_image=preview,
+                preview_image=preview_path,
             )
 
         proposals = await asyncio.gather(

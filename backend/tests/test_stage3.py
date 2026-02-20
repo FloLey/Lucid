@@ -101,8 +101,8 @@ class TestStage3Service:
         assert project is not None
         for slide in project.slides:
             assert slide.image_data is not None
-            # Should be valid base64
-            base64.b64decode(slide.image_data)
+            # Images are now stored on disk; image_data is a file path
+            assert slide.image_data.startswith("/images/")
 
     def test_generate_images_no_project(self, mock_image_service):
         """Test generating images with no project."""

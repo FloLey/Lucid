@@ -60,7 +60,7 @@ class Stage3Service:
             *(self.image_service.generate_image(prompt) for prompt in full_prompts)
         )
         for slide, image_data in zip(project.slides, results):
-            slide.image_data = image_data
+            slide.image_data = self.image_service.save_image_to_disk(image_data)
 
         await self.project_manager.update_project(project)
         return project
@@ -82,7 +82,8 @@ class Stage3Service:
             )
 
         full_prompt = self._build_full_prompt(project, slide_index)
-        slide.image_data = await self.image_service.generate_image(full_prompt)
+        b64 = await self.image_service.generate_image(full_prompt)
+        slide.image_data = self.image_service.save_image_to_disk(b64)
 
         await self.project_manager.update_project(project)
         return project

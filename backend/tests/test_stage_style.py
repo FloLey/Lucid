@@ -60,12 +60,16 @@ def mock_gemini_and_image():
     async def mock_generate_image(prompt, *args, **kwargs):
         return "fakebase64imagedata"
 
+    def mock_save_image_to_disk(base64_data):
+        return "/images/mock-preview.png"
+
     with (
         patch.object(stage_style_service, "gemini_service") as mock_gemini,
         patch.object(stage_style_service, "image_service") as mock_image,
     ):
         mock_gemini.generate_json = mock_generate_json
         mock_image.generate_image = mock_generate_image
+        mock_image.save_image_to_disk = mock_save_image_to_disk
         yield mock_gemini, mock_image
 
 
@@ -85,7 +89,7 @@ class TestStageStyleService:
             project.style_proposals[0].description
             == "Warm sunset tones with golden gradients"
         )
-        assert project.style_proposals[0].preview_image == "fakebase64imagedata"
+        assert project.style_proposals[0].preview_image == "/images/mock-preview.png"
         assert project.selected_style_proposal_index is None
 
     def test_generate_proposals_no_project(self, mock_gemini_and_image):

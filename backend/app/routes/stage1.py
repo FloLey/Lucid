@@ -69,7 +69,7 @@ async def generate_slide_texts(
         raise
     except Exception as e:
         logger.error(f"Failed to generate slide texts: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to generate slide texts: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate slide texts")
     if not project:
         raise HTTPException(status_code=404, detail="Failed to generate slide texts")
     if project.name.startswith("Untitled"):

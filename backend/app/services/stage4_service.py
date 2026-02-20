@@ -1,6 +1,7 @@
 """Stage 4 service - Typography/layout rendering."""
 
 from __future__ import annotations
+import asyncio
 import logging
 from typing import Optional, Dict, Any, TYPE_CHECKING
 
@@ -46,11 +47,17 @@ class Stage4Service:
                 continue
 
             if slide.text.title or slide.text.body.strip():
-                slide.final_image = self.rendering_service.render_text_on_image(
+                # Offload CPU-bound PIL rendering to a thread so the event loop
+                # is not blocked while processing each slide.
+                rendered_b64 = await asyncio.to_thread(
+                    self.rendering_service.render_text_on_image,
                     background_base64=slide.image_data,
                     style=slide.style,
                     title=slide.text.title,
                     body=slide.text.body,
+                )
+                slide.final_image = self.rendering_service.image_service.save_image_to_disk(
+                    rendered_b64
                 )
             else:
                 slide.final_image = slide.image_data
@@ -73,11 +80,15 @@ class Stage4Service:
             return project
 
         if slide.text.title or slide.text.body.strip():
-            slide.final_image = self.rendering_service.render_text_on_image(
+            rendered_b64 = await asyncio.to_thread(
+                self.rendering_service.render_text_on_image,
                 background_base64=slide.image_data,
                 style=slide.style,
                 title=slide.text.title,
                 body=slide.text.body,
+            )
+            slide.final_image = self.rendering_service.image_service.save_image_to_disk(
+                rendered_b64
             )
         else:
             slide.final_image = slide.image_data
@@ -144,8 +155,10 @@ class Stage4Service:
 
         slide = project.slides[slide_index]
         if slide.image_data:
-            suggested = self.rendering_service.suggest_style(
-                slide.image_data, slide.text.body
+            suggested = await asyncio.to_thread(
+                self.rendering_service.suggest_style,
+                slide.image_data,
+                slide.text.body,
             )
             slide.style = suggested
             await self.project_manager.update_project(project)

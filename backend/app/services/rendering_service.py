@@ -237,10 +237,14 @@ class RenderingService:
         title: Optional[str] = None,
         body: str = "",
     ) -> str:
-        """Render text onto a background image with given style."""
+        """Render text onto a background image with given style.
+
+        *background_base64* may be either a raw base64 PNG string or an
+        ``/images/<uuid>.png`` path written by :meth:`ImageService.save_image_to_disk`.
+        """
         if not self.image_service:
             raise ValueError("Image service not initialized")
-        background = self.image_service.decode_image(background_base64)
+        background = self.image_service.decode_image_from_path_or_b64(background_base64)
         background = background.convert("RGBA")
 
         if background.size != (IMAGE_WIDTH, IMAGE_HEIGHT):
@@ -294,10 +298,13 @@ class RenderingService:
         background_base64: str,
         text: str,
     ) -> TextStyle:
-        """Analyze background and suggest optimal text style."""
+        """Analyze background and suggest optimal text style.
+
+        *background_base64* accepts the same formats as :meth:`render_text_on_image`.
+        """
         if not self.image_service:
             raise ValueError("Image service not initialized")
-        background = self.image_service.decode_image(background_base64)
+        background = self.image_service.decode_image_from_path_or_b64(background_base64)
         background = background.convert("RGB")
 
         width, height = background.size
