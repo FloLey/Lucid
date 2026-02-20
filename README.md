@@ -50,7 +50,7 @@ Lucid is built for containerized, Docker-first development.
 ### 1. Environment Setup
 Clone the repository and set up your `.env` file:
 ```bash
-git clone https://github.com/your-repo/Lucid.git
+git clone https://github.com/FloLey/Lucid.git
 cd Lucid
 cp .env.example .env
 ```
