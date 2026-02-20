@@ -46,7 +46,7 @@ You can save any project configuration as a reusable **Template**. Future projec
 Lucid is built for containerized, Docker-first development.
 **Prerequisites:**
 - Docker & Docker Compose
-- A Google Generative AI API Key ((https://aistudio.google.com/apikey))
+- A Google Generative AI API Key (https://aistudio.google.com/apikey)
 ### 1. Environment Setup
 Clone the repository and set up your `.env` file:
 ```bash
