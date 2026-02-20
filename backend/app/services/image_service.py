@@ -1,11 +1,12 @@
-"""Image generation service using Gemini Nano Banana (google.genai)."""
+"""Image generation service using Gemini (google.genai).
+
+Handles AI-based image generation only. For local disk storage of image
+files, use StorageService instead.
+"""
 
 import base64
 import logging
-import os
-import uuid
 from io import BytesIO
-from pathlib import Path
 
 from PIL import Image
 
@@ -13,18 +14,6 @@ from app.config import GOOGLE_API_KEY, IMAGE_WIDTH, IMAGE_HEIGHT, GEMINI_IMAGE_M
 from app.services.llm_logger import log_llm_method
 
 logger = logging.getLogger(__name__)
-
-# Directory where generated images are written to disk.
-# Override with LUCID_IMAGE_DIR for tests or alternative deployments.
-IMAGE_DIR: Path = Path(os.getenv("LUCID_IMAGE_DIR", "/app/data/images"))
-
-# URL prefix served by the static-files mount in main.py
-_IMAGE_URL_PREFIX = "/images/"
-
-
-def _is_file_path(value: str) -> bool:
-    """Return True if *value* looks like an /images/ URL path rather than base64."""
-    return value.startswith(_IMAGE_URL_PREFIX)
 
 
 class ImageService:
@@ -94,29 +83,6 @@ class ImageService:
                 return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
         raise Exception("No image returned in response")
-
-    def save_image_to_disk(self, base64_data: str) -> str:
-        """Save a base64-encoded PNG to the image directory.
-
-        Returns the URL path (e.g. ``/images/<uuid>.png``) that should be
-        stored in the database instead of the raw base64 blob.
-        """
-        IMAGE_DIR.mkdir(parents=True, exist_ok=True)
-        file_name = f"{uuid.uuid4()}.png"
-        file_path = IMAGE_DIR / file_name
-        file_path.write_bytes(base64.b64decode(base64_data))
-        return f"{_IMAGE_URL_PREFIX}{file_name}"
-
-    def read_image_bytes(self, path_or_b64: str) -> bytes:
-        """Return raw PNG bytes from either an /images/ path or a base64 string."""
-        if _is_file_path(path_or_b64):
-            file_name = path_or_b64[len(_IMAGE_URL_PREFIX):]
-            return (IMAGE_DIR / file_name).read_bytes()
-        return base64.b64decode(path_or_b64)
-
-    def decode_image_from_path_or_b64(self, data: str) -> Image.Image:
-        """Return a PIL Image from either an /images/ path or a base64 string."""
-        return Image.open(BytesIO(self.read_image_bytes(data)))
 
     def _generate_placeholder(self, prompt: str) -> str:
         """Generate a placeholder gradient image."""

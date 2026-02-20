@@ -8,6 +8,7 @@ from typing import Optional, TYPE_CHECKING
 from app.models.project import ProjectState
 from app.models.style_proposal import StyleProposal
 from app.services.prompt_loader import PromptLoader
+from app.services.storage_service import StorageService
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -23,12 +24,14 @@ class StageStyleService:
     project_manager: ProjectManager
     gemini_service: GeminiService
     image_service: ImageService
+    storage_service: StorageService
 
     def __init__(
         self,
         project_manager: Optional[ProjectManager] = None,
         gemini_service: Optional[GeminiService] = None,
         image_service: Optional[ImageService] = None,
+        storage_service: Optional[StorageService] = None,
         prompt_loader: Optional[PromptLoader] = None,
     ):
         if not project_manager:
@@ -37,10 +40,13 @@ class StageStyleService:
             raise ValueError("gemini_service dependency is required")
         if not image_service:
             raise ValueError("image_service dependency is required")
+        if not storage_service:
+            raise ValueError("storage_service dependency is required")
 
         self.project_manager = project_manager
         self.gemini_service = gemini_service
         self.image_service = image_service
+        self.storage_service = storage_service
         self.prompt_loader = prompt_loader or PromptLoader()
 
     async def generate_proposals(
@@ -97,7 +103,7 @@ class StageStyleService:
             try:
                 async with sem:
                     b64 = await self.image_service.generate_image(common_flow)
-                preview_path = self.image_service.save_image_to_disk(b64)
+                preview_path = self.storage_service.save_image_to_disk(b64)
             except Exception as e:
                 logger.warning(f"Failed to generate preview for proposal {i}: {e}")
 

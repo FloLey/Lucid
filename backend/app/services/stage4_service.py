@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any, TYPE_CHECKING
 
 from app.models.project import ProjectState
 from app.models.style import TextStyle
+from app.services.storage_service import StorageService
 
 if TYPE_CHECKING:
     from app.services.rendering_service import RenderingService
@@ -20,17 +21,20 @@ class Stage4Service:
 
     project_manager: ProjectManager
     rendering_service: RenderingService
+    storage_service: StorageService
 
     def __init__(
         self,
         project_manager: Optional[ProjectManager] = None,
         rendering_service: Optional[RenderingService] = None,
+        storage_service: Optional[StorageService] = None,
     ):
-        if not project_manager or not rendering_service:
+        if not project_manager or not rendering_service or not storage_service:
             raise ValueError("All dependencies must be provided to Stage4Service")
 
         self.project_manager = project_manager
         self.rendering_service = rendering_service
+        self.storage_service = storage_service
 
     async def apply_text_to_all_images(
         self,
@@ -43,24 +47,28 @@ class Stage4Service:
             return None
 
         for slide in project.slides:
-            if not slide.image_data:
+            if not slide.background_image_url:
                 continue
+
+            # Delete existing final_image file if it is a distinct stored file
+            if slide.final_image_url and slide.final_image_url != slide.background_image_url:
+                self.storage_service.delete_image(slide.final_image_url)
 
             if slide.text.title or slide.text.body.strip():
                 # Offload CPU-bound PIL rendering to a thread so the event loop
                 # is not blocked while processing each slide.
                 rendered_b64 = await asyncio.to_thread(
                     self.rendering_service.render_text_on_image,
-                    background_base64=slide.image_data,
+                    background_base64=slide.background_image_url,
                     style=slide.style,
                     title=slide.text.title,
                     body=slide.text.body,
                 )
-                slide.final_image = self.rendering_service.image_service.save_image_to_disk(
+                slide.final_image_url = self.storage_service.save_image_to_disk(
                     rendered_b64
                 )
             else:
-                slide.final_image = slide.image_data
+                slide.final_image_url = slide.background_image_url
 
         await self.project_manager.update_project(project)
         return project
@@ -76,22 +84,26 @@ class Stage4Service:
             return None
 
         slide = project.slides[slide_index]
-        if not slide.image_data:
+        if not slide.background_image_url:
             return project
+
+        # Delete existing final_image file if it is a distinct stored file
+        if slide.final_image_url and slide.final_image_url != slide.background_image_url:
+            self.storage_service.delete_image(slide.final_image_url)
 
         if slide.text.title or slide.text.body.strip():
             rendered_b64 = await asyncio.to_thread(
                 self.rendering_service.render_text_on_image,
-                background_base64=slide.image_data,
+                background_base64=slide.background_image_url,
                 style=slide.style,
                 title=slide.text.title,
                 body=slide.text.body,
             )
-            slide.final_image = self.rendering_service.image_service.save_image_to_disk(
+            slide.final_image_url = self.storage_service.save_image_to_disk(
                 rendered_b64
             )
         else:
-            slide.final_image = slide.image_data
+            slide.final_image_url = slide.background_image_url
 
         await self.project_manager.update_project(project)
         return project
@@ -154,10 +166,10 @@ class Stage4Service:
             return None
 
         slide = project.slides[slide_index]
-        if slide.image_data:
+        if slide.background_image_url:
             suggested = await asyncio.to_thread(
                 self.rendering_service.suggest_style,
-                slide.image_data,
+                slide.background_image_url,
                 slide.text.body,
             )
             slide.style = suggested

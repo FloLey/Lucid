@@ -40,20 +40,20 @@ def project_with_final_images(sample_image_base64):
         Slide(
             index=0,
             text=SlideText(title="Welcome", body="Let's get started!"),
-            image_data=sample_image_base64,
-            final_image=sample_image_base64,
+            background_image_url=sample_image_base64,
+            final_image_url=sample_image_base64,
         ),
         Slide(
             index=1,
             text=SlideText(title="Key Point", body="This is important."),
-            image_data=sample_image_base64,
-            final_image=sample_image_base64,
+            background_image_url=sample_image_base64,
+            final_image_url=sample_image_base64,
         ),
         Slide(
             index=2,
             text=SlideText(title="Conclusion", body="Take action now!"),
-            image_data=sample_image_base64,
-            final_image=sample_image_base64,
+            background_image_url=sample_image_base64,
+            final_image_url=sample_image_base64,
         ),
     ]
     run_async(project_manager.update_project(project))

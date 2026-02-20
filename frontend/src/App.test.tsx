@@ -93,7 +93,7 @@ describe('App routing', () => {
         image_style_instructions: null,
         shared_prompt_prefix: null,
         slides: [],
-        thumbnail_b64: null,
+        thumbnail_url: null,
       },
       projectId: 'proj-1',
     }));
@@ -122,7 +122,7 @@ describe('App routing', () => {
         image_style_instructions: null,
         shared_prompt_prefix: null,
         slides: [],
-        thumbnail_b64: null,
+        thumbnail_url: null,
       },
       projectId: 'proj-1',
     }));
@@ -151,7 +151,7 @@ describe('App routing', () => {
         image_style_instructions: null,
         shared_prompt_prefix: null,
         slides: [],
-        thumbnail_b64: null,
+        thumbnail_url: null,
       },
       projectId: 'proj-1',
     }));

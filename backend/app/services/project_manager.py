@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -17,6 +17,9 @@ from app.models.project import (
     ProjectConfig,
     ProjectState,
 )
+
+if TYPE_CHECKING:
+    from app.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +36,7 @@ def _state_to_db_row(project: ProjectState) -> dict:
             "slide_count",
             "current_stage",
             "project_config",
-            "thumbnail_b64",
+            "thumbnail_url",
             "created_at",
             "updated_at",
         },
@@ -46,7 +49,8 @@ def _state_to_db_row(project: ProjectState) -> dict:
         "current_stage": project.current_stage,
         "project_config": project.project_config.model_dump(mode="json"),
         "state": state_blob,
-        "thumbnail_b64": project.thumbnail_b64,
+        # DB column is still named thumbnail_b64 to avoid a migration
+        "thumbnail_b64": project.thumbnail_url,
         "created_at": project.created_at,
         "updated_at": project.updated_at,
     }
@@ -63,7 +67,8 @@ def _db_row_to_state(row: ProjectDB) -> ProjectState:
             "slide_count": row.slide_count,
             "current_stage": row.current_stage,
             "project_config": row.project_config,
-            "thumbnail_b64": row.thumbnail_b64,
+            # DB column is still named thumbnail_b64; map to the renamed Pydantic field
+            "thumbnail_url": row.thumbnail_b64,
             "created_at": row.created_at,
             "updated_at": row.updated_at,
         }
@@ -130,8 +135,23 @@ class ProjectManager:
         await self._save_to_db(project)
         return project
 
-    async def delete_project(self, project_id: str) -> bool:
-        """Remove a project from the DB. Returns True if it existed."""
+    async def delete_project(
+        self,
+        project_id: str,
+        storage_service: Optional[StorageService] = None,
+    ) -> bool:
+        """Remove a project from the DB. Returns True if it existed.
+
+        If *storage_service* is provided, all image files associated with the
+        project's slides are deleted from disk before the DB row is removed.
+        """
+        if storage_service:
+            project = await self.get_project(project_id)
+            if project:
+                for slide in project.slides:
+                    storage_service.delete_image(slide.background_image_url)
+                    storage_service.delete_image(slide.final_image_url)
+
         async with self._session_factory() as session:
             async with session.begin():
                 result = await session.execute(
@@ -163,7 +183,7 @@ class ProjectManager:
                 mode=row.mode,
                 current_stage=row.current_stage,
                 slide_count=row.slide_count,
-                thumbnail_b64=row.thumbnail_b64,
+                thumbnail_url=row.thumbnail_b64,
                 created_at=row.created_at,
                 updated_at=row.updated_at,
             )

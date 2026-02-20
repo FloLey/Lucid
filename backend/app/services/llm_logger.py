@@ -4,6 +4,7 @@ Enable by setting LLM_DEBUG_LOG=1 (or "true") in the environment.
 Creates one log file per request/flow in backend/logs/.
 """
 
+import asyncio
 import contextvars
 import functools
 import inspect
@@ -153,6 +154,17 @@ def _serialize_response(response: Any) -> Optional[dict]:
     return result
 
 
+def _write_log_sync(log_file: Path, line: str) -> None:
+    """Write a single log line to disk under a threading lock (sync-safe)."""
+    with _lock:
+        try:
+            _LOG_DIR.mkdir(parents=True, exist_ok=True)
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(line)
+        except Exception as e:
+            logger.warning("Failed to write LLM debug log: %s", e)
+
+
 def log_llm_call(
     *,
     method: str,
@@ -189,13 +201,12 @@ def log_llm_call(
         return
 
     log_file = _get_log_file()
-    with _lock:
-        try:
-            _LOG_DIR.mkdir(parents=True, exist_ok=True)
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(line)
-        except Exception as e:
-            logger.warning("Failed to write LLM debug log: %s", e)
+    try:
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, _write_log_sync, log_file, line)
+    except RuntimeError:
+        # No running event loop — write synchronously (e.g. during tests)
+        _write_log_sync(log_file, line)
 
 
 def log_llm_method(
@@ -204,6 +215,7 @@ def log_llm_method(
     model_param: str = "model",
     input_params: Optional[list] = None,
     config_params: Optional[list] = None,
+    caller: Optional[str] = None,
 ):
     """
     Decorator for LLM service methods that automatically logs calls.
@@ -214,6 +226,7 @@ def log_llm_method(
         model_param: Name of the parameter containing model name (if model not provided)
         input_params: List of parameter names to extract as input data
         config_params: List of parameter names to extract as config summary
+        caller: Explicit caller identifier (e.g. "stage1_service.generate_slide_texts")
     """
 
     def decorator(func: Callable) -> Callable:
@@ -249,21 +262,6 @@ def log_llm_method(
                 for param in config_params:
                     if param in bound_args.arguments:
                         config_summary[param] = bound_args.arguments[param]
-
-            # Get caller information
-            caller = None
-            try:
-                # Walk up the call stack to find the caller
-                frame = inspect.currentframe()
-                while frame:
-                    if frame.f_code.co_name != func.__name__:
-                        module = inspect.getmodule(frame)
-                        if module:
-                            caller = f"{module.__name__}.{frame.f_code.co_name}"
-                        break
-                    frame = frame.f_back
-            except Exception:
-                pass
 
             # Time the call
             start = timer()
@@ -322,20 +320,6 @@ def log_llm_method(
                 for param in config_params:
                     if param in bound_args.arguments:
                         config_summary[param] = bound_args.arguments[param]
-
-            # Get caller information
-            caller = None
-            try:
-                frame = inspect.currentframe()
-                while frame:
-                    if frame.f_code.co_name != func.__name__:
-                        module = inspect.getmodule(frame)
-                        if module:
-                            caller = f"{module.__name__}.{frame.f_code.co_name}"
-                        break
-                    frame = frame.f_back
-            except Exception:
-                pass
 
             # Time the call
             start = timer()

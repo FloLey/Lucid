@@ -6,6 +6,7 @@ import logging
 from typing import Optional, TYPE_CHECKING
 
 from app.models.project import ProjectState
+from app.services.storage_service import StorageService
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -19,19 +20,24 @@ class Stage3Service:
 
     project_manager: ProjectManager
     image_service: ImageService
+    storage_service: StorageService
 
     def __init__(
         self,
         project_manager: Optional[ProjectManager] = None,
         image_service: Optional[ImageService] = None,
+        storage_service: Optional[StorageService] = None,
     ):
         if not project_manager:
             raise ValueError("project_manager dependency is required")
         if not image_service:
             raise ValueError("image_service dependency is required")
+        if not storage_service:
+            raise ValueError("storage_service dependency is required")
 
         self.project_manager = project_manager
         self.image_service = image_service
+        self.storage_service = storage_service
 
     def _build_full_prompt(self, project: ProjectState, slide_index: int) -> str:
         """Combine the project's shared visual theme with slide-specific details."""
@@ -64,11 +70,15 @@ class Stage3Service:
             async with sem:
                 return await self.image_service.generate_image(prompt)
 
+        # Delete existing background images before overwriting
+        for slide in project.slides:
+            self.storage_service.delete_image(slide.background_image_url)
+
         results = await asyncio.gather(
             *(generate_single_image(prompt) for prompt in full_prompts)
         )
         for slide, image_data in zip(project.slides, results):
-            slide.image_data = self.image_service.save_image_to_disk(image_data)
+            slide.background_image_url = self.storage_service.save_image_to_disk(image_data)
 
         await self.project_manager.update_project(project)
         return project
@@ -90,8 +100,10 @@ class Stage3Service:
             )
 
         full_prompt = self._build_full_prompt(project, slide_index)
+        # Delete existing background image before overwriting
+        self.storage_service.delete_image(slide.background_image_url)
         b64 = await self.image_service.generate_image(full_prompt)
-        slide.image_data = self.image_service.save_image_to_disk(b64)
+        slide.background_image_url = self.storage_service.save_image_to_disk(b64)
 
         await self.project_manager.update_project(project)
         return project
@@ -107,6 +119,6 @@ class Stage3Service:
         if not project or slide_index >= len(project.slides):
             return None
 
-        project.slides[slide_index].image_data = image_data
+        project.slides[slide_index].background_image_url = image_data
         await self.project_manager.update_project(project)
         return project

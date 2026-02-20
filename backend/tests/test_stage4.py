@@ -39,17 +39,17 @@ def project_with_images(sample_image_base64):
         Slide(
             index=0,
             text=SlideText(title="Welcome", body="Let's get started!"),
-            image_data=sample_image_base64,
+            background_image_url=sample_image_base64,
         ),
         Slide(
             index=1,
             text=SlideText(title="Key Point", body="This is the main idea."),
-            image_data=sample_image_base64,
+            background_image_url=sample_image_base64,
         ),
         Slide(
             index=2,
             text=SlideText(title="Conclusion", body="Take action now!"),
-            image_data=sample_image_base64,
+            background_image_url=sample_image_base64,
         ),
     ]
     run_async(project_manager.update_project(project))
@@ -199,7 +199,7 @@ class TestStage4Service:
         )
         assert project is not None
         for slide in project.slides:
-            assert slide.final_image is not None
+            assert slide.final_image_url is not None
 
     def test_apply_text_to_single_image(self, project_with_images):
         """Test applying text to a single image."""
@@ -210,7 +210,7 @@ class TestStage4Service:
             )
         )
         assert project is not None
-        assert project.slides[1].final_image is not None
+        assert project.slides[1].final_image_url is not None
 
     def test_apply_text_no_project(self):
         """Test applying text with no project."""
@@ -311,7 +311,7 @@ class TestStage4Routes:
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["project"]["slides"][0]["final_image"] is not None
+        assert data["project"]["slides"][0]["final_image_url"] is not None
 
     def test_apply_single_route(self, client, project_with_images):
         """Test apply single endpoint."""

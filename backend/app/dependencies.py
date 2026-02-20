@@ -10,6 +10,7 @@ from app.services.template_manager import (
 )
 from app.services.gemini_service import GeminiService
 from app.services.image_service import ImageService
+from app.services.storage_service import StorageService
 from app.services.stage1_service import Stage1Service
 from app.services.stage_style_service import StageStyleService
 from app.services.stage2_service import Stage2Service
@@ -33,6 +34,7 @@ class ServiceContainer:
         self.config_manager = ConfigManager()
         self.gemini_service = GeminiService()
         self.image_service = ImageService()
+        self.storage_service = StorageService()
         self.font_manager = FontManager()
         self.prompt_validator = PromptValidator()
         self.prompt_loader = PromptLoader()
@@ -48,6 +50,7 @@ class ServiceContainer:
             project_manager=self.project_manager,
             gemini_service=self.gemini_service,
             image_service=self.image_service,
+            storage_service=self.storage_service,
             prompt_loader=self.prompt_loader,
         )
 
@@ -60,22 +63,24 @@ class ServiceContainer:
         self.stage3 = Stage3Service(
             project_manager=self.project_manager,
             image_service=self.image_service,
+            storage_service=self.storage_service,
         )
 
         self.rendering_service = RenderingService(
             config_manager=self.config_manager,
             font_manager=self.font_manager,
-            image_service=self.image_service,
+            storage_service=self.storage_service,
         )
 
         self.stage4 = Stage4Service(
             project_manager=self.project_manager,
             rendering_service=self.rendering_service,
+            storage_service=self.storage_service,
         )
 
         self.export_service = ExportService(
             project_manager=self.project_manager,
-            image_service=self.image_service,
+            storage_service=self.storage_service,
         )
 
 
@@ -102,6 +107,11 @@ def get_gemini_service() -> GeminiService:
 def get_image_service() -> ImageService:
     """Provider for ImageService instance."""
     return container.image_service
+
+
+def get_storage_service() -> StorageService:
+    """Provider for StorageService instance."""
+    return container.storage_service
 
 
 def get_config_manager() -> ConfigManager:

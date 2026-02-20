@@ -30,6 +30,8 @@ async def execute_service_action(
         project = await action()
     except GeminiError:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"{error_message}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=error_message)

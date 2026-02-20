@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from app.models.style import TextStyle, BoxStyle
 from app.services.font_manager import FontManager
-from app.services.image_service import ImageService
+from app.services.storage_service import StorageService
 from app.services.config_manager import ConfigManager
 from app.config import IMAGE_WIDTH, IMAGE_HEIGHT
 
@@ -21,14 +21,14 @@ class RenderingService:
         self,
         config_manager: Optional[ConfigManager] = None,
         font_manager: Optional[FontManager] = None,
-        image_service: Optional[ImageService] = None,
+        storage_service: Optional[StorageService] = None,
     ):
         # Dependencies are provided via DI container
         self.config_manager = config_manager
         self.font_manager = font_manager
-        self.image_service = image_service
+        self.storage_service = storage_service
         # Ensure dependencies are present (should always be true with DI container)
-        if not all([self.config_manager, self.font_manager, self.image_service]):
+        if not all([self.config_manager, self.font_manager, self.storage_service]):
             raise ValueError("All dependencies must be provided to RenderingService")
 
     def _wrap_text(
@@ -240,11 +240,11 @@ class RenderingService:
         """Render text onto a background image with given style.
 
         *background_base64* may be either a raw base64 PNG string or an
-        ``/images/<uuid>.png`` path written by :meth:`ImageService.save_image_to_disk`.
+        ``/images/<uuid>.png`` path written by :meth:`StorageService.save_image_to_disk`.
         """
-        if not self.image_service:
-            raise ValueError("Image service not initialized")
-        background = self.image_service.decode_image_from_path_or_b64(background_base64)
+        if not self.storage_service:
+            raise ValueError("Storage service not initialized")
+        background = self.storage_service.decode_image_from_path_or_b64(background_base64)
         background = background.convert("RGBA")
 
         if background.size != (IMAGE_WIDTH, IMAGE_HEIGHT):
@@ -253,7 +253,7 @@ class RenderingService:
             )
 
         if not style.text_enabled:
-            return self.image_service.encode_image(background)
+            return self.storage_service.encode_image(background)
 
         draw = ImageDraw.Draw(background)
 
@@ -291,7 +291,7 @@ class RenderingService:
                 stroke_color,
             )
 
-        return self.image_service.encode_image(background)
+        return self.storage_service.encode_image(background)
 
     def suggest_style(
         self,
@@ -302,9 +302,9 @@ class RenderingService:
 
         *background_base64* accepts the same formats as :meth:`render_text_on_image`.
         """
-        if not self.image_service:
-            raise ValueError("Image service not initialized")
-        background = self.image_service.decode_image_from_path_or_b64(background_base64)
+        if not self.storage_service:
+            raise ValueError("Storage service not initialized")
+        background = self.storage_service.decode_image_from_path_or_b64(background_base64)
         background = background.convert("RGB")
 
         width, height = background.size

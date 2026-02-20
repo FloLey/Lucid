@@ -23,7 +23,7 @@ from app.routes import (
     prompts,
 )
 from app.services.gemini_service import GeminiError
-from app.services.image_service import IMAGE_DIR
+from app.services.storage_service import IMAGE_DIR
 from app.services.llm_logger import start_flow, _flow_name_from_path
 
 logger = logging.getLogger(__name__)

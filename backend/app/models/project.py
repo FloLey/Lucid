@@ -97,7 +97,7 @@ class ProjectState(BaseModel):
     slides: List[Slide] = Field(default_factory=list)
 
     # Thumbnail (auto-set after Stage Style proposals are generated)
-    thumbnail_b64: Optional[str] = Field(default=None)
+    thumbnail_url: Optional[str] = Field(default=None)
 
     def update_timestamp(self) -> None:
         """Refresh the updated_at timestamp."""
@@ -128,7 +128,7 @@ class ProjectCard(BaseModel):
     mode: str
     current_stage: int
     slide_count: int
-    thumbnail_b64: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

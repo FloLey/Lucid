@@ -45,9 +45,9 @@ export interface Slide {
   index: number;
   text: SlideText;
   image_prompt: string | null;
-  image_data: string | null;
+  background_image_url: string | null;
   style: TextStyle;
-  final_image: string | null;
+  final_image_url: string | null;
 }
 
 export interface StyleProposal {
@@ -74,7 +74,7 @@ export interface Project {
   image_style_instructions: string | null;
   shared_prompt_prefix: string | null;
   slides: Slide[];
-  thumbnail_b64: string | null;
+  thumbnail_url: string | null;
 }
 
 export interface ProjectCard {
@@ -83,7 +83,7 @@ export interface ProjectCard {
   mode: string;
   current_stage: number;
   slide_count: number;
-  thumbnail_b64: string | null;
+  thumbnail_url: string | null;
   created_at: string;
   updated_at: string;
 }
