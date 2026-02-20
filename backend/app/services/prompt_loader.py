@@ -42,7 +42,22 @@ def load_prompt_file(filename: str) -> str:
 
 
 class PromptLoader:
-    """Service for loading and saving prompt templates from the file system."""
+    """Service for loading and saving prompt templates from the file system.
+
+    Prompt contents are cached in memory at initialisation so that
+    ``resolve_prompt`` — the hot path called on every generation request —
+    never blocks the async event loop with synchronous file I/O.
+    The cache is kept up-to-date whenever ``save`` writes a new version.
+    """
+
+    def __init__(self) -> None:
+        self._cache: Dict[str, str] = {}
+        self._load_into_cache()
+
+    def _load_into_cache(self) -> None:
+        """Pre-load all registered prompt files into memory."""
+        for name, filename in PROMPT_FILES.items():
+            self._cache[name] = load_prompt_file(filename)
 
     def load(self, filename: str) -> str:
         """Load a prompt from the prompts directory."""
@@ -65,7 +80,7 @@ class PromptLoader:
         return prompts
 
     def save(self, prompt_name: str, content: str) -> None:
-        """Write content to a prompt file.
+        """Write content to a prompt file and update the in-memory cache.
 
         Args:
             prompt_name: Registered prompt name (e.g. "slide_generation").
@@ -80,18 +95,22 @@ class PromptLoader:
         filepath = PROMPTS_DIR / PROMPT_FILES[prompt_name]
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
+        self._cache[prompt_name] = content
 
     def resolve_prompt(self, project: ProjectState, name: str) -> str:
-        """Return prompt from project config override, falling back to disk.
+        """Return prompt from project config override, falling back to cache.
+
+        Uses the in-memory cache for the fallback to avoid blocking the async
+        event loop with synchronous file I/O on every generation request.
 
         Args:
             project: The current project (may carry per-project prompt overrides).
             name: Logical prompt name without extension (e.g. "slide_generation").
 
         Returns:
-            Prompt string — project-specific override if set, else file content.
+            Prompt string — project-specific override if set, else cached content.
         """
-        return project.project_config.get_prompt(name) or self.load(f"{name}.prompt")
+        return project.project_config.get_prompt(name) or self._cache.get(name, "")
 
     def is_known(self, prompt_name: str) -> bool:
         """Check if a prompt name is registered."""

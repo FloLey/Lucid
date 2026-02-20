@@ -18,6 +18,12 @@ class GenerateProposalsRequest(BaseModel):
     project_id: str
     num_proposals: int = Field(default=3, ge=1, le=5)
     additional_instructions: Optional[str] = None
+    concurrency_limit: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="Max concurrent preview image generation requests (1-10). Lower values reduce 429 rate-limit errors.",
+    )
 
 
 class SelectProposalRequest(BaseModel):
@@ -38,6 +44,7 @@ async def generate_proposals(
             project_id=request.project_id,
             num_proposals=request.num_proposals,
             additional_instructions=request.additional_instructions,
+            concurrency_limit=request.concurrency_limit,
         ),
         "Failed to generate style proposals",
     )

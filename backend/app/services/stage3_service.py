@@ -41,6 +41,7 @@ class Stage3Service:
     async def generate_all_images(
         self,
         project_id: str,
+        concurrency_limit: int = 10,
     ) -> Optional[ProjectState]:
         """Generate images for all slides."""
         project = await self.project_manager.get_project(project_id)
@@ -56,8 +57,15 @@ class Stage3Service:
         full_prompts = [
             self._build_full_prompt(project, i) for i in range(len(project.slides))
         ]
+
+        sem = asyncio.Semaphore(concurrency_limit)
+
+        async def generate_single_image(prompt: str) -> str:
+            async with sem:
+                return await self.image_service.generate_image(prompt)
+
         results = await asyncio.gather(
-            *(self.image_service.generate_image(prompt) for prompt in full_prompts)
+            *(generate_single_image(prompt) for prompt in full_prompts)
         )
         for slide, image_data in zip(project.slides, results):
             slide.image_data = self.image_service.save_image_to_disk(image_data)

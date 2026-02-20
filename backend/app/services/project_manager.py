@@ -127,7 +127,6 @@ class ProjectManager:
 
     async def update_project(self, project: ProjectState) -> ProjectState:
         """Persist changes to *project* directly to the DB."""
-        project.update_timestamp()
         await self._save_to_db(project)
         return project
 
