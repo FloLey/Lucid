@@ -1,6 +1,5 @@
 """Export service for generating ZIP archives of carousel slides."""
 
-import base64
 import json
 import logging
 import re
@@ -11,6 +10,7 @@ from typing import Optional
 
 from app.models.project import ProjectState
 from app.services.project_manager import ProjectManager
+from app.services.image_service import ImageService
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +21,17 @@ class ExportService:
     def __init__(
         self,
         project_manager: Optional[ProjectManager] = None,
+        image_service: Optional[ImageService] = None,
     ):
         self.project_manager = project_manager
+        self.image_service = image_service
         if not self.project_manager:
             raise ValueError(
                 "project_manager dependency must be provided to ExportService"
+            )
+        if not self.image_service:
+            raise ValueError(
+                "image_service dependency must be provided to ExportService"
             )
 
     def _sanitize_filename(self, text: str, max_length: int = 30) -> str:
@@ -87,7 +93,7 @@ class ExportService:
                 filename = self._generate_filename(slide.index, slide.text.title)
 
                 try:
-                    image_bytes = base64.b64decode(image_data)
+                    image_bytes = self.image_service.read_image_bytes(image_data)
                     zip_file.writestr(f"slides/{filename}", image_bytes)
                 except Exception as e:
                     logger.error(f"Error adding slide {slide.index}: {e}")
@@ -146,7 +152,7 @@ class ExportService:
             return None
 
         try:
-            image_bytes = base64.b64decode(image_data)
+            image_bytes = self.image_service.read_image_bytes(image_data)
             buffer = BytesIO(image_bytes)
             buffer.seek(0)
             return buffer

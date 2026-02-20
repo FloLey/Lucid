@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.routes import (
     projects,
@@ -22,6 +23,7 @@ from app.routes import (
     prompts,
 )
 from app.services.gemini_service import GeminiError
+from app.services.image_service import IMAGE_DIR
 from app.services.llm_logger import start_flow, _flow_name_from_path
 
 logger = logging.getLogger(__name__)
@@ -36,7 +38,8 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         await container.template_manager.seed_defaults()
-        await container.project_manager.load_all()
+        # Ensure the image storage directory exists on disk
+        IMAGE_DIR.mkdir(parents=True, exist_ok=True)
         logger.info("Database initialised successfully")
     except Exception as e:
         logger.error(f"Database initialisation failed: {e}", exc_info=True)
@@ -77,6 +80,11 @@ app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(fonts.router, prefix="/api/fonts", tags=["fonts"])
 app.include_router(config.router, prefix="/api/config", tags=["config"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
+
+# Serve generated images directly so the frontend can load them via
+# /images/<uuid>.png without going through the API layer.
+IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/images", StaticFiles(directory=str(IMAGE_DIR)), name="images")
 
 
 @app.middleware("http")

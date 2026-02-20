@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
-from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import Dict, List, Optional
+from datetime import datetime, timezone
+from typing import List, Optional
 
 from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db.database import async_session_factory as _default_session_factory
 from app.db.models import ProjectDB
@@ -74,10 +72,11 @@ def _db_row_to_state(row: ProjectDB) -> ProjectState:
 
 
 class ProjectManager:
-    """Manages project state with SQLite persistence and in-memory cache.
+    """Manages project state with SQLite as the sole source of truth.
 
-    All mutation methods are async.  An in-memory dict provides fast reads
-    while SQLite provides durability.
+    All mutation methods are async. SQLite is used directly for all reads
+    and writes — no in-memory cache is maintained so memory usage stays
+    flat regardless of how many projects or how large their image payloads.
     """
 
     def __init__(
@@ -87,27 +86,6 @@ class ProjectManager:
         self._session_factory: async_sessionmaker[AsyncSession] = (
             session_factory or _default_session_factory
         )
-        self._cache: Dict[str, ProjectState] = {}
-        self._global_lock = asyncio.Lock()
-        self._project_locks: Dict[str, asyncio.Lock] = {}
-
-    def _get_project_lock(self, project_id: str) -> asyncio.Lock:
-        if project_id not in self._project_locks:
-            self._project_locks[project_id] = asyncio.Lock()
-        return self._project_locks[project_id]
-
-    async def load_all(self) -> None:
-        """Populate the in-memory cache from the DB (called at startup)."""
-        async with self._session_factory() as session:
-            result = await session.execute(select(ProjectDB))
-            rows = result.scalars().all()
-        for row in rows:
-            try:
-                project = _db_row_to_state(row)
-                self._cache[project.project_id] = project
-            except Exception as e:
-                logger.warning(f"Failed to load project {row.id}: {e}")
-        logger.info(f"Loaded {len(self._cache)} project(s) from DB")
 
     # ------------------------------------------------------------------
     # CRUD
@@ -123,7 +101,7 @@ class ProjectManager:
         """Create a new project and persist it to the DB."""
         project_id = str(uuid.uuid4())
         short_id = project_id[:6]
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         auto_name = name or f"Untitled • {today} • {short_id}"
 
         project = ProjectState(
@@ -136,52 +114,31 @@ class ProjectManager:
         )
 
         await self._save_to_db(project)
-        async with self._global_lock:
-            self._cache[project_id] = project
-
         logger.info(f"Created project {project_id} ({auto_name})")
         return project
 
     async def get_project(self, project_id: str) -> Optional[ProjectState]:
-        """Return the cached project (or reload from DB if missing)."""
-        async with self._global_lock:
-            if project_id in self._cache:
-                return self._cache[project_id]
-
-        # Not in cache — try DB
+        """Fetch a project directly from the DB."""
         async with self._session_factory() as session:
             row = await session.get(ProjectDB, project_id)
         if row is None:
             return None
-
-        project = _db_row_to_state(row)
-        async with self._global_lock:
-            self._cache[project_id] = project
-        return project
+        return _db_row_to_state(row)
 
     async def update_project(self, project: ProjectState) -> ProjectState:
-        """Persist changes to *project* (cache + DB)."""
+        """Persist changes to *project* directly to the DB."""
         project.update_timestamp()
-        async with self._global_lock:
-            self._cache[project.project_id] = project
         await self._save_to_db(project)
         return project
 
     async def delete_project(self, project_id: str) -> bool:
-        """Remove a project from cache and DB. Returns True if it existed."""
-        async with self._global_lock:
-            existed = project_id in self._cache
-            self._cache.pop(project_id, None)
-            self._project_locks.pop(project_id, None)
-
+        """Remove a project from the DB. Returns True if it existed."""
         async with self._session_factory() as session:
             async with session.begin():
                 result = await session.execute(
                     delete(ProjectDB).where(ProjectDB.id == project_id)
                 )
-                deleted = result.rowcount > 0
-
-        return existed or deleted
+                return result.rowcount > 0
 
     async def list_projects(self) -> List[ProjectCard]:
         """Return lightweight cards for all projects, sorted newest-first."""
@@ -261,24 +218,13 @@ class ProjectManager:
         return project
 
     # ------------------------------------------------------------------
-    # Context manager for per-project locking
-    # ------------------------------------------------------------------
-
-    @asynccontextmanager
-    async def project_context(self, project_id: str):
-        """Async context manager providing per-project lock."""
-        lock = self._get_project_lock(project_id)
-        async with lock:
-            yield await self.get_project(project_id)
-
-    # ------------------------------------------------------------------
     # Test helpers
     # ------------------------------------------------------------------
 
     def clear_all(self) -> None:
-        """Wipe all projects from memory and DB.  Used in tests."""
-        self._cache.clear()
-        self._project_locks.clear()
+        """Wipe all projects from the DB.  Used in tests."""
+        import asyncio
+
         asyncio.run(self._async_clear_db())
 
     async def _async_clear_db(self) -> None:

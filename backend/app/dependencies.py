@@ -75,6 +75,7 @@ class ServiceContainer:
 
         self.export_service = ExportService(
             project_manager=self.project_manager,
+            image_service=self.image_service,
         )
 
 

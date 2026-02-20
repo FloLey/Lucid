@@ -32,7 +32,7 @@ async def execute_service_action(
         raise
     except Exception as e:
         logger.error(f"{error_message}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"{error_message}: {e}")
+        raise HTTPException(status_code=500, detail=error_message)
     if not project:
         raise HTTPException(status_code=404, detail=error_message)
     return {"project": project.model_dump()}

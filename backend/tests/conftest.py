@@ -6,6 +6,9 @@ import os
 # Set test DB URL *before* any app modules are imported so database.py
 # reads the correct URL at module-load time.
 os.environ.setdefault("LUCID_DB_URL", "sqlite+aiosqlite:///./data/test_lucid.db")
+# Override image directory so generated images land in the local data folder
+# rather than the Docker-only /app/data/images path.
+os.environ.setdefault("LUCID_IMAGE_DIR", "./data/images")
 
 import pytest
 from fastapi.testclient import TestClient

@@ -16,6 +16,10 @@ interface UseDebouncedRenderOptions {
  *
  * Render always follows a successful sync, eliminating the race condition
  * that existed when the two timers were managed separately in Stage5.
+ *
+ * A monotonically-increasing requestId ensures that responses from stale
+ * in-flight requests are silently dropped, preventing older API responses
+ * from overwriting newer UI state.
  */
 export function useDebouncedRender({
   projectId,
@@ -26,6 +30,7 @@ export function useDebouncedRender({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestTitleRef = useRef<string | null>(null);
   const latestBodyRef = useRef<string>('');
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -34,7 +39,7 @@ export function useDebouncedRender({
   }, []);
 
   const _doSyncAndRender = useCallback(
-    async (title: string | null, body: string) => {
+    async (title: string | null, body: string, requestId: number) => {
       try {
         const synced = await api.updateSlideText(
           projectId,
@@ -42,10 +47,13 @@ export function useDebouncedRender({
           title ?? undefined,
           body,
         );
+        if (requestId !== requestIdRef.current) return;
         onSuccess(synced);
         const rendered = await api.applyTextToSlide(projectId, slideIndex);
+        if (requestId !== requestIdRef.current) return;
         onSuccess(rendered);
       } catch (err) {
+        if (requestId !== requestIdRef.current) return;
         onError(getErrorMessage(err, 'Failed to save text'));
       }
     },
@@ -61,7 +69,8 @@ export function useDebouncedRender({
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
-        _doSyncAndRender(latestTitleRef.current, latestBodyRef.current);
+        const id = ++requestIdRef.current;
+        _doSyncAndRender(latestTitleRef.current, latestBodyRef.current, id);
       }, 1000);
     },
     [_doSyncAndRender],
@@ -75,7 +84,8 @@ export function useDebouncedRender({
     if (!timerRef.current) return;
     clearTimeout(timerRef.current);
     timerRef.current = null;
-    await _doSyncAndRender(latestTitleRef.current, latestBodyRef.current);
+    const id = ++requestIdRef.current;
+    await _doSyncAndRender(latestTitleRef.current, latestBodyRef.current, id);
   }, [_doSyncAndRender]);
 
   return { schedule, flush };
