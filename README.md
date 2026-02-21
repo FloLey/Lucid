@@ -33,7 +33,7 @@ Lucid packs several advanced technical implementations to make the pipeline robu
 *   **Concurrency & Rate Limiting:** Outbound AI calls utilize `asyncio.Semaphore` implementations to strictly limit concurrent LLM text and image requests, preventing `429 Too Many Requests` API limits.
 ---
 ## Configuration & Customization
-Lucid behavior is highly customizable via the UI Settings panel or the `config.json` file.
+Lucid behavior is highly customizable via the **Templates** editor (Templates button on the home screen) or the `config.json` file.
 ### App Config Schema (`config.json`)
 *   **`global_defaults`**: Set default languages (e.g., "English"), slide counts, and toggle title inclusion.
 *   **`image`**: Controls backend rendering resolutions (defaults to `1080x1350`, aspect ratio `4:5`).
@@ -41,6 +41,16 @@ Lucid behavior is highly customizable via the UI Settings panel or the `config.j
 *   **`stage_instructions`**: Pre-seed standard instructions into specific pipeline stages (e.g., "Always use an energetic tone" for Stage 1).
 ### Templates
 You can save any project configuration as a reusable **Template**. Future projects launched from a template will inherit the slide counts, configuration defaults, and even the exact prompt logic of the template base.
+---
+## Quick Start — GitHub Codespaces
+The fastest way to run Lucid with zero local setup:
+
+1. **Set your API key** as a Codespaces secret — go to [github.com/settings/codespaces](https://github.com/settings/codespaces), add a secret named `GOOGLE_API_KEY` with your key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey), and grant it access to this repository.
+2. **Open the Codespace** — click the green **Code** button on the repo → **Codespaces** → **Create codespace on main**.
+3. The app builds and launches automatically. The browser tab for port **5173** opens when ready.
+
+> The `GOOGLE_API_KEY` secret is injected into the Docker Compose environment automatically — no `.env` file needed.
+
 ---
 ## Installation & Requirements
 Lucid is built for containerized, Docker-first development.
