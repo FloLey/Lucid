@@ -56,6 +56,11 @@ export interface StyleProposal {
   preview_image: string | null;
 }
 
+export interface ChatMessage {
+  role: 'user' | 'model';
+  content: string;
+}
+
 export interface Project {
   project_id: string;
   name: string;
@@ -64,6 +69,8 @@ export interface Project {
   updated_at: string;
   current_stage: number;
   project_config: ProjectConfig;
+  chat_history: ChatMessage[];
+  research_instructions: string | null;
   draft_text: string;
   num_slides: number | null;
   include_titles: boolean;

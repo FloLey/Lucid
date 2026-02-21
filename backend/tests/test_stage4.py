@@ -11,7 +11,7 @@ from app.models.slide import Slide, SlideText
 from app.models.style import TextStyle
 from tests.conftest import run_async
 
-stage4_service = container.stage4
+stage4_service = container.stage_typography
 project_manager = container.project_manager
 rendering_service = container.rendering_service
 image_service = container.image_service
@@ -306,7 +306,7 @@ class TestStage4Routes:
     def test_apply_all_route(self, client, project_with_images):
         """Test apply all endpoint."""
         response = client.post(
-            "/api/stage4/apply-all",
+            "/api/stage-typography/apply-all",
             json={"project_id": project_with_images.project_id},
         )
         assert response.status_code == 200
@@ -316,7 +316,7 @@ class TestStage4Routes:
     def test_apply_single_route(self, client, project_with_images):
         """Test apply single endpoint."""
         response = client.post(
-            "/api/stage4/apply",
+            "/api/stage-typography/apply",
             json={
                 "project_id": project_with_images.project_id,
                 "slide_index": 0,
@@ -327,7 +327,7 @@ class TestStage4Routes:
     def test_update_style_route(self, client, project_with_images):
         """Test update style endpoint."""
         response = client.post(
-            "/api/stage4/update-style",
+            "/api/stage-typography/update-style",
             json={
                 "project_id": project_with_images.project_id,
                 "slide_index": 0,
@@ -341,7 +341,7 @@ class TestStage4Routes:
     def test_apply_style_all_route(self, client, project_with_images):
         """Test apply style to all endpoint."""
         response = client.post(
-            "/api/stage4/apply-style-all",
+            "/api/stage-typography/apply-style-all",
             json={
                 "project_id": project_with_images.project_id,
                 "style": {"alignment": "right"},

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.db.database import async_session_factory as _default_session_factory
 from app.db.models import ProjectDB
 from app.models.project import (
+    MAX_STAGES,
     ProjectCard,
     ProjectConfig,
     ProjectState,
@@ -201,11 +202,11 @@ class ProjectManager:
     # ------------------------------------------------------------------
 
     async def advance_stage(self, project_id: str) -> Optional[ProjectState]:
-        """Advance to the next stage (max 5)."""
+        """Advance to the next stage (max MAX_STAGES)."""
         project = await self.get_project(project_id)
         if not project:
             return None
-        if project.current_stage < 5:
+        if project.current_stage < MAX_STAGES:
             project.current_stage += 1
             await self.update_project(project)
         return project
@@ -223,11 +224,11 @@ class ProjectManager:
     async def go_to_stage(
         self, project_id: str, stage: int
     ) -> Optional[ProjectState]:
-        """Jump to a specific stage (1–5)."""
+        """Jump to a specific stage (1–MAX_STAGES)."""
         project = await self.get_project(project_id)
         if not project:
             return None
-        if 1 <= stage <= 5:
+        if 1 <= stage <= MAX_STAGES:
             project.current_stage = stage
             await self.update_project(project)
         return project

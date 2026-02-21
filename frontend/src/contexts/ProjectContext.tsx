@@ -31,6 +31,7 @@ function normalizeProject(project: Project): Project {
     ...project,
     slides: project.slides ?? [],
     style_proposals: project.style_proposals ?? [],
+    chat_history: project.chat_history ?? [],
   };
 }
 

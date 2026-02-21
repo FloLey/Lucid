@@ -1,11 +1,11 @@
-"""Stage 3 routes - Image prompts to Images."""
+"""Stage Images routes - Image prompts to Images."""
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.models.project import ProjectResponse
-from app.dependencies import get_stage3_service
-from app.services.stage3_service import Stage3Service
+from app.dependencies import get_stage_images_service
+from app.services.stage_images_service import StageImagesService
 from app.routes.utils import execute_service_action
 
 router = APIRouter()
@@ -41,11 +41,11 @@ class SetImageRequest(BaseModel):
 @router.post("/generate", response_model=ProjectResponse)
 async def generate_all_images(
     request: GenerateImagesRequest,
-    stage3_service: Stage3Service = Depends(get_stage3_service),
+    stage_images_service: StageImagesService = Depends(get_stage_images_service),
 ):
     """Generate images for all slides."""
     return await execute_service_action(
-        lambda: stage3_service.generate_all_images(
+        lambda: stage_images_service.generate_all_images(
             project_id=request.project_id,
             concurrency_limit=request.concurrency_limit,
         ),
@@ -56,11 +56,11 @@ async def generate_all_images(
 @router.post("/regenerate", response_model=ProjectResponse)
 async def regenerate_image(
     request: RegenerateImageRequest,
-    stage3_service: Stage3Service = Depends(get_stage3_service),
+    stage_images_service: StageImagesService = Depends(get_stage_images_service),
 ):
     """Regenerate image for a single slide."""
     return await execute_service_action(
-        lambda: stage3_service.regenerate_image(
+        lambda: stage_images_service.regenerate_image(
             project_id=request.project_id,
             slide_index=request.slide_index,
         ),
@@ -71,11 +71,11 @@ async def regenerate_image(
 @router.post("/upload", response_model=ProjectResponse)
 async def set_image(
     request: SetImageRequest,
-    stage3_service: Stage3Service = Depends(get_stage3_service),
+    stage_images_service: StageImagesService = Depends(get_stage_images_service),
 ):
     """Set image data directly (for custom uploads)."""
     return await execute_service_action(
-        lambda: stage3_service.set_image_data(
+        lambda: stage_images_service.set_image_data(
             project_id=request.project_id,
             slide_index=request.slide_index,
             image_data=request.image_data,

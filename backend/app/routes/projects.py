@@ -10,6 +10,7 @@ from app.dependencies import (
     get_prompt_loader,
 )
 from app.models.project import (
+    MAX_STAGES,
     CreateProjectRequest,
     ProjectConfig,
     ProjectListResponse,
@@ -133,8 +134,8 @@ async def goto_stage(
     project_manager: ProjectManager = Depends(get_project_manager),
 ):
     """Jump to a specific stage."""
-    if not 1 <= stage <= 5:
-        raise HTTPException(status_code=400, detail="Stage must be between 1 and 5")
+    if not 1 <= stage <= MAX_STAGES:
+        raise HTTPException(status_code=400, detail=f"Stage must be between 1 and {MAX_STAGES}")
     project = await project_manager.go_to_stage(project_id, stage)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

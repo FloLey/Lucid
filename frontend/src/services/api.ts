@@ -62,7 +62,30 @@ export const goToStage = async (projectId: string, stage: number): Promise<Proje
   return response.data.project;
 };
 
-// Stage 1 APIs
+// Stage Research APIs
+export const sendResearchMessage = async (
+  projectId: string,
+  message: string
+): Promise<Project> => {
+  const response = await api.post('/stage-research/chat', {
+    project_id: projectId,
+    message,
+  });
+  return response.data.project;
+};
+
+export const extractDraftFromResearch = async (
+  projectId: string,
+  researchInstructions?: string
+): Promise<Project> => {
+  const response = await api.post('/stage-research/extract-draft', {
+    project_id: projectId,
+    research_instructions: researchInstructions,
+  });
+  return response.data.project;
+};
+
+// Stage Draft APIs
 export const generateSlideTexts = async (
   projectId: string,
   draftText: string,
@@ -72,7 +95,7 @@ export const generateSlideTexts = async (
   language: string = 'English',
   wordsPerSlide?: string
 ): Promise<Project> => {
-  const response = await api.post('/stage1/generate', {
+  const response = await api.post('/stage-draft/generate', {
     project_id: projectId,
     draft_text: draftText,
     num_slides: numSlides,
@@ -89,7 +112,7 @@ export const regenerateSlideText = async (
   slideIndex: number,
   instruction?: string
 ): Promise<Project> => {
-  const response = await api.post('/stage1/regenerate', {
+  const response = await api.post('/stage-draft/regenerate', {
     project_id: projectId,
     slide_index: slideIndex,
     instruction,
@@ -103,7 +126,7 @@ export const updateSlideText = async (
   title?: string,
   body?: string
 ): Promise<Project> => {
-  const response = await api.post('/stage1/update', {
+  const response = await api.post('/stage-draft/update', {
     project_id: projectId,
     slide_index: slideIndex,
     title,
@@ -137,12 +160,12 @@ export const selectStyleProposal = async (
   return response.data.project;
 };
 
-// Stage 2 APIs (Prompts)
+// Stage Prompts APIs
 export const generatePrompts = async (
   projectId: string,
   styleInstructions?: string
 ): Promise<Project> => {
-  const response = await api.post('/stage2/generate', {
+  const response = await api.post('/stage-prompts/generate', {
     project_id: projectId,
     image_style_instructions: styleInstructions,
   });
@@ -153,7 +176,7 @@ export const regeneratePrompt = async (
   projectId: string,
   slideIndex: number
 ): Promise<Project> => {
-  const response = await api.post('/stage2/regenerate', {
+  const response = await api.post('/stage-prompts/regenerate', {
     project_id: projectId,
     slide_index: slideIndex,
   });
@@ -165,7 +188,7 @@ export const updatePrompt = async (
   slideIndex: number,
   prompt: string
 ): Promise<Project> => {
-  const response = await api.post('/stage2/update', {
+  const response = await api.post('/stage-prompts/update', {
     project_id: projectId,
     slide_index: slideIndex,
     prompt,
@@ -173,9 +196,9 @@ export const updatePrompt = async (
   return response.data.project;
 };
 
-// Stage 3 APIs
+// Stage Images APIs
 export const generateImages = async (projectId: string): Promise<Project> => {
-  const response = await api.post('/stage3/generate', { project_id: projectId });
+  const response = await api.post('/stage-images/generate', { project_id: projectId });
   return response.data.project;
 };
 
@@ -183,16 +206,16 @@ export const regenerateImage = async (
   projectId: string,
   slideIndex: number
 ): Promise<Project> => {
-  const response = await api.post('/stage3/regenerate', {
+  const response = await api.post('/stage-images/regenerate', {
     project_id: projectId,
     slide_index: slideIndex,
   });
   return response.data.project;
 };
 
-// Stage 4 APIs
+// Stage Typography APIs
 export const applyTextToAll = async (projectId: string): Promise<Project> => {
-  const response = await api.post('/stage4/apply-all', { project_id: projectId });
+  const response = await api.post('/stage-typography/apply-all', { project_id: projectId });
   return response.data.project;
 };
 
@@ -200,7 +223,7 @@ export const applyTextToSlide = async (
   projectId: string,
   slideIndex: number
 ): Promise<Project> => {
-  const response = await api.post('/stage4/apply', {
+  const response = await api.post('/stage-typography/apply', {
     project_id: projectId,
     slide_index: slideIndex,
   });
@@ -212,7 +235,7 @@ export const updateStyle = async (
   slideIndex: number,
   style: Record<string, unknown>
 ): Promise<Project> => {
-  const response = await api.post('/stage4/update-style', {
+  const response = await api.post('/stage-typography/update-style', {
     project_id: projectId,
     slide_index: slideIndex,
     style,
@@ -224,7 +247,7 @@ export const applyStyleToAll = async (
   projectId: string,
   style: Record<string, unknown>
 ): Promise<Project> => {
-  const response = await api.post('/stage4/apply-style-all', {
+  const response = await api.post('/stage-typography/apply-style-all', {
     project_id: projectId,
     style,
   });

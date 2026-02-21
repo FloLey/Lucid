@@ -1,4 +1,4 @@
-"""Stage 1 service - Draft to Slide texts transformation."""
+"""Stage Draft service - Draft to Slide texts transformation."""
 
 from __future__ import annotations
 import logging
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class Stage1Service:
-    """Service for Stage 1: Draft to Slide texts transformation."""
+class StageDraftService:
+    """Service for Stage Draft: Draft to Slide texts transformation."""
 
     project_manager: ProjectManager
     gemini_service: GeminiService
@@ -153,7 +153,7 @@ class Stage1Service:
         )
 
         result = await self.gemini_service.generate_json(
-            prompt, caller="stage1_service.generate_slide_texts"
+            prompt, caller="stage_draft_service.generate_slide_texts"
         )
 
         slides_data = result.get("slides", [])
@@ -208,7 +208,7 @@ class Stage1Service:
             prompt = prompt_template.format(slides_summary=slides_summary)
 
             result = await self.gemini_service.generate_json(
-                prompt, caller="stage1_service._generate_project_title"
+                prompt, caller="stage_draft_service._generate_project_title"
             )
             title = result.get("title", "").strip()
             if title and len(title) <= 80:
@@ -277,7 +277,7 @@ class Stage1Service:
         )
 
         result = await self.gemini_service.generate_json(
-            prompt, caller="stage1_service.regenerate_slide_text"
+            prompt, caller="stage_draft_service.regenerate_slide_text"
         )
 
         if result:

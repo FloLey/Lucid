@@ -1,4 +1,4 @@
-"""Tests for Stage 1 - Draft to Slide texts."""
+"""Tests for Stage Draft - Draft to Slide texts."""
 
 import pytest
 from unittest.mock import patch
@@ -9,7 +9,7 @@ from app.dependencies import container
 from app.models.slide import Slide, SlideText
 from tests.conftest import run_async
 
-stage1_service = container.stage1
+stage1_service = container.stage_draft
 project_manager = container.project_manager
 
 
@@ -35,7 +35,7 @@ def mock_gemini():
             ]
         }
 
-    with patch("app.dependencies.container.stage1.gemini_service") as mock:
+    with patch("app.dependencies.container.stage_draft.gemini_service") as mock:
         mock.generate_json = mock_generate_json
         yield mock
 
@@ -196,7 +196,7 @@ class TestStage1Routes:
         project_id = create_resp.json()["project"]["project_id"]
 
         response = client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "This is my draft about social media tips.",
@@ -216,7 +216,7 @@ class TestStage1Routes:
         project_id = create_resp.json()["project"]["project_id"]
 
         response = client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "",
@@ -231,7 +231,7 @@ class TestStage1Routes:
         project_id = create_resp.json()["project"]["project_id"]
 
         response = client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "Test draft",
@@ -246,7 +246,7 @@ class TestStage1Routes:
         project_id = create_resp.json()["project"]["project_id"]
 
         client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "Original draft content",
@@ -254,7 +254,7 @@ class TestStage1Routes:
             },
         )
         response = client.post(
-            "/api/stage1/regenerate-all",
+            "/api/stage-draft/regenerate-all",
             json={"project_id": project_id},
         )
         assert response.status_code == 200
@@ -266,7 +266,7 @@ class TestStage1Routes:
         project_id = create_resp.json()["project"]["project_id"]
 
         response = client.post(
-            "/api/stage1/regenerate-all",
+            "/api/stage-draft/regenerate-all",
             json={"project_id": project_id},
         )
         assert response.status_code == 404
@@ -277,7 +277,7 @@ class TestStage1Routes:
         project_id = create_resp.json()["project"]["project_id"]
 
         client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "Test content for slides",
@@ -285,7 +285,7 @@ class TestStage1Routes:
             },
         )
         response = client.post(
-            "/api/stage1/regenerate",
+            "/api/stage-draft/regenerate",
             json={"project_id": project_id, "slide_index": 1},
         )
         assert response.status_code == 200
@@ -296,7 +296,7 @@ class TestStage1Routes:
         project_id = create_resp.json()["project"]["project_id"]
 
         client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "Test content",
@@ -304,7 +304,7 @@ class TestStage1Routes:
             },
         )
         response = client.post(
-            "/api/stage1/update",
+            "/api/stage-draft/update",
             json={
                 "project_id": project_id,
                 "slide_index": 0,
@@ -328,7 +328,7 @@ class TestWordsPerSlide:
 
         # No mock_gemini fixture — keep_as_is must not call Gemini
         response = client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "This is my draft text.",
@@ -347,7 +347,7 @@ class TestWordsPerSlide:
         project_id = create_resp.json()["project"]["project_id"]
 
         response = client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "Draft content here.",
@@ -364,7 +364,7 @@ class TestWordsPerSlide:
         project_id = create_resp.json()["project"]["project_id"]
 
         response = client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "Draft content.",
@@ -381,7 +381,7 @@ class TestWordsPerSlide:
         project_id = create_resp.json()["project"]["project_id"]
 
         response = client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "Draft content.",
@@ -397,7 +397,7 @@ class TestWordsPerSlide:
         project_id = create_resp.json()["project"]["project_id"]
 
         response = client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "Draft content.",
@@ -413,7 +413,7 @@ class TestWordsPerSlide:
         project_id = create_resp.json()["project"]["project_id"]
 
         response = client.post(
-            "/api/stage1/generate",
+            "/api/stage-draft/generate",
             json={
                 "project_id": project_id,
                 "draft_text": "Draft content.",

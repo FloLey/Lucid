@@ -15,6 +15,7 @@ PROMPTS_DIR = Path(__file__).parent.parent.parent / "prompts"
 
 # Canonical map of prompt names to filenames
 PROMPT_FILES: Dict[str, str] = {
+    "generate_draft_from_research": "generate_draft_from_research.prompt",
     "slide_generation": "slide_generation.prompt",
     "style_proposal": "style_proposal.prompt",
     "generate_single_image_prompt": "generate_single_image_prompt.prompt",
