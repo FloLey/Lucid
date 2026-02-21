@@ -180,7 +180,7 @@ def _write_log_sync(log_file: Path, line: str) -> None:
     """Write a single log line to disk under a threading lock (sync-safe)."""
     with _lock:
         try:
-            _LOG_DIR.mkdir(parents=True, exist_ok=True)
+            log_file.parent.mkdir(parents=True, exist_ok=True)
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(line)
         except Exception as e:
