@@ -74,6 +74,11 @@ class StyleConfig(BaseModel):
         default="center", description="Default text alignment"
     )
 
+    # Text visibility default
+    default_text_enabled: bool = Field(
+        default=True, description="Enable text rendering by default"
+    )
+
     # Stroke (outline) defaults
     default_stroke_enabled: bool = Field(
         default=False, description="Enable text stroke/outline by default"

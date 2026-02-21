@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
-import { useAppConfig } from '../hooks/useAppConfig';
 import { SLIDE_COUNT_OPTIONS, LANGUAGES } from '../constants';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
@@ -25,7 +24,6 @@ export default function Stage1() {
     advanceStage: onNext,
   } = useProject();
 
-  const config = useAppConfig();
   const [draftText, setDraftText] = useState('');
   const [numSlides, setNumSlides] = useState<number | null>(null);
   const [includeTitles, setIncludeTitles] = useState(true);
@@ -35,30 +33,27 @@ export default function Stage1() {
 
   const isSingleSlide = (project?.slide_count ?? 0) === 1;
 
-  // Apply config defaults or session values once config is loaded
+  // Apply project-scoped config defaults or existing session values
   useEffect(() => {
-    if (!config) return;
+    if (!project) return;
 
-    const isNewProject = !project?.slides || project.slides.length === 0;
+    const cfg = project.project_config;
+    const isNewProject = !project.slides || project.slides.length === 0;
 
+    setDraftText(project.draft_text || '');
+    setNumSlides(project.num_slides ?? cfg?.global_defaults.num_slides ?? null);
+    setIncludeTitles(project.include_titles ?? cfg?.global_defaults.include_titles ?? true);
+    setLanguage(project.language || cfg?.global_defaults.language || 'English');
+
+    // Instructions are sourced differently for new vs existing projects
     if (isNewProject) {
-      setNumSlides(config.global_defaults.num_slides);
-      setIncludeTitles(config.global_defaults.include_titles);
-      setLanguage(config.global_defaults.language);
-      if (config.stage_instructions.stage1) {
-        setInstructions(config.stage_instructions.stage1);
-      }
-      if (project?.draft_text) {
-        setDraftText(project.draft_text);
+      if (cfg?.stage_instructions.stage1) {
+        setInstructions(cfg.stage_instructions.stage1);
       }
     } else {
-      setDraftText(project?.draft_text || '');
-      setNumSlides(project?.num_slides ?? config.global_defaults.num_slides);
-      setIncludeTitles(project?.include_titles ?? config.global_defaults.include_titles);
-      setLanguage(project?.language || config.global_defaults.language);
-      setInstructions(project?.additional_instructions || '');
+      setInstructions(project.additional_instructions || '');
     }
-  }, [config, project]);
+  }, [project]);
 
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
   const [regeneratingSlides, setRegeneratingSlides] = useState<Set<number>>(new Set());

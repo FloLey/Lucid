@@ -2,14 +2,23 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.dependencies import get_project_manager, get_storage_service, get_template_manager
+from app.dependencies import (
+    get_project_manager,
+    get_storage_service,
+    get_template_manager,
+    get_config_manager,
+    get_prompt_loader,
+)
 from app.models.project import (
     CreateProjectRequest,
+    ProjectConfig,
     ProjectListResponse,
     ProjectResponse,
     RenameProjectRequest,
 )
+from app.services.config_manager import ConfigManager
 from app.services.project_manager import ProjectManager
+from app.services.prompt_loader import PromptLoader
 from app.services.storage_service import StorageService
 from app.services.template_manager import TemplateManager
 
@@ -30,9 +39,10 @@ async def create_project(
     request: CreateProjectRequest,
     project_manager: ProjectManager = Depends(get_project_manager),
     template_manager: TemplateManager = Depends(get_template_manager),
+    config_manager: ConfigManager = Depends(get_config_manager),
+    prompt_loader: PromptLoader = Depends(get_prompt_loader),
 ):
     """Create a new project, optionally from a template."""
-    project_config = None
     slide_count = 5  # default when no template
     if request.template_id:
         template = await template_manager.get_template(request.template_id)
@@ -40,6 +50,12 @@ async def create_project(
             raise HTTPException(status_code=404, detail="Template not found")
         project_config = template.config
         slide_count = template.default_slide_count
+    else:
+        # Seed blank projects with global config + current prompts so they
+        # inherit defaults instead of using hard-coded Pydantic field defaults.
+        app_config = config_manager.get_config()
+        prompts = prompt_loader.load_all()
+        project_config = ProjectConfig.from_app_config(app_config, prompts)
 
     project = await project_manager.create_project(
         slide_count=slide_count,

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
-import { useAppConfig } from '../hooks/useAppConfig';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
 
@@ -18,26 +17,26 @@ export default function Stage3() {
     previousStage: onBack,
   } = useProject();
 
-  const config = useAppConfig();
   const [styleInstructions, setStyleInstructions] = useState('');
 
-  // Sync style instructions when config or session changes
+  // Sync style instructions when project changes
   useEffect(() => {
-    if (!config) return;
+    if (!project) return;
 
+    const cfg = project.project_config;
     // Check if image prompts have been generated yet
-    const hasImagePrompts = project?.slides?.some(slide => slide.image_prompt);
+    const hasImagePrompts = project.slides?.some(slide => slide.image_prompt);
 
     if (!hasImagePrompts) {
-      // New session - use config default instructions
-      if (config.stage_instructions.stage2) {
-        setStyleInstructions(config.stage_instructions.stage2);
+      // New project - use project-scoped config default instructions
+      if (cfg?.stage_instructions.stage2) {
+        setStyleInstructions(cfg.stage_instructions.stage2);
       }
     } else {
-      // Existing session - use session value
-      setStyleInstructions(project?.image_style_instructions || '');
+      // Existing project - use stored value
+      setStyleInstructions(project.image_style_instructions || '');
     }
-  }, [config, project]);
+  }, [project]);
   const [editingPrompt, setEditingPrompt] = useState<number | null>(null);
 
   const handleGenerate = async () => {
