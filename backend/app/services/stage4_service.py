@@ -70,6 +70,11 @@ class Stage4Service:
             else:
                 slide.final_image_url = slide.background_image_url
 
+        # Update thumbnail to the first slide's final rendered image
+        first_slide = project.slides[0] if project.slides else None
+        if first_slide and (first_slide.final_image_url or first_slide.background_image_url):
+            project.thumbnail_url = first_slide.final_image_url or first_slide.background_image_url
+
         await self.project_manager.update_project(project)
         return project
 

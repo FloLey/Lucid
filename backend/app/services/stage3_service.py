@@ -80,6 +80,10 @@ class Stage3Service:
         for slide, image_data in zip(project.slides, results):
             slide.background_image_url = self.storage_service.save_image_to_disk(image_data)
 
+        # Update thumbnail to the first slide's background image
+        if project.slides and project.slides[0].background_image_url:
+            project.thumbnail_url = project.slides[0].background_image_url
+
         await self.project_manager.update_project(project)
         return project
 

@@ -119,6 +119,9 @@ class StageStyleService:
 
         project.style_proposals = list(proposals)
         project.selected_style_proposal_index = None
+        # Use the first proposal's preview as the initial thumbnail
+        if proposals and proposals[0].preview_image:
+            project.thumbnail_url = proposals[0].preview_image
         await self.project_manager.update_project(project)
         return project
 
@@ -138,5 +141,8 @@ class StageStyleService:
         proposal = project.style_proposals[proposal_index]
         project.shared_prompt_prefix = proposal.description
         project.selected_style_proposal_index = proposal_index
+        # Update thumbnail to reflect the chosen style
+        if proposal.preview_image:
+            project.thumbnail_url = proposal.preview_image
         await self.project_manager.update_project(project)
         return project
