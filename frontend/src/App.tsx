@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { ProjectProvider, useProject } from './contexts/ProjectContext';
-import Stage1 from './components/Stage1';
-import Stage2 from './components/Stage2';
-import Stage3 from './components/Stage3';
-import Stage4 from './components/Stage4';
-import Stage5 from './components/Stage5';
+import StageResearch from './components/StageResearch';
+import StageDraft from './components/StageDraft';
+import StageStyle from './components/StageStyle';
+import StagePrompts from './components/StagePrompts';
+import StageImages from './components/StageImages';
+import StageTypography from './components/StageTypography';
 import Header from './components/Header';
 import StageIndicator from './components/StageIndicator';
 import ProjectHome from './components/ProjectHome';
@@ -34,12 +35,13 @@ function AppContent() {
 
   const renderCurrentStage = () => {
     switch (currentStage) {
-      case 1: return <Stage1 />;
-      case 2: return <Stage2 />;
-      case 3: return <Stage3 />;
-      case 4: return <Stage4 />;
-      case 5: return <Stage5 />;
-      default: return <Stage1 />;
+      case 1: return <StageResearch />;
+      case 2: return <StageDraft />;
+      case 3: return <StageStyle />;
+      case 4: return <StagePrompts />;
+      case 5: return <StageImages />;
+      case 6: return <StageTypography />;
+      default: return <StageResearch />;
     }
   };
 

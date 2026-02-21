@@ -1,4 +1,4 @@
-"""Stage 2 service - Slide texts to Image prompts transformation."""
+"""Stage Prompts service - Slide texts to Image prompts transformation."""
 
 from __future__ import annotations
 import asyncio
@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class Stage2Service:
-    """Service for Stage 2: Slide texts to Image prompts transformation."""
+class StagePromptsService:
+    """Service for Stage Prompts: Slide texts to Image prompts transformation."""
 
     project_manager: ProjectManager
     gemini_service: GeminiService
@@ -95,7 +95,7 @@ class Stage2Service:
             async with sem:
                 prompt = self._build_slide_prompt(project, slide_index)
                 result = await self.gemini_service.generate_json(
-                    prompt, caller="stage2_service.generate_single_prompt"
+                    prompt, caller="stage_prompts_service.generate_single_prompt"
                 )
                 return result.get(
                     "prompt",
@@ -125,7 +125,7 @@ class Stage2Service:
 
         prompt = self._build_slide_prompt(project, slide_index, instruction=instruction)
         result = await self.gemini_service.generate_json(
-            prompt, caller="stage2_service.regenerate_prompt"
+            prompt, caller="stage_prompts_service.regenerate_prompt"
         )
 
         if result.get("prompt"):

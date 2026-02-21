@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Optional, Dict, Any
+from typing import List, Optional, Dict, Any
 
 from app.config import GOOGLE_API_KEY, GEMINI_TEXT_MODEL
 from app.services.llm_logger import log_llm_method
@@ -110,6 +110,71 @@ class GeminiService:
             contents=contents,
             config=config,
         )
+
+    async def generate_chat_response(
+        self,
+        history: List[Dict[str, Any]],
+        message: str,
+        system_instruction: Optional[str] = None,
+        use_search_grounding: bool = True,
+        temperature: float = 1.0,
+    ) -> str:
+        """Send a message in a multi-turn chat, optionally grounded by Google Search.
+
+        Args:
+            history: Prior conversation turns as a list of
+                     ``{"role": "user"|"model", "content": "..."}`` dicts.
+            message: The new user message to send.
+            system_instruction: Optional system-level instruction.
+            use_search_grounding: If True, attach Google Search as a retrieval tool.
+            temperature: Generation temperature.
+
+        Returns:
+            The model's plain-text response string.
+        """
+        self._ensure_configured()
+        assert self._client is not None
+
+        from google.genai import types
+
+        # Build the contents list from prior history + the new message
+        contents: List[Any] = []
+        for turn in history:
+            role = turn.get("role", "user")
+            content_text = turn.get("content", "")
+            contents.append(
+                types.Content(
+                    role=role,
+                    parts=[types.Part(text=content_text)],
+                )
+            )
+        contents.append(
+            types.Content(
+                role="user",
+                parts=[types.Part(text=message)],
+            )
+        )
+
+        tools = []
+        if use_search_grounding:
+            tools.append(types.Tool(google_search=types.GoogleSearch()))
+
+        config = types.GenerateContentConfig(
+            temperature=temperature,
+            max_output_tokens=8192,
+            system_instruction=system_instruction,
+            tools=tools if tools else None,
+        )
+
+        try:
+            response = self._client.models.generate_content(
+                model=GEMINI_TEXT_MODEL,
+                contents=contents,
+                config=config,
+            )
+            return response.text or ""
+        except Exception as e:
+            raise GeminiError(f"Chat generation failed: {e}")
 
     async def generate_json(
         self,

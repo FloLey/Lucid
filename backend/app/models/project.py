@@ -1,9 +1,12 @@
 """Project and Template Pydantic models."""
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+# The total number of pipeline stages (including the Research stage).
+MAX_STAGES = 6
 
 from app.models.slide import Slide
 from app.models.style_proposal import StyleProposal
@@ -73,12 +76,16 @@ class ProjectState(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Stage tracking
-    current_stage: int = Field(default=1, ge=1, le=5)
+    current_stage: int = Field(default=1, ge=1, le=MAX_STAGES)
 
     # Per-project configuration (deep copy from chosen template)
     project_config: ProjectConfig = Field(default_factory=ProjectConfig)
 
-    # Stage 1 inputs
+    # Stage Research data
+    chat_history: List[Dict[str, Any]] = Field(default_factory=list)
+    research_instructions: Optional[str] = Field(default=None)
+
+    # Stage Draft inputs
     draft_text: str = Field(default="", description="Original draft text")
     num_slides: Optional[int] = Field(default=None, ge=1, le=20)
     include_titles: bool = Field(default=True)
@@ -89,7 +96,7 @@ class ProjectState(BaseModel):
     style_proposals: List[StyleProposal] = Field(default_factory=list)
     selected_style_proposal_index: Optional[int] = Field(default=None)
 
-    # Stage 2 inputs
+    # Stage Prompts inputs
     image_style_instructions: Optional[str] = Field(default=None)
     shared_prompt_prefix: Optional[str] = Field(default=None)
 

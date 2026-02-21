@@ -10,7 +10,7 @@ from app.dependencies import container
 from app.models.slide import Slide, SlideText
 from tests.conftest import run_async
 
-stage3_service = container.stage3
+stage3_service = container.stage_images
 project_manager = container.project_manager
 image_service = container.image_service
 
@@ -197,7 +197,7 @@ class TestStage3Routes:
         run_async(project_manager.update_project(created))
 
         response = client.post(
-            "/api/stage3/generate",
+            "/api/stage-images/generate",
             json={"project_id": project_id},
         )
         assert response.status_code == 200
@@ -208,7 +208,7 @@ class TestStage3Routes:
     def test_generate_images_no_project(self, client):
         """Test generate images with no project."""
         response = client.post(
-            "/api/stage3/generate",
+            "/api/stage-images/generate",
             json={"project_id": "nonexistent"},
         )
         assert response.status_code == 404
@@ -228,7 +228,7 @@ class TestStage3Routes:
         run_async(project_manager.update_project(created))
 
         response = client.post(
-            "/api/stage3/regenerate",
+            "/api/stage-images/regenerate",
             json={"project_id": project_id, "slide_index": 0},
         )
         assert response.status_code == 200
@@ -241,7 +241,7 @@ class TestStage3Routes:
         run_async(project_manager.update_project(created))
 
         response = client.post(
-            "/api/stage3/upload",
+            "/api/stage-images/upload",
             json={
                 "project_id": project_id,
                 "slide_index": 0,

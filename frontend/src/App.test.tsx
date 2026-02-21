@@ -2,11 +2,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock child components to isolate App routing logic
-vi.mock('./components/Stage1', () => ({ default: () => <div>Stage1 Content</div> }));
-vi.mock('./components/Stage2', () => ({ default: () => <div>Stage2 Content</div> }));
-vi.mock('./components/Stage3', () => ({ default: () => <div>Stage3 Content</div> }));
-vi.mock('./components/Stage4', () => ({ default: () => <div>Stage4 Content</div> }));
-vi.mock('./components/Stage5', () => ({ default: () => <div>Stage5 Content</div> }));
+vi.mock('./components/StageResearch', () => ({ default: () => <div>StageResearch Content</div> }));
+vi.mock('./components/StageDraft', () => ({ default: () => <div>StageDraft Content</div> }));
+vi.mock('./components/StageStyle', () => ({ default: () => <div>StageStyle Content</div> }));
+vi.mock('./components/StagePrompts', () => ({ default: () => <div>StagePrompts Content</div> }));
+vi.mock('./components/StageImages', () => ({ default: () => <div>StageImages Content</div> }));
+vi.mock('./components/StageTypography', () => ({ default: () => <div>StageTypography Content</div> }));
 vi.mock('./components/NewProjectModal', () => ({ default: ({ onClose }: { onClose: () => void }) => (
   <div>
     <span>New Project Modal</span>
@@ -84,8 +85,8 @@ describe('App routing', () => {
 
   it('does not show stage pipeline when no project is open', () => {
     render(<App />);
-    expect(screen.queryByText('Stage1 Content')).not.toBeInTheDocument();
-    expect(screen.queryByText('Stage2 Content')).not.toBeInTheDocument();
+    expect(screen.queryByText('StageResearch Content')).not.toBeInTheDocument();
+    expect(screen.queryByText('StageDraft Content')).not.toBeInTheDocument();
   });
 
   it('shows stage pipeline when a project is open', () => {
@@ -94,7 +95,7 @@ describe('App routing', () => {
       projectId: 'proj-1',
     }));
     render(<App />);
-    expect(screen.getByText('Stage1 Content')).toBeInTheDocument();
+    expect(screen.getByText('StageResearch Content')).toBeInTheDocument();
     expect(screen.queryByText('Your Projects')).not.toBeInTheDocument();
   });
 

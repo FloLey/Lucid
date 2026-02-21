@@ -8,11 +8,12 @@ This directory contains the AI prompts used throughout Lucid. These `.prompt` fi
 
 ## Prompt Files
 
-- `slide_generation.prompt` - Generate all slide texts from draft (Stage 1)
+- `generate_draft_from_research.prompt` - Synthesise a research chat conversation into a structured draft (Stage Research)
+- `slide_generation.prompt` - Generate all slide texts from a draft (Stage Draft)
 - `style_proposal.prompt` - Generate visual style proposals (Stage Style)
-- `generate_single_image_prompt.prompt` - Generate per-slide image prompts in parallel (Stage 2, also used for regeneration)
+- `generate_single_image_prompt.prompt` - Generate per-slide image prompts in parallel (Stage Prompts, also used for regeneration)
 - `regenerate_single_slide.prompt` - Regenerate a single slide's text with full carousel context
-- `chat_routing.prompt` - Route natural language commands to tools
+- `generate_project_title.prompt` - Generate a short title for a project
 
 ## How It Works
 
@@ -43,8 +44,9 @@ Services load prompts **directly from these files**:
 
 Each prompt **must** include specific template variables (validated before save):
 
-**Common to all prompts:**
-- `{response_format}` - JSON structure the AI should return (provided by service)
+**generate_draft_from_research.prompt:**
+- `{transcript}`, `{instructions}`
+- Receives a formatted transcript of the research conversation and optional user instructions
 
 **slide_generation.prompt:**
 - `{num_slides_instruction}`, `{language_instruction}`, `{title_instruction}`, `{additional_instructions}`, `{draft}`, `{slide_format}`, `{response_format}`
@@ -55,14 +57,11 @@ Each prompt **must** include specific template variables (validated before save)
 
 **generate_single_image_prompt.prompt:**
 - `{slide_text}`, `{shared_theme}`, `{style_instructions_text}`, `{context}`, `{instruction_text}`, `{response_format}`
-- Generates one prompt per slide in parallel (shared theme prepended in Stage 3)
+- Generates one prompt per slide in parallel (shared theme prepended in Stage Prompts)
 - Reused for regeneration with optional instruction parameter
 
 **regenerate_single_slide.prompt:**
 - `{draft_text}`, `{language_instruction}`, `{all_slides_context}`, `{current_text}`, `{instruction_text}`, `{title_instruction}`, `{response_format}`
-
-**chat_routing.prompt:**
-- `{current_stage}`, `{tool_descriptions}`, `{message}`, `{response_format}`
 
 ## Validation
 

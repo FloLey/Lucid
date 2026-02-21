@@ -1,4 +1,4 @@
-"""Stage 1 routes - Draft to Slide texts."""
+"""Stage Draft routes - Draft to Slide texts."""
 
 import logging
 from typing import Optional
@@ -6,9 +6,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.models.project import ProjectResponse
-from app.dependencies import get_stage1_service
+from app.dependencies import get_stage_draft_service
 from app.services.gemini_service import GeminiError
-from app.services.stage1_service import Stage1Service
+from app.services.stage_draft_service import StageDraftService
 from app.routes.utils import execute_service_action
 
 logger = logging.getLogger(__name__)
@@ -57,11 +57,11 @@ class RegenerateAllRequest(BaseModel):
 async def generate_slide_texts(
     request: GenerateSlideTextsRequest,
     background_tasks: BackgroundTasks,
-    stage1_service: Stage1Service = Depends(get_stage1_service),
+    stage_draft_service: StageDraftService = Depends(get_stage_draft_service),
 ):
     """Generate slide texts from a draft."""
     try:
-        project = await stage1_service.generate_slide_texts(
+        project = await stage_draft_service.generate_slide_texts(
             project_id=request.project_id,
             draft_text=request.draft_text,
             num_slides=request.num_slides,
@@ -79,7 +79,7 @@ async def generate_slide_texts(
         raise HTTPException(status_code=404, detail="Failed to generate slide texts")
     if project.name.startswith("Untitled"):
         background_tasks.add_task(
-            stage1_service.generate_project_title, project.project_id
+            stage_draft_service.generate_project_title, project.project_id
         )
     return {"project": project.model_dump()}
 
@@ -87,11 +87,11 @@ async def generate_slide_texts(
 @router.post("/regenerate-all", response_model=ProjectResponse)
 async def regenerate_all_slide_texts(
     request: RegenerateAllRequest,
-    stage1_service: Stage1Service = Depends(get_stage1_service),
+    stage_draft_service: StageDraftService = Depends(get_stage_draft_service),
 ):
     """Regenerate all slide texts."""
     return await execute_service_action(
-        lambda: stage1_service.regenerate_all_slide_texts(
+        lambda: stage_draft_service.regenerate_all_slide_texts(
             project_id=request.project_id,
         ),
         "Failed to regenerate slides",
@@ -101,11 +101,11 @@ async def regenerate_all_slide_texts(
 @router.post("/regenerate", response_model=ProjectResponse)
 async def regenerate_slide_text(
     request: RegenerateSlideTextRequest,
-    stage1_service: Stage1Service = Depends(get_stage1_service),
+    stage_draft_service: StageDraftService = Depends(get_stage_draft_service),
 ):
     """Regenerate a single slide text."""
     return await execute_service_action(
-        lambda: stage1_service.regenerate_slide_text(
+        lambda: stage_draft_service.regenerate_slide_text(
             project_id=request.project_id,
             slide_index=request.slide_index,
             instruction=request.instruction,
@@ -117,11 +117,11 @@ async def regenerate_slide_text(
 @router.post("/update", response_model=ProjectResponse)
 async def update_slide_text(
     request: UpdateSlideTextRequest,
-    stage1_service: Stage1Service = Depends(get_stage1_service),
+    stage_draft_service: StageDraftService = Depends(get_stage_draft_service),
 ):
     """Manually update a slide's text."""
     return await execute_service_action(
-        lambda: stage1_service.update_slide_text(
+        lambda: stage_draft_service.update_slide_text(
             project_id=request.project_id,
             slide_index=request.slide_index,
             title=request.title,

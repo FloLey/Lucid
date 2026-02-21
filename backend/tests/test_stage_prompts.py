@@ -9,7 +9,7 @@ from app.dependencies import container
 from app.models.slide import Slide, SlideText
 from tests.conftest import run_async
 
-stage2_service = container.stage2
+stage2_service = container.stage_prompts
 project_manager = container.project_manager
 
 
@@ -41,7 +41,7 @@ def mock_gemini():
     async def mock_generate_json(*args, **kwargs):
         return {"prompt": "Generated image prompt for slide"}
 
-    with patch("app.dependencies.container.stage2.gemini_service") as mock:
+    with patch("app.dependencies.container.stage_prompts.gemini_service") as mock:
         mock.generate_json = mock_generate_json
         yield mock
 
@@ -171,7 +171,7 @@ class TestStage2Routes:
         run_async(project_manager.update_project(created))
 
         response = client.post(
-            "/api/stage2/generate",
+            "/api/stage-prompts/generate",
             json={
                 "project_id": project_id,
                 "image_style_instructions": "Modern, clean style",
@@ -185,7 +185,7 @@ class TestStage2Routes:
     def test_generate_prompts_no_project(self, client):
         """Test generate prompts with no project."""
         response = client.post(
-            "/api/stage2/generate",
+            "/api/stage-prompts/generate",
             json={"project_id": "nonexistent"},
         )
         assert response.status_code == 404
@@ -201,7 +201,7 @@ class TestStage2Routes:
         run_async(project_manager.update_project(created))
 
         response = client.post(
-            "/api/stage2/regenerate",
+            "/api/stage-prompts/regenerate",
             json={"project_id": project_id, "slide_index": 0},
         )
         assert response.status_code == 200
@@ -214,7 +214,7 @@ class TestStage2Routes:
         run_async(project_manager.update_project(created))
 
         response = client.post(
-            "/api/stage2/update",
+            "/api/stage-prompts/update",
             json={
                 "project_id": project_id,
                 "slide_index": 0,
@@ -234,7 +234,7 @@ class TestStage2Routes:
         project_id = created.project_id
 
         response = client.post(
-            "/api/stage2/style",
+            "/api/stage-prompts/style",
             json={
                 "project_id": project_id,
                 "style_instructions": "Vibrant, energetic colors",

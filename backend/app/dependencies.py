@@ -11,11 +11,12 @@ from app.services.template_manager import (
 from app.services.gemini_service import GeminiService
 from app.services.image_service import ImageService
 from app.services.storage_service import StorageService
-from app.services.stage1_service import Stage1Service
+from app.services.stage_research_service import StageResearchService
+from app.services.stage_draft_service import StageDraftService
 from app.services.stage_style_service import StageStyleService
-from app.services.stage2_service import Stage2Service
-from app.services.stage3_service import Stage3Service
-from app.services.stage4_service import Stage4Service
+from app.services.stage_prompts_service import StagePromptsService
+from app.services.stage_images_service import StageImagesService
+from app.services.stage_typography_service import StageTypographyService
 from app.services.rendering_service import RenderingService
 from app.services.export_service import ExportService
 from app.services.config_manager import ConfigManager
@@ -40,7 +41,13 @@ class ServiceContainer:
         self.prompt_loader = PromptLoader()
 
         # Stage services
-        self.stage1 = Stage1Service(
+        self.stage_research = StageResearchService(
+            project_manager=self.project_manager,
+            gemini_service=self.gemini_service,
+            prompt_loader=self.prompt_loader,
+        )
+
+        self.stage_draft = StageDraftService(
             project_manager=self.project_manager,
             gemini_service=self.gemini_service,
             prompt_loader=self.prompt_loader,
@@ -54,13 +61,13 @@ class ServiceContainer:
             prompt_loader=self.prompt_loader,
         )
 
-        self.stage2 = Stage2Service(
+        self.stage_prompts = StagePromptsService(
             project_manager=self.project_manager,
             gemini_service=self.gemini_service,
             prompt_loader=self.prompt_loader,
         )
 
-        self.stage3 = Stage3Service(
+        self.stage_images = StageImagesService(
             project_manager=self.project_manager,
             image_service=self.image_service,
             storage_service=self.storage_service,
@@ -72,7 +79,7 @@ class ServiceContainer:
             storage_service=self.storage_service,
         )
 
-        self.stage4 = Stage4Service(
+        self.stage_typography = StageTypographyService(
             project_manager=self.project_manager,
             rendering_service=self.rendering_service,
             storage_service=self.storage_service,
@@ -134,9 +141,14 @@ def get_prompt_loader() -> PromptLoader:
     return container.prompt_loader
 
 
-def get_stage1_service() -> Stage1Service:
-    """Provider for Stage 1 business logic service."""
-    return container.stage1
+def get_stage_research_service() -> StageResearchService:
+    """Provider for Stage Research (chat + draft extraction) service."""
+    return container.stage_research
+
+
+def get_stage_draft_service() -> StageDraftService:
+    """Provider for Stage Draft business logic service."""
+    return container.stage_draft
 
 
 def get_stage_style_service() -> StageStyleService:
@@ -144,14 +156,14 @@ def get_stage_style_service() -> StageStyleService:
     return container.stage_style
 
 
-def get_stage2_service() -> Stage2Service:
-    """Provider for Stage 2 (Image Prompts) service."""
-    return container.stage2
+def get_stage_prompts_service() -> StagePromptsService:
+    """Provider for Stage Prompts (Image Prompts) service."""
+    return container.stage_prompts
 
 
-def get_stage3_service() -> Stage3Service:
-    """Provider for Stage 3 (Image Generation) service."""
-    return container.stage3
+def get_stage_images_service() -> StageImagesService:
+    """Provider for Stage Images (Image Generation) service."""
+    return container.stage_images
 
 
 def get_rendering_service() -> RenderingService:
@@ -159,9 +171,9 @@ def get_rendering_service() -> RenderingService:
     return container.rendering_service
 
 
-def get_stage4_service() -> Stage4Service:
-    """Provider for Stage 4 (Design & Layout) service."""
-    return container.stage4
+def get_stage_typography_service() -> StageTypographyService:
+    """Provider for Stage Typography (Design & Layout) service."""
+    return container.stage_typography
 
 
 def get_export_service() -> ExportService:

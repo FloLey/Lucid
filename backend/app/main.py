@@ -12,11 +12,12 @@ from fastapi.staticfiles import StaticFiles
 from app.routes import (
     projects,
     templates,
-    stage1,
+    stage_research,
+    stage_draft,
     stage_style,
-    stage2,
-    stage3,
-    stage4,
+    stage_prompts,
+    stage_images,
+    stage_typography,
     export,
     fonts,
     config,
@@ -71,11 +72,12 @@ app.add_middleware(
 # Include routers
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(templates.router, prefix="/api/templates", tags=["templates"])
-app.include_router(stage1.router, prefix="/api/stage1", tags=["stage1"])
+app.include_router(stage_research.router, prefix="/api/stage-research", tags=["stage-research"])
+app.include_router(stage_draft.router, prefix="/api/stage-draft", tags=["stage-draft"])
 app.include_router(stage_style.router, prefix="/api/stage-style", tags=["stage-style"])
-app.include_router(stage2.router, prefix="/api/stage2", tags=["stage2"])
-app.include_router(stage3.router, prefix="/api/stage3", tags=["stage3"])
-app.include_router(stage4.router, prefix="/api/stage4", tags=["stage4"])
+app.include_router(stage_prompts.router, prefix="/api/stage-prompts", tags=["stage-prompts"])
+app.include_router(stage_images.router, prefix="/api/stage-images", tags=["stage-images"])
+app.include_router(stage_typography.router, prefix="/api/stage-typography", tags=["stage-typography"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(fonts.router, prefix="/api/fonts", tags=["fonts"])
 app.include_router(config.router, prefix="/api/config", tags=["config"])

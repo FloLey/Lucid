@@ -1,4 +1,4 @@
-"""Stage 3 service - Image prompts to Images transformation."""
+"""Stage Images service - Image prompts to Images transformation."""
 
 from __future__ import annotations
 import asyncio
@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class Stage3Service:
-    """Service for Stage 3: Image prompts to Images transformation."""
+class StageImagesService:
+    """Service for Stage Images: Image prompts to Images transformation."""
 
     project_manager: ProjectManager
     image_service: ImageService

@@ -72,13 +72,13 @@ class TestProjectManager:
         assert project.current_stage == 3
 
     def test_advance_stage_max(self):
-        """Test advancing past max stage."""
+        """Test advancing past max stage (MAX_STAGES=6)."""
         project_manager.clear_all()
         created = run_async(project_manager.create_project())
-        created.current_stage = 5
+        created.current_stage = 6
         run_async(project_manager.update_project(created))
         project = run_async(project_manager.advance_stage(created.project_id))
-        assert project.current_stage == 5  # Should not go past 5
+        assert project.current_stage == 6  # Should not go past MAX_STAGES
 
     def test_go_to_stage(self):
         """Test going to a specific stage."""
@@ -164,10 +164,10 @@ class TestProjectRoutes:
         assert data["project"]["current_stage"] == 3
 
     def test_goto_invalid_stage_route(self, client):
-        """Test going to an invalid stage."""
+        """Test going to an invalid stage (beyond MAX_STAGES=6)."""
         create_resp = client.post("/api/projects/", json={})
         project_id = create_resp.json()["project"]["project_id"]
-        response = client.post(f"/api/projects/{project_id}/goto-stage/6")
+        response = client.post(f"/api/projects/{project_id}/goto-stage/7")
         assert response.status_code == 400
 
     def test_rename_project_route(self, client):

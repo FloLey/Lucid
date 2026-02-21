@@ -1,4 +1,4 @@
-"""Stage 4 service - Typography/layout rendering."""
+"""Stage Typography service - Typography/layout rendering."""
 
 from __future__ import annotations
 import asyncio
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class Stage4Service:
-    """Service for Stage 4: Typography/layout rendering."""
+class StageTypographyService:
+    """Service for Stage Typography: Typography/layout rendering."""
 
     project_manager: ProjectManager
     rendering_service: RenderingService
@@ -30,7 +30,7 @@ class Stage4Service:
         storage_service: Optional[StorageService] = None,
     ):
         if not project_manager or not rendering_service or not storage_service:
-            raise ValueError("All dependencies must be provided to Stage4Service")
+            raise ValueError("All dependencies must be provided to StageTypographyService")
 
         self.project_manager = project_manager
         self.rendering_service = rendering_service
