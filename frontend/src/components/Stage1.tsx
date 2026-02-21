@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
@@ -34,6 +34,10 @@ export default function Stage1() {
   const [wordsPerSlide, setWordsPerSlide] = useState<string>('ai');
 
   const isSingleSlide = (project?.slide_count ?? 0) === 1;
+
+  // Keep a ref to the current projectId so polling closures can detect navigation away
+  const projectIdRef = useRef(projectId);
+  useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
 
   // Apply config defaults or session values once config is loaded
   useEffect(() => {
@@ -84,12 +88,16 @@ export default function Stage1() {
         wordsPerSlide === 'ai' ? undefined : wordsPerSlide
       );
       updateProject(sess);
-      // Poll until the background title-generation task finishes (up to 4 retries)
+      // Poll until the background title-generation task finishes (up to 4 retries).
+      // Guard against race condition: stop if the user has navigated to a different project.
       if (sess.name.startsWith('Untitled')) {
+        const pollingForId = projectId;
         let retries = 4;
         const pollTitle = async () => {
+          if (projectIdRef.current !== pollingForId) return;
           try {
-            const refreshed = await api.getProject(projectId);
+            const refreshed = await api.getProject(pollingForId);
+            if (projectIdRef.current !== pollingForId) return;
             updateProject(refreshed);
             if (refreshed.name.startsWith('Untitled') && retries-- > 0) {
               setTimeout(pollTitle, 3000);

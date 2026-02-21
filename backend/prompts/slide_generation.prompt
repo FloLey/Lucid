@@ -17,7 +17,7 @@ Create slide texts that:
 
 {additional_instructions}
 
-Word count per slide: {word_count_instruction}
+{word_count_instruction}
 
 Each slide should have: {slide_format}
 
