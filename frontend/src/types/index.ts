@@ -63,6 +63,7 @@ export interface Project {
   created_at: string;
   updated_at: string;
   current_stage: number;
+  project_config: ProjectConfig;
   draft_text: string;
   num_slides: number | null;
   include_titles: boolean;
@@ -111,6 +112,7 @@ export interface StyleConfig {
   default_font_size_px: number;
   default_text_color: string;
   default_alignment: string;
+  default_text_enabled: boolean;
   default_stroke_enabled: boolean;
   default_stroke_width_px: number;
   default_stroke_color: string;

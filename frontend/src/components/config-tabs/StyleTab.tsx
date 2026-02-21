@@ -85,6 +85,23 @@ export default function StyleTab({ config, onChange }: StyleTabProps) {
         </select>
       </div>
 
+      {/* Text Visibility */}
+      <div className="space-y-2">
+        <label className="text-sm font-semibold text-gray-900">Text Overlay</label>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="text-enabled"
+            checked={config.style.default_text_enabled ?? true}
+            onChange={(e) => onChange({ default_text_enabled: e.target.checked })}
+            className="w-4 h-4 text-lucid-600 border-gray-300 rounded focus:ring-lucid-500"
+          />
+          <label htmlFor="text-enabled" className="text-sm text-gray-700">
+            Show text overlay by default
+          </label>
+        </div>
+      </div>
+
       {/* Stroke/Outline Settings */}
       <div className="pt-4 border-t border-gray-200">
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Text Stroke/Outline</h3>

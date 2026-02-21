@@ -5,6 +5,7 @@ import logging
 from typing import Optional, TYPE_CHECKING
 
 from app.models.slide import Slide, SlideText
+from app.models.style import TextStyle, StrokeStyle
 from app.models.project import ProjectState
 from app.services.prompt_loader import PromptLoader
 
@@ -35,6 +36,24 @@ class Stage1Service:
         self.project_manager = project_manager
         self.gemini_service = gemini_service
         self.prompt_loader = prompt_loader or PromptLoader()
+
+    @staticmethod
+    def _style_from_config(project: ProjectState) -> TextStyle:
+        """Build a TextStyle seeded from the project's config defaults."""
+        cfg = project.project_config.style
+        return TextStyle(
+            font_family=cfg.default_font_family,
+            font_weight=cfg.default_font_weight,
+            font_size_px=cfg.default_font_size_px,
+            text_color=cfg.default_text_color,
+            alignment=cfg.default_alignment,
+            text_enabled=cfg.default_text_enabled,
+            stroke=StrokeStyle(
+                enabled=cfg.default_stroke_enabled,
+                width_px=cfg.default_stroke_width_px,
+                color=cfg.default_stroke_color,
+            ),
+        )
 
     @staticmethod
     def _build_word_count_instruction(words_per_slide: Optional[str]) -> str:
@@ -89,7 +108,13 @@ class Stage1Service:
 
         # Handle "keep as is" — skip AI, use draft text directly as single slide
         if words_per_slide == "keep_as_is":
-            project.slides = [Slide(index=0, text=SlideText(body=draft_text))]
+            project.slides = [
+                Slide(
+                    index=0,
+                    text=SlideText(body=draft_text),
+                    style=self._style_from_config(project),
+                )
+            ]
             project.num_slides = 1
             await self.project_manager.update_project(project)
             return project
@@ -136,6 +161,8 @@ class Stage1Service:
 
         max_slides = num_slides if num_slides is not None else 10
 
+        default_style = self._style_from_config(project)
+
         for i, slide_data in enumerate(slides_data[:max_slides]):
             slide = Slide(
                 index=i,
@@ -143,6 +170,7 @@ class Stage1Service:
                     title=slide_data.get("title") if include_titles else None,
                     body=slide_data.get("body", ""),
                 ),
+                style=default_style.model_copy(deep=True),
             )
             project.slides.append(slide)
 
@@ -154,6 +182,7 @@ class Stage1Service:
                         text=SlideText(
                             body=f"Slide {len(project.slides) + 1} content"
                         ),
+                        style=default_style.model_copy(deep=True),
                     )
                 )
 
