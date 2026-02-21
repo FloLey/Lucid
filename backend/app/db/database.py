@@ -46,9 +46,20 @@ async def get_db() -> AsyncSession:
 
 
 async def init_db(eng: AsyncEngine | None = None) -> None:
-    """Create all tables if they don't exist."""
+    """Create all tables if they don't exist, then apply schema migrations."""
     from app.db import models as _  # noqa: F401 — ensure models are registered
+    from sqlalchemy import text
 
     target = eng or engine
     async with target.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # Migration: drop 'mode' from projects if it still exists (removed in v0.2)
+        result = await conn.execute(text("PRAGMA table_info(projects)"))
+        if "mode" in {row[1] for row in result.fetchall()}:
+            await conn.execute(text("ALTER TABLE projects DROP COLUMN mode"))
+
+        # Migration: drop 'default_mode' from templates if it still exists (removed in v0.2)
+        result = await conn.execute(text("PRAGMA table_info(templates)"))
+        if "default_mode" in {row[1] for row in result.fetchall()}:
+            await conn.execute(text("ALTER TABLE templates DROP COLUMN default_mode"))
