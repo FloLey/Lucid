@@ -90,7 +90,9 @@ export default function Stage1() {
           try {
             const refreshed = await api.getProject(projectId);
             updateProject(refreshed);
-          } catch { /* best-effort */ }
+          } catch (err) {
+            console.error('Failed to re-fetch project for title update:', err);
+          }
         }, 3000);
       }
     } catch (err) {
