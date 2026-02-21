@@ -33,6 +33,10 @@ class GlobalDefaultsConfig(BaseModel):
     include_titles: bool = Field(
         default=True, description="Include titles in slides by default"
     )
+    words_per_slide: Optional[str] = Field(
+        default=None,
+        description="Default words-per-slide setting (short/medium/long/keep_as_is/ai)",
+    )
 
     @field_validator("num_slides")
     @classmethod

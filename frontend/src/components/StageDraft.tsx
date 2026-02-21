@@ -49,10 +49,13 @@ export default function Stage1() {
     setIncludeTitles(project.include_titles ?? cfg?.global_defaults.include_titles ?? true);
     setLanguage(project.language || cfg?.global_defaults.language || 'English');
 
-    // Instructions are sourced differently for new vs existing projects
+    // Instructions and wordsPerSlide are sourced differently for new vs existing projects
     if (isNewProject) {
       if (cfg?.stage_instructions.stage1) {
         setInstructions(cfg.stage_instructions.stage1);
+      }
+      if (cfg?.global_defaults.words_per_slide) {
+        setWordsPerSlide(cfg.global_defaults.words_per_slide);
       }
     } else {
       setInstructions(project.additional_instructions || '');

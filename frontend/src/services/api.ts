@@ -179,11 +179,13 @@ export const generatePrompts = async (
 
 export const regeneratePrompt = async (
   projectId: string,
-  slideIndex: number
+  slideIndex: number,
+  instruction?: string
 ): Promise<Project> => {
   const response = await api.post('/stage-prompts/regenerate', {
     project_id: projectId,
     slide_index: slideIndex,
+    instruction,
   });
   return response.data.project;
 };

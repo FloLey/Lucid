@@ -107,6 +107,7 @@ export interface GlobalDefaultsConfig {
   num_slides: number | null;
   language: string;
   include_titles: boolean;
+  words_per_slide: string | null;
 }
 
 export interface ImageConfig {

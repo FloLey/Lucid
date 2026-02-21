@@ -26,7 +26,6 @@ class TestProjectManager:
         project = run_async(project_manager.create_project())
         assert project.project_id is not None
         assert project.current_stage == 1
-        assert project.mode == "carousel"
 
     def test_create_project_single_slide(self):
         """Test creating a single-slide project."""

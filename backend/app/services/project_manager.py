@@ -33,7 +33,6 @@ def _state_to_db_row(project: ProjectState) -> dict:
         exclude={
             "project_id",
             "name",
-            "mode",
             "slide_count",
             "current_stage",
             "project_config",
@@ -45,7 +44,6 @@ def _state_to_db_row(project: ProjectState) -> dict:
     return {
         "id": project.project_id,
         "name": project.name,
-        "mode": project.mode,
         "slide_count": project.slide_count,
         "current_stage": project.current_stage,
         "project_config": project.project_config.model_dump(mode="json"),
@@ -64,7 +62,6 @@ def _db_row_to_state(row: ProjectDB) -> ProjectState:
         {
             "project_id": row.id,
             "name": row.name,
-            "mode": row.mode,
             "slide_count": row.slide_count,
             "current_stage": row.current_stage,
             "project_config": row.project_config,

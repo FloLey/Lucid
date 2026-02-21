@@ -17,7 +17,6 @@ class ProjectDB(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    mode: Mapped[str] = mapped_column(String, nullable=False, default="carousel")
     slide_count: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     current_stage: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     project_config: Mapped[Any] = mapped_column(JSON, nullable=False)
@@ -34,9 +33,6 @@ class TemplateDB(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    default_mode: Mapped[str] = mapped_column(
-        String, nullable=False, default="carousel"
-    )
     default_slide_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=5
     )

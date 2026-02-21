@@ -161,7 +161,6 @@ class TestProjectState:
         assert project.num_slides is None
         assert project.include_titles is True
         assert len(project.slides) == 0
-        assert project.mode == "carousel"
 
     def test_project_with_slides(self):
         """Test project with slides."""
