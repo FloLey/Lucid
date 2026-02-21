@@ -129,6 +129,27 @@ Create a master-level image generation prompt that fuses the subject with the ar
 - This is a complete, standalone artwork. Do NOT leave empty negative space for text.
 - EXPLICITLY FORBID: text, signatures, watermarks, borders, and UI elements.
 Respond with JSON: {response_format}""",
+
+    "regenerate_single_slide": """\
+You are a conceptual writer refining the subject description for a painting.
+
+Original concept:
+{draft_text}
+
+{language_instruction}
+
+Current subject description:
+{current_text}
+
+{instruction_text}
+
+{title_instruction}
+
+Rewrite the subject description to be more evocative and meaningful. Focus entirely on *what* is depicted — the story, the symbolism, and the emotional landscape. Do not describe art style, brushstrokes, or lighting; those are defined separately. The rewrite must stand alone as the definitive subject of the artwork.
+
+Respond with JSON:
+{response_format}
+""",
 }
 
 
