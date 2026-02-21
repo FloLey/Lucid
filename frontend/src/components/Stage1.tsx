@@ -84,16 +84,21 @@ export default function Stage1() {
         wordsPerSlide === 'ai' ? undefined : wordsPerSlide
       );
       updateProject(sess);
-      // Re-fetch after a delay so the background title-generation task can finish
+      // Poll until the background title-generation task finishes (up to 4 retries)
       if (sess.name.startsWith('Untitled')) {
-        setTimeout(async () => {
+        let retries = 4;
+        const pollTitle = async () => {
           try {
             const refreshed = await api.getProject(projectId);
             updateProject(refreshed);
+            if (refreshed.name.startsWith('Untitled') && retries-- > 0) {
+              setTimeout(pollTitle, 3000);
+            }
           } catch (err) {
             console.error('Failed to re-fetch project for title update:', err);
           }
-        }, 3000);
+        };
+        setTimeout(pollTitle, 3000);
       }
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate slide texts'));
@@ -225,12 +230,11 @@ export default function Stage1() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Additional Instructions (optional)
               </label>
-              <input
-                type="text"
+              <textarea
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="e.g., Make it conversational, target entrepreneurs"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+                className="w-full h-20 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-lucid-500 focus:border-transparent"
               />
             </div>
           )}

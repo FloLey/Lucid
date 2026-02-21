@@ -7,16 +7,17 @@ Draft text:
 
 Create slide texts that:
 1. Transform the rough draft into clear, engaging messages
-2. {word_count_instruction}
-3. Use conversational language
-4. Maintain logical flow between slides
-5. First slide should hook the reader
+2. Use conversational language
+3. Maintain logical flow between slides
+4. First slide should hook the reader
 
 {language_instruction}
 
 {title_instruction}
 
 {additional_instructions}
+
+Word count per slide: {word_count_instruction}
 
 Each slide should have: {slide_format}
 
