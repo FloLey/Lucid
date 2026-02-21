@@ -21,9 +21,9 @@ def client():
 
 @pytest.fixture
 def mock_gemini_chat():
-    """Mock generate_chat_response to return a predictable reply."""
+    """Mock generate_chat_response to return a predictable (reply, grounded) tuple."""
     async def _mock_chat(*args, **kwargs):
-        return "Here is some useful research about the topic."
+        return "Here is some useful research about the topic.", False
 
     with patch.object(
         container.stage_research.gemini_service,
@@ -147,8 +147,8 @@ class TestStageResearchService:
         assert project is not None
         assert project.draft_text == "This is the synthesised draft from the research conversation."
 
-    def test_extract_draft_advances_to_stage_2(self, mock_gemini_text):
-        """extract_draft sets current_stage to 2 (Stage Draft) if it was 1."""
+    def test_extract_draft_does_not_advance_stage(self, mock_gemini_text):
+        """extract_draft does NOT advance the stage — the user must proceed manually."""
         project_manager.clear_all()
         created = run_async(project_manager.create_project())
         assert created.current_stage == 1
@@ -157,10 +157,11 @@ class TestStageResearchService:
             research_service.extract_draft(project_id=created.project_id)
         )
 
-        assert project.current_stage == 2
+        # Stage must remain at 1 — user proceeds manually via go_to_stage
+        assert project.current_stage == 1
 
     def test_extract_draft_does_not_lower_stage(self, mock_gemini_text):
-        """extract_draft does not reset stage if the project is already past stage 2."""
+        """extract_draft does not reset stage if the project is already past stage 1."""
         project_manager.clear_all()
         created = run_async(project_manager.create_project())
         created.current_stage = 3
@@ -240,7 +241,7 @@ class TestStageResearchRoutes:
         assert response.status_code == 404
 
     def test_extract_draft_route(self, client, mock_gemini_text):
-        """POST /extract-draft returns the project with draft_text and stage 2."""
+        """POST /extract-draft returns the project with draft_text; stage stays at 1."""
         create_resp = client.post("/api/projects/", json={})
         project_id = create_resp.json()["project"]["project_id"]
 
@@ -256,7 +257,8 @@ class TestStageResearchRoutes:
         data = response.json()
         project = data["project"]
         assert project["draft_text"] != ""
-        assert project["current_stage"] == 2
+        # Stage is NOT advanced automatically — user proceeds manually
+        assert project["current_stage"] == 1
         assert project["research_instructions"] == "Keep it brief"
 
     def test_extract_draft_route_no_instructions(self, client, mock_gemini_text):

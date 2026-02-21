@@ -18,9 +18,12 @@ export default function StageResearch() {
   const [message, setMessage] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [extractLoading, setExtractLoading] = useState(false);
+  const [proceedLoading, setProceedLoading] = useState(false);
   const [researchInstructions, setResearchInstructions] = useState(
     project?.research_instructions ?? ''
   );
+  // Optimistic user message shown while waiting for the AI reply
+  const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -31,18 +34,20 @@ export default function StageResearch() {
     }
   }, [project?.research_instructions]);
 
-  // Auto-scroll to the bottom whenever chat history grows
+  // Auto-scroll to the bottom whenever chat history grows or a pending message is added
   useEffect(() => {
     chatEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
-  }, [project?.chat_history]);
+  }, [project?.chat_history, pendingUserMessage, chatLoading]);
 
   const chatHistory: ChatMessage[] = project?.chat_history ?? [];
+  const hasDraft = Boolean(project?.draft_text?.trim());
 
   const handleSend = async () => {
     const trimmed = message.trim();
     if (!trimmed || chatLoading) return;
 
     setMessage('');
+    setPendingUserMessage(trimmed);
     setChatLoading(true);
     setError(null);
     try {
@@ -50,7 +55,10 @@ export default function StageResearch() {
       updateProject(updated);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to send message'));
+      // Restore message so user can retry
+      setMessage(trimmed);
     } finally {
+      setPendingUserMessage(null);
       setChatLoading(false);
     }
   };
@@ -79,6 +87,20 @@ export default function StageResearch() {
     }
   };
 
+  const handleProceedToStage2 = async () => {
+    if (proceedLoading) return;
+    setProceedLoading(true);
+    setError(null);
+    try {
+      const updated = await api.goToStage(projectId, 2);
+      updateProject(updated);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Navigation failed'));
+    } finally {
+      setProceedLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full" style={{ minHeight: '70vh' }}>
       {/* ── Left column: Chat UI ───────────────────────────────────────── */}
@@ -95,7 +117,7 @@ export default function StageResearch() {
 
         {/* Message list */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {chatHistory.length === 0 && (
+          {chatHistory.length === 0 && !pendingUserMessage && (
             <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 dark:text-gray-500 py-12">
               <svg className="w-12 h-12 mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -121,17 +143,37 @@ export default function StageResearch() {
                 }`}
               >
                 {turn.role === 'model' ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {turn.content}
-                    </ReactMarkdown>
-                  </div>
+                  <>
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {turn.content}
+                      </ReactMarkdown>
+                    </div>
+                    {turn.grounded && (
+                      <div className="mt-2 flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                        </svg>
+                        <span>Grounded with Google Search</span>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <span>{turn.content}</span>
                 )}
               </div>
             </div>
           ))}
+
+          {/* Optimistic user message shown immediately while waiting for reply */}
+          {pendingUserMessage && (
+            <div className="flex justify-end">
+              <div className="max-w-[85%] rounded-2xl rounded-br-sm px-4 py-3 text-sm leading-relaxed bg-lucid-600 text-white opacity-80">
+                <span>{pendingUserMessage}</span>
+              </div>
+            </div>
+          )}
 
           {chatLoading && (
             <div className="flex justify-start">
@@ -167,12 +209,13 @@ export default function StageResearch() {
 
       {/* ── Right column: Extraction panel ────────────────────────────── */}
       <div className="w-full lg:w-80 flex flex-col gap-4 shrink-0">
+        {/* Create Draft section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
             Create Draft
           </h3>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-            Summarise the conversation into a draft, then continue to the Draft stage.
+            Summarise the conversation into a draft text.
           </p>
 
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -196,7 +239,7 @@ export default function StageResearch() {
                 <span>Creating draft…</span>
               </>
             ) : (
-              'Create Draft & Proceed →'
+              hasDraft ? 'Regenerate Draft' : 'Create Draft'
             )}
           </button>
 
@@ -206,6 +249,36 @@ export default function StageResearch() {
             </p>
           )}
         </div>
+
+        {/* Draft preview + proceed section */}
+        {hasDraft && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-lucid-200 dark:border-lucid-700 p-5">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+              <svg className="w-4 h-4 text-lucid-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Draft Ready
+            </h3>
+            <div className="max-h-48 overflow-y-auto rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+              {project?.draft_text}
+            </div>
+            <button
+              onClick={handleProceedToStage2}
+              disabled={proceedLoading}
+              className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {proceedLoading ? (
+                <>
+                  <Spinner />
+                  <span>Proceeding…</span>
+                </>
+              ) : (
+                'Proceed to Draft Stage →'
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Skip option */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 p-5">

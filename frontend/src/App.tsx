@@ -25,13 +25,26 @@ function AppContent() {
     createNewProject,
     deleteProject,
     goToStage,
+    renameCurrentProject,
+    generateProjectTitle,
   } = useProject();
 
   const { isDark, toggle: toggleDark } = useDarkMode();
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showTemplatesPage, setShowTemplatesPage] = useState(false);
+  const [isGeneratingName, setIsGeneratingName] = useState(false);
 
   const currentStage = currentProject?.current_stage ?? 1;
+  const hasSlides = (currentProject?.slides?.length ?? 0) > 0;
+
+  const handleGenerateName = async () => {
+    setIsGeneratingName(true);
+    try {
+      await generateProjectTitle();
+    } finally {
+      setIsGeneratingName(false);
+    }
+  };
 
   const renderCurrentStage = () => {
     switch (currentStage) {
@@ -53,6 +66,10 @@ function AppContent() {
           onBack={currentProject ? closeProject : null}
           isDark={isDark}
           onToggleDark={toggleDark}
+          onRename={currentProject ? renameCurrentProject : undefined}
+          onGenerateName={currentProject ? handleGenerateName : undefined}
+          canGenerateName={hasSlides}
+          isGeneratingName={isGeneratingName}
         />
 
         {currentProject && (

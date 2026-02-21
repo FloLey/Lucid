@@ -85,6 +85,9 @@ class ProjectState(BaseModel):
     chat_history: List[Dict[str, Any]] = Field(default_factory=list)
     research_instructions: Optional[str] = Field(default=None)
 
+    # Whether the project name was set manually by the user (suppresses auto-rename)
+    name_manually_set: bool = Field(default=False)
+
     # Stage Draft inputs
     draft_text: str = Field(default="", description="Original draft text")
     num_slides: Optional[int] = Field(default=None, ge=1, le=20)

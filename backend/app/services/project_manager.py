@@ -188,13 +188,22 @@ class ProjectManager:
         ]
 
     async def rename_project(
-        self, project_id: str, name: str
+        self, project_id: str, name: str, manually_set: bool = True
     ) -> Optional[ProjectState]:
-        """Update the project name."""
+        """Update the project name.
+
+        Args:
+            project_id: The project to rename.
+            name: New name for the project.
+            manually_set: If True (default), marks the name as user-set so
+                          auto-rename is suppressed on future slide generation.
+                          Pass False when renaming via AI title generation.
+        """
         project = await self.get_project(project_id)
         if not project:
             return None
         project.name = name
+        project.name_manually_set = manually_set
         return await self.update_project(project)
 
     # ------------------------------------------------------------------

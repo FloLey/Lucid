@@ -9,6 +9,7 @@ from app.models.project import ProjectState
 from app.models.style_proposal import StyleProposal
 from app.services.prompt_loader import PromptLoader
 from app.services.storage_service import StorageService
+from app.services.llm_logger import set_project_context
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -57,6 +58,7 @@ class StageStyleService:
         concurrency_limit: int = 5,
     ) -> Optional[ProjectState]:
         """Generate style proposals with preview images."""
+        set_project_context(project_id)
         project = await self.project_manager.get_project(project_id)
         if not project or not project.slides:
             return None
@@ -117,7 +119,11 @@ class StageStyleService:
             *[generate_preview(i, p) for i, p in enumerate(raw_proposals)]
         )
 
+        old_proposals = project.style_proposals
         project.style_proposals = list(proposals)
+        # Delete old proposal preview images from disk after replacing them
+        for old in old_proposals:
+            self.storage_service.delete_image(old.preview_image)
         project.selected_style_proposal_index = None
         # Use the first proposal's preview as the initial thumbnail
         if proposals and proposals[0].preview_image:

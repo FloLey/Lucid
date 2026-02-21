@@ -7,6 +7,7 @@ from typing import Optional, TYPE_CHECKING
 
 from app.models.project import ProjectState
 from app.services.prompt_loader import PromptLoader
+from app.services.llm_logger import set_project_context
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -82,6 +83,7 @@ class StagePromptsService:
         concurrency_limit: int = 10,
     ) -> Optional[ProjectState]:
         """Generate image prompts for all slides in parallel."""
+        set_project_context(project_id)
         project = await self.project_manager.get_project(project_id)
         if not project or not project.slides:
             return None

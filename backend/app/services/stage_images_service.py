@@ -109,6 +109,11 @@ class StageImagesService:
         b64 = await self.image_service.generate_image(full_prompt)
         slide.background_image_url = self.storage_service.save_image_to_disk(b64)
 
+        # Keep the project thumbnail in sync: if this slide was the thumbnail source,
+        # update it so the project list doesn't show a broken image.
+        if slide_index == 0:
+            project.thumbnail_url = slide.background_image_url
+
         await self.project_manager.update_project(project)
         return project
 
