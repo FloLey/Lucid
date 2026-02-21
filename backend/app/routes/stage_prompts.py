@@ -33,6 +33,10 @@ class RegeneratePromptRequest(BaseModel):
 
     project_id: str
     slide_index: int = Field(ge=0)
+    instruction: Optional[str] = Field(
+        default=None,
+        description="Specific instruction for this regeneration (e.g., 'Make the background darker')",
+    )
 
 
 class UpdatePromptRequest(BaseModel):
@@ -76,6 +80,7 @@ async def regenerate_prompt(
         lambda: stage_prompts_service.regenerate_prompt(
             project_id=request.project_id,
             slide_index=request.slide_index,
+            instruction=request.instruction,
         ),
         "Failed to regenerate prompt",
     )

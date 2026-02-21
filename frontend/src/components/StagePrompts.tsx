@@ -18,6 +18,8 @@ export default function Stage3() {
   } = useProject();
 
   const [styleInstructions, setStyleInstructions] = useState('');
+  const [regenInstructionSlide, setRegenInstructionSlide] = useState<number | null>(null);
+  const [regenInstruction, setRegenInstruction] = useState('');
 
   // Sync style instructions when project changes
   useEffect(() => {
@@ -52,10 +54,12 @@ export default function Stage3() {
     }
   };
 
-  const handleRegeneratePrompt = async (index: number) => {
+  const handleRegeneratePrompt = async (index: number, instruction?: string) => {
+    setRegenInstructionSlide(null);
+    setRegenInstruction('');
     setLoading(true);
     try {
-      const sess = await api.regeneratePrompt(projectId, index);
+      const sess = await api.regeneratePrompt(projectId, index, instruction || undefined);
       updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to regenerate prompt'));
@@ -181,7 +185,15 @@ export default function Stage3() {
                         {editingPrompt === index ? 'Cancel' : 'Edit'}
                       </button>
                       <button
-                        onClick={() => handleRegeneratePrompt(index)}
+                        onClick={() => {
+                          if (regenInstructionSlide === index) {
+                            setRegenInstructionSlide(null);
+                            setRegenInstruction('');
+                          } else {
+                            setRegenInstructionSlide(index);
+                            setRegenInstruction('');
+                          }
+                        }}
                         disabled={loading}
                         className="text-xs text-lucid-600 hover:text-lucid-700"
                       >
@@ -189,6 +201,29 @@ export default function Stage3() {
                       </button>
                     </div>
                   </div>
+
+                  {regenInstructionSlide === index && !loading && (
+                    <div className="mb-2 flex gap-2">
+                      <input
+                        type="text"
+                        value={regenInstruction}
+                        onChange={(e) => setRegenInstruction(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRegeneratePrompt(index, regenInstruction);
+                          if (e.key === 'Escape') { setRegenInstructionSlide(null); setRegenInstruction(''); }
+                        }}
+                        placeholder="Instruction (optional), Enter to regenerate"
+                        className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleRegeneratePrompt(index, regenInstruction)}
+                        className="px-2 py-1 text-xs bg-lucid-600 text-white rounded-lg hover:bg-lucid-700"
+                      >
+                        Go
+                      </button>
+                    </div>
+                  )}
 
                   {editingPrompt === index ? (
                     <PromptEditor

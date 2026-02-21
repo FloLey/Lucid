@@ -70,7 +70,6 @@ class ProjectState(BaseModel):
 
     project_id: str = Field(description="Unique project identifier (UUID)")
     name: str = Field(default="Untitled Project")
-    mode: str = Field(default="carousel", description="carousel or single_image")
     slide_count: int = Field(default=5, ge=1, le=20)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -178,7 +177,6 @@ class TemplateData(BaseModel):
 
     id: str
     name: str
-    default_mode: str
     default_slide_count: int
     config: ProjectConfig
     created_at: datetime
