@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
@@ -32,6 +32,10 @@ export default function Stage1() {
   const [wordsPerSlide, setWordsPerSlide] = useState<string>('ai');
 
   const isSingleSlide = (project?.slide_count ?? 0) === 1;
+
+  // Keep a ref to the current projectId so polling closures can detect navigation away
+  const projectIdRef = useRef(projectId);
+  useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
 
   // Apply project-scoped config defaults or existing session values
   useEffect(() => {
@@ -79,16 +83,25 @@ export default function Stage1() {
         wordsPerSlide === 'ai' ? undefined : wordsPerSlide
       );
       updateProject(sess);
-      // Re-fetch after a delay so the background title-generation task can finish
+      // Poll until the background title-generation task finishes (up to 4 retries).
+      // Guard against race condition: stop if the user has navigated to a different project.
       if (sess.name.startsWith('Untitled')) {
-        setTimeout(async () => {
+        const pollingForId = projectId;
+        let retries = 4;
+        const pollTitle = async () => {
+          if (projectIdRef.current !== pollingForId) return;
           try {
-            const refreshed = await api.getProject(projectId);
+            const refreshed = await api.getProject(pollingForId);
+            if (projectIdRef.current !== pollingForId) return;
             updateProject(refreshed);
+            if (refreshed.name.startsWith('Untitled') && retries-- > 0) {
+              setTimeout(pollTitle, 3000);
+            }
           } catch (err) {
             console.error('Failed to re-fetch project for title update:', err);
           }
-        }, 3000);
+        };
+        setTimeout(pollTitle, 3000);
       }
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate slide texts'));
@@ -220,12 +233,11 @@ export default function Stage1() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Additional Instructions (optional)
               </label>
-              <input
-                type="text"
+              <textarea
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="e.g., Make it conversational, target entrepreneurs"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+                className="w-full h-20 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-lucid-500 focus:border-transparent"
               />
             </div>
           )}
