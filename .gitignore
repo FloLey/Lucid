@@ -222,3 +222,4 @@ __marimo__/
 codebase_dump.txt
 *.ttf
 .dump_config.json
+data/images/*
