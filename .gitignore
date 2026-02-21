@@ -149,8 +149,11 @@ venv.bak/
 # Session persistence (local development)
 backend/data/
 
-# LLM debug logs
-backend/logs/
+# LLM debug logs (track directory structure but not log contents)
+backend/logs/**
+!backend/logs/.gitkeep
+!backend/logs/projects/
+!backend/logs/projects/.gitkeep
 
 # User configuration
 config.json
