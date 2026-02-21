@@ -1,4 +1,6 @@
 # Lucid 🌠
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/FloLey/Lucid)
+
 **Transform rough drafts into polished, high-converting social media carousels.**
 Lucid is a containerized web application that orchestrates a sophisticated pipeline to convert your messy, unstructured ideas into beautiful, ready-to-publish 4:5 carousel slides. Built with a FastAPI backend and a React/TypeScript frontend, it leverages Google Gemini for creative heavy lifting and a deterministic rendering engine for pixel-perfect typography.
 ---
@@ -46,7 +48,7 @@ You can save any project configuration as a reusable **Template**. Future projec
 The fastest way to run Lucid with zero local setup:
 
 1. **Set your API key** as a Codespaces secret — go to [github.com/settings/codespaces](https://github.com/settings/codespaces), add a secret named `GOOGLE_API_KEY` with your key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey), and grant it access to this repository.
-2. **Open the Codespace** — click the green **Code** button on the repo → **Codespaces** → **Create codespace on main**.
+2. **Open the Codespace** — click the badge above or go to [codespaces.new/FloLey/Lucid](https://codespaces.new/FloLey/Lucid).
 3. The app builds and launches automatically. The browser tab for port **5173** opens when ready.
 
 > The `GOOGLE_API_KEY` secret is injected into the Docker Compose environment automatically — no `.env` file needed.
