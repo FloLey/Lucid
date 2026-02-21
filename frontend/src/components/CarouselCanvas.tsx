@@ -50,7 +50,7 @@ export default function CarouselCanvas({
         )}
 
         {/* Title box overlay */}
-        {hasTitle && style && (
+        {hasTitle && style && style.text_enabled && (
           <TextBoxOverlay
             text={localTitle!}
             box={style.title_box}
@@ -68,7 +68,7 @@ export default function CarouselCanvas({
         )}
 
         {/* Body box overlay */}
-        {localBody && style && (
+        {localBody && style && style.text_enabled && (
           <TextBoxOverlay
             text={localBody}
             box={style.body_box}

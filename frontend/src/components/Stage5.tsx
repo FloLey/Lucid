@@ -92,25 +92,14 @@ export default function Stage5() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-render when style changes
-  const renderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Auto-render when style changes (fires when styleUpdating transitions true → false)
+  const prevStyleUpdatingRef = useRef(false);
   useEffect(() => {
-    if (renderTimerRef.current) {
-      clearTimeout(renderTimerRef.current);
+    const wasUpdating = prevStyleUpdatingRef.current;
+    prevStyleUpdatingRef.current = styleUpdating;
+    if (wasUpdating && !styleUpdating) {
+      renderSlide();
     }
-
-    // Schedule render after a short delay when style is updating
-    if (styleUpdating) {
-      renderTimerRef.current = setTimeout(() => {
-        renderSlide();
-      }, 100);
-    }
-
-    return () => {
-      if (renderTimerRef.current) {
-        clearTimeout(renderTimerRef.current);
-      }
-    };
   }, [styleUpdating, renderSlide]);
 
   const handleBack = useCallback(async () => {
