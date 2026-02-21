@@ -7,6 +7,13 @@ import { SLIDE_COUNT_OPTIONS, LANGUAGES } from '../constants';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
 
+const WORDS_PER_SLIDE_OPTIONS = [
+  { value: 'ai', label: 'Let AI decide' },
+  { value: 'short', label: 'Short (20–50 words)' },
+  { value: 'medium', label: 'Medium (50–100 words)' },
+  { value: 'long', label: 'Long (100–200 words)' },
+];
+
 export default function Stage1() {
   const {
     projectId,
@@ -24,28 +31,27 @@ export default function Stage1() {
   const [includeTitles, setIncludeTitles] = useState(true);
   const [language, setLanguage] = useState('English');
   const [instructions, setInstructions] = useState('');
+  const [wordsPerSlide, setWordsPerSlide] = useState<string>('ai');
+
+  const isSingleSlide = (project?.slide_count ?? 0) === 1;
 
   // Apply config defaults or session values once config is loaded
   useEffect(() => {
     if (!config) return;
 
-    // For a new session (no slides yet), use config defaults
     const isNewProject = !project?.slides || project.slides.length === 0;
 
     if (isNewProject) {
-      // Use config defaults for new sessions
       setNumSlides(config.global_defaults.num_slides);
       setIncludeTitles(config.global_defaults.include_titles);
       setLanguage(config.global_defaults.language);
       if (config.stage_instructions.stage1) {
         setInstructions(config.stage_instructions.stage1);
       }
-      // Draft may have been stored via chat before slides are generated
       if (project?.draft_text) {
         setDraftText(project.draft_text);
       }
     } else {
-      // Use project values for existing projects
       setDraftText(project?.draft_text || '');
       setNumSlides(project?.num_slides ?? config.global_defaults.num_slides);
       setIncludeTitles(project?.include_titles ?? config.global_defaults.include_titles);
@@ -71,10 +77,11 @@ export default function Stage1() {
       const sess = await api.generateSlideTexts(
         projectId,
         draftText,
-        numSlides ?? undefined,
+        wordsPerSlide === 'keep_as_is' ? undefined : (numSlides ?? undefined),
         includeTitles,
         instructions || undefined,
-        language
+        language,
+        wordsPerSlide === 'ai' ? undefined : wordsPerSlide
       );
       updateProject(sess);
     } catch (err) {
@@ -114,6 +121,13 @@ export default function Stage1() {
 
   const slides = project?.slides || [];
   const hasSlides = slides.length > 0;
+  const isKeepAsIs = wordsPerSlide === 'keep_as_is';
+
+  const generateButtonLabel = () => {
+    if (loading) return isKeepAsIs ? 'Applying...' : 'Generating...';
+    if (isKeepAsIs) return hasSlides ? 'Apply Draft as Slide' : 'Use Draft as Slide';
+    return hasSlides ? 'Regenerate All' : 'Generate Slides';
+  };
 
   return (
     <StageLayout
@@ -128,74 +142,94 @@ export default function Stage1() {
             className="w-full h-48 px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-lucid-500 focus:border-transparent"
           />
 
-          <div className="mt-4 grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Number of Slides
-              </label>
-              <select
-                value={numSlides ?? 'auto'}
-                onChange={(e) => setNumSlides(e.target.value === 'auto' ? null : Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
-              >
-                <option value="auto">Let AI decide</option>
-                {SLIDE_COUNT_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n} slides
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Language
-              </label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
-              >
-                {LANGUAGES.map((lang) => (
-                  <option key={lang} value={lang}>
-                    {lang}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeTitles}
-                  onChange={(e) => setIncludeTitles(e.target.checked)}
-                  className="w-4 h-4 text-lucid-600 rounded focus:ring-lucid-500"
-                />
-                <span className="text-sm font-medium text-gray-700">Include titles</span>
-              </label>
-            </div>
-          </div>
-
+          {/* Words per slide */}
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Additional Instructions (optional)
+              Text length per slide
             </label>
-            <input
-              type="text"
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              placeholder="e.g., Make it conversational, target entrepreneurs"
+            <select
+              value={wordsPerSlide}
+              onChange={(e) => setWordsPerSlide(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
-            />
+            >
+              {WORDS_PER_SLIDE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+              {isSingleSlide && (
+                <option value="keep_as_is">Keep as is (use draft text directly)</option>
+              )}
+            </select>
           </div>
+
+          {/* Slides / Language / Titles — hidden when keep_as_is */}
+          {!isKeepAsIs && (
+            <div className="mt-4 grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Number of Slides
+                </label>
+                <select
+                  value={numSlides ?? 'auto'}
+                  onChange={(e) => setNumSlides(e.target.value === 'auto' ? null : Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+                >
+                  <option value="auto">Let AI decide</option>
+                  {SLIDE_COUNT_OPTIONS.map((n) => (
+                    <option key={n} value={n}>{n} slides</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Language
+                </label>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+                >
+                  {LANGUAGES.map((lang) => (
+                    <option key={lang} value={lang}>{lang}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeTitles}
+                    onChange={(e) => setIncludeTitles(e.target.checked)}
+                    className="w-4 h-4 text-lucid-600 rounded focus:ring-lucid-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Include titles</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {!isKeepAsIs && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Additional Instructions (optional)
+              </label>
+              <input
+                type="text"
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="e.g., Make it conversational, target entrepreneurs"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+              />
+            </div>
+          )}
 
           <button
             onClick={handleGenerate}
             disabled={loading || !draftText.trim()}
             className="mt-6 w-full py-3 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Generating...' : hasSlides ? 'Regenerate All' : 'Generate Slides'}
+            {generateButtonLabel()}
           </button>
         </div>
       }
@@ -215,12 +249,8 @@ export default function Stage1() {
 
           <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1">
             {loading && regeneratingSlides.size === 0 ? (
-              // Generating all slides — show spinner placeholders
-              Array.from({ length: numSlides ?? 3 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
-                >
+              Array.from({ length: isKeepAsIs ? 1 : (numSlides ?? 3) }).map((_, index) => (
+                <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                   <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
                   <div className="flex items-center gap-3 mt-3 text-gray-400">
                     <Spinner size="sm" />
@@ -231,19 +261,14 @@ export default function Stage1() {
             ) : !hasSlides ? (
               <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
                 <p className="text-gray-500">
-                  Enter your draft and click "Generate Slides" to create slide texts
+                  Enter your draft and click "{isSingleSlide ? 'Use Draft as Slide' : 'Generate Slides'}" to create slide texts
                 </p>
               </div>
             ) : (
               slides.map((slide, index) => (
-                <div
-                  key={index}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
-                >
+                <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                   <div className="flex items-start justify-between mb-2">
-                    <span className="text-sm font-medium text-lucid-600">
-                      Slide {index + 1}
-                    </span>
+                    <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setEditingSlide(editingSlide === index ? null : index)}
@@ -308,9 +333,7 @@ export default function Stage1() {
                   ) : (
                     <>
                       {slide.text.title && (
-                        <h3 className="font-semibold text-gray-900 mb-1">
-                          {slide.text.title}
-                        </h3>
+                        <h3 className="font-semibold text-gray-900 mb-1">{slide.text.title}</h3>
                       )}
                       <p className="text-gray-700 text-sm">{slide.text.body}</p>
                     </>

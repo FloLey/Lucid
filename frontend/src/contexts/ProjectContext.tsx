@@ -16,7 +16,7 @@ interface ProjectContextValue {
   updateProject: (project: Project) => void;
   openProject: (projectId: string) => Promise<void>;
   closeProject: () => void;
-  createNewProject: (mode?: string, slideCount?: number, templateId?: string) => Promise<void>;
+  createNewProject: (templateId?: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   refreshProjects: () => Promise<void>;
   advanceStage: () => Promise<void>;
@@ -82,13 +82,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     refreshProjects();
   }, [refreshProjects]);
 
-  const createNewProject = useCallback(async (
-    mode: string = 'carousel',
-    slideCount: number = 5,
-    templateId?: string
-  ) => {
+  const createNewProject = useCallback(async (templateId?: string) => {
     try {
-      const proj = await api.createProject(mode, slideCount, templateId);
+      const proj = await api.createProject(templateId);
       setNormalizedProject(proj);
       await refreshProjects();
     } catch (err) {

@@ -7,7 +7,6 @@ const mockProjects: ProjectCard[] = [
   {
     project_id: 'proj-1',
     name: 'My First Carousel',
-    mode: 'carousel',
     current_stage: 3,
     slide_count: 5,
     thumbnail_url: null,
@@ -17,7 +16,6 @@ const mockProjects: ProjectCard[] = [
   {
     project_id: 'proj-2',
     name: 'Travel Photos',
-    mode: 'carousel',
     current_stage: 5,
     slide_count: 7,
     thumbnail_url: null,

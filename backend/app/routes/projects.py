@@ -33,14 +33,16 @@ async def create_project(
 ):
     """Create a new project, optionally from a template."""
     project_config = None
+    slide_count = 5  # default when no template
     if request.template_id:
-        project_config = await template_manager.get_template_config(request.template_id)
-        if project_config is None:
+        template = await template_manager.get_template(request.template_id)
+        if template is None:
             raise HTTPException(status_code=404, detail="Template not found")
+        project_config = template.config
+        slide_count = template.default_slide_count
 
     project = await project_manager.create_project(
-        mode=request.mode,
-        slide_count=request.slide_count,
+        slide_count=slide_count,
         project_config=project_config,
     )
     return {"project": project}

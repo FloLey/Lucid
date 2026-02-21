@@ -317,3 +317,140 @@ class TestStage1Routes:
         assert data["project"]["slides"][0]["text"]["title"] == "Custom Title"
         assert data["project"]["slides"][0]["text"]["body"] == "Custom body content"
 
+
+class TestWordsPerSlide:
+    """Tests for words_per_slide parameter."""
+
+    def test_keep_as_is_skips_ai(self, client):
+        """keep_as_is uses draft text directly — no Gemini call."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        # No mock_gemini fixture — keep_as_is must not call Gemini
+        response = client.post(
+            "/api/stage1/generate",
+            json={
+                "project_id": project_id,
+                "draft_text": "This is my draft text.",
+                "words_per_slide": "keep_as_is",
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        slides = data["project"]["slides"]
+        assert len(slides) == 1
+        assert slides[0]["text"]["body"] == "This is my draft text."
+
+    def test_keep_as_is_returns_one_slide(self, client):
+        """keep_as_is always produces exactly 1 slide."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        response = client.post(
+            "/api/stage1/generate",
+            json={
+                "project_id": project_id,
+                "draft_text": "Draft content here.",
+                "num_slides": 5,  # ignored when keep_as_is
+                "words_per_slide": "keep_as_is",
+            },
+        )
+        assert response.status_code == 200
+        assert len(response.json()["project"]["slides"]) == 1
+
+    def test_words_per_slide_short_accepted(self, client, mock_gemini):
+        """'short' is accepted and generation proceeds normally."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        response = client.post(
+            "/api/stage1/generate",
+            json={
+                "project_id": project_id,
+                "draft_text": "Draft content.",
+                "num_slides": 3,
+                "words_per_slide": "short",
+            },
+        )
+        assert response.status_code == 200
+        assert len(response.json()["project"]["slides"]) == 3
+
+    def test_words_per_slide_medium_accepted(self, client, mock_gemini):
+        """'medium' is accepted and generation proceeds normally."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        response = client.post(
+            "/api/stage1/generate",
+            json={
+                "project_id": project_id,
+                "draft_text": "Draft content.",
+                "num_slides": 3,
+                "words_per_slide": "medium",
+            },
+        )
+        assert response.status_code == 200
+
+    def test_words_per_slide_long_accepted(self, client, mock_gemini):
+        """'long' is accepted and generation proceeds normally."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        response = client.post(
+            "/api/stage1/generate",
+            json={
+                "project_id": project_id,
+                "draft_text": "Draft content.",
+                "num_slides": 2,
+                "words_per_slide": "long",
+            },
+        )
+        assert response.status_code == 200
+
+    def test_words_per_slide_none_uses_ai_default(self, client, mock_gemini):
+        """Omitting words_per_slide works (defaults to None / AI decides)."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        response = client.post(
+            "/api/stage1/generate",
+            json={
+                "project_id": project_id,
+                "draft_text": "Draft content.",
+                "num_slides": 3,
+            },
+        )
+        assert response.status_code == 200
+
+    def test_build_word_count_instruction_short(self):
+        """_build_word_count_instruction returns correct text for 'short'."""
+        instr = stage1_service._build_word_count_instruction("short")
+        assert "20" in instr and "50" in instr
+
+    def test_build_word_count_instruction_medium(self):
+        instr = stage1_service._build_word_count_instruction("medium")
+        assert "50" in instr and "100" in instr
+
+    def test_build_word_count_instruction_long(self):
+        instr = stage1_service._build_word_count_instruction("long")
+        assert "100" in instr and "200" in instr
+
+    def test_build_word_count_instruction_ai(self):
+        instr = stage1_service._build_word_count_instruction(None)
+        assert "naturally" in instr.lower() or "requires" in instr.lower()
+
+    def test_keep_as_is_service_direct(self):
+        """Test keep_as_is path directly through the service."""
+        project_manager.clear_all()
+        created = run_async(project_manager.create_project())
+        project = run_async(
+            stage1_service.generate_slide_texts(
+                project_id=created.project_id,
+                draft_text="Keep this text.",
+                words_per_slide="keep_as_is",
+            )
+        )
+        assert project is not None
+        assert len(project.slides) == 1
+        assert project.slides[0].text.body == "Keep this text."
+

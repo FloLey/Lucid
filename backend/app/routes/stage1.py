@@ -24,6 +24,10 @@ class GenerateSlideTextsRequest(BaseModel):
     include_titles: bool = Field(default=True)
     additional_instructions: Optional[str] = None
     language: str = Field(default="English")
+    words_per_slide: Optional[str] = Field(
+        default=None,
+        description="Word count hint: 'short', 'medium', 'long', 'keep_as_is', or None (AI decides)",
+    )
 
 
 class RegenerateSlideTextRequest(BaseModel):
@@ -64,6 +68,7 @@ async def generate_slide_texts(
             include_titles=request.include_titles,
             additional_instructions=request.additional_instructions,
             language=request.language,
+            words_per_slide=request.words_per_slide,
         )
     except GeminiError:
         raise
