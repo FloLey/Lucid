@@ -119,11 +119,11 @@ class StageStyleService:
             *[generate_preview(i, p) for i, p in enumerate(raw_proposals)]
         )
 
-        # Delete old proposal preview images from disk before replacing them
-        for old in project.style_proposals:
-            self.storage_service.delete_image(old.preview_image)
-
+        old_proposals = project.style_proposals
         project.style_proposals = list(proposals)
+        # Delete old proposal preview images from disk after replacing them
+        for old in old_proposals:
+            self.storage_service.delete_image(old.preview_image)
         project.selected_style_proposal_index = None
         # Use the first proposal's preview as the initial thumbnail
         if proposals and proposals[0].preview_image:

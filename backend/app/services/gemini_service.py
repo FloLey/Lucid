@@ -174,13 +174,14 @@ class GeminiService:
                 config=config,
             )
             # Detect if Google Search was actually used by checking grounding_metadata
-            grounded = False
-            if use_search_grounding and response.candidates:
-                for candidate in response.candidates:
-                    gm = getattr(candidate, "grounding_metadata", None)
-                    if gm is not None:
-                        grounded = True
-                        break
+            grounded = (
+                use_search_grounding
+                and bool(response.candidates)
+                and any(
+                    getattr(c, "grounding_metadata", None) is not None
+                    for c in response.candidates
+                )
+            )
             return response.text or "", grounded
         except Exception as e:
             raise GeminiError(f"Chat generation failed: {e}")

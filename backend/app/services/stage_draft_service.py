@@ -222,7 +222,7 @@ class StageDraftService:
                     return None
 
             if not project.slides:
-                return None
+                return project
 
             slides_summary = "\n".join(
                 f"Slide {s.index + 1}: {s.text.get_full_text()[:120]}"
