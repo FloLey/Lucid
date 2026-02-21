@@ -84,6 +84,17 @@ export default function Stage1() {
         wordsPerSlide === 'ai' ? undefined : wordsPerSlide
       );
       updateProject(sess);
+      // Re-fetch after a delay so the background title-generation task can finish
+      if (sess.name.startsWith('Untitled')) {
+        setTimeout(async () => {
+          try {
+            const refreshed = await api.getProject(projectId);
+            updateProject(refreshed);
+          } catch (err) {
+            console.error('Failed to re-fetch project for title update:', err);
+          }
+        }, 3000);
+      }
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate slide texts'));
     } finally {
@@ -132,25 +143,25 @@ export default function Stage1() {
   return (
     <StageLayout
       leftPanel={
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Draft</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Your Draft</h2>
 
           <textarea
             value={draftText}
             onChange={(e) => setDraftText(e.target.value)}
             placeholder="Paste your rough draft here... It can be messy, unstructured notes about what you want to share in your carousel."
-            className="w-full h-48 px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-lucid-500 focus:border-transparent"
+            className="w-full h-48 px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-lucid-500 focus:border-transparent"
           />
 
           {/* Words per slide */}
           <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Text length per slide
             </label>
             <select
               value={wordsPerSlide}
               onChange={(e) => setWordsPerSlide(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
             >
               {WORDS_PER_SLIDE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -165,13 +176,13 @@ export default function Stage1() {
           {!isKeepAsIs && (
             <div className="mt-4 grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Number of Slides
                 </label>
                 <select
                   value={numSlides ?? 'auto'}
                   onChange={(e) => setNumSlides(e.target.value === 'auto' ? null : Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
                 >
                   <option value="auto">Let AI decide</option>
                   {SLIDE_COUNT_OPTIONS.map((n) => (
@@ -181,13 +192,13 @@ export default function Stage1() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Language
                 </label>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
                 >
                   {LANGUAGES.map((lang) => (
                     <option key={lang} value={lang}>{lang}</option>
@@ -211,7 +222,7 @@ export default function Stage1() {
 
           {!isKeepAsIs && (
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Additional Instructions (optional)
               </label>
               <input
@@ -219,7 +230,7 @@ export default function Stage1() {
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="e.g., Make it conversational, target entrepreneurs"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
               />
             </div>
           )}
@@ -236,7 +247,7 @@ export default function Stage1() {
       rightPanel={
         <>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Slide Texts</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Slide Texts</h2>
             {hasSlides && !loading && regeneratingSlides.size === 0 && (
               <button
                 onClick={onNext}
@@ -250,7 +261,7 @@ export default function Stage1() {
           <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1">
             {loading && regeneratingSlides.size === 0 ? (
               Array.from({ length: isKeepAsIs ? 1 : (numSlides ?? 3) }).map((_, index) => (
-                <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
                   <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
                   <div className="flex items-center gap-3 mt-3 text-gray-400">
                     <Spinner size="sm" />
@@ -259,14 +270,14 @@ export default function Stage1() {
                 </div>
               ))
             ) : !hasSlides ? (
-              <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
-                <p className="text-gray-500">
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-8 text-center">
+                <p className="text-gray-500 dark:text-gray-400">
                   Enter your draft and click "{isSingleSlide ? 'Use Draft as Slide' : 'Generate Slides'}" to create slide texts
                 </p>
               </div>
             ) : (
               slides.map((slide, index) => (
-                <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
                     <div className="flex gap-2">
@@ -333,9 +344,9 @@ export default function Stage1() {
                   ) : (
                     <>
                       {slide.text.title && (
-                        <h3 className="font-semibold text-gray-900 mb-1">{slide.text.title}</h3>
+                        <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{slide.text.title}</h3>
                       )}
-                      <p className="text-gray-700 text-sm">{slide.text.body}</p>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm">{slide.text.body}</p>
                     </>
                   )}
                 </div>
@@ -385,7 +396,7 @@ function SlideEditor({ slide, includeTitles, onSave, onCancel }: SlideEditorProp
         </button>
         <button
           onClick={onCancel}
-          className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+          className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
         >
           Cancel
         </button>

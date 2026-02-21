@@ -48,13 +48,13 @@ export default function ProjectHome({ projects, loading, onOpen, onNewProject, o
       {/* Page header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Your Projects</h2>
-          <p className="text-gray-500 mt-1">Pick up where you left off, or start something new.</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Your Projects</h2>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Pick up where you left off, or start something new.</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={onTemplates}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -76,11 +76,11 @@ export default function ProjectHome({ projects, loading, onOpen, onNewProject, o
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse">
-              <div className="bg-gray-200" style={{ aspectRatio: '4/5' }} />
+            <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-pulse">
+              <div className="bg-gray-200 dark:bg-gray-700" style={{ aspectRatio: '4/5' }} />
               <div className="p-4 space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-3/4" />
-                <div className="h-3 bg-gray-200 rounded w-1/2" />
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
               </div>
             </div>
           ))}
@@ -92,8 +92,8 @@ export default function ProjectHome({ projects, loading, onOpen, onNewProject, o
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No projects yet</h3>
-          <p className="text-gray-500 mb-6 max-w-sm">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No projects yet</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm">
             Create your first project to start turning rough drafts into polished carousels.
           </p>
           <button
@@ -109,10 +109,10 @@ export default function ProjectHome({ projects, loading, onOpen, onNewProject, o
             <div
               key={project.project_id}
               onClick={() => onOpen(project.project_id)}
-              className="bg-white rounded-xl border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md hover:border-lucid-300 transition-all group"
+              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer hover:shadow-md hover:border-lucid-300 dark:hover:border-lucid-600 transition-all group"
             >
               {/* Thumbnail */}
-              <div className="bg-gray-100 relative overflow-hidden" style={{ aspectRatio: '4/5' }}>
+              <div className="bg-gray-100 dark:bg-gray-700 relative overflow-hidden" style={{ aspectRatio: '4/5' }}>
                 {project.thumbnail_url ? (
                   <img
                     src={project.thumbnail_url}
@@ -125,7 +125,7 @@ export default function ProjectHome({ projects, loading, onOpen, onNewProject, o
                       <div className="w-12 h-12 bg-lucid-100 rounded-lg flex items-center justify-center mx-auto mb-2">
                         <span className="text-lucid-600 font-bold text-xl">L</span>
                       </div>
-                      <span className="text-xs text-gray-400">No preview</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">No preview</span>
                     </div>
                   </div>
                 )}
@@ -159,10 +159,10 @@ export default function ProjectHome({ projects, loading, onOpen, onNewProject, o
 
               {/* Card info */}
               <div className="p-3">
-                <h3 className="font-medium text-gray-900 truncate text-sm">{project.name}</h3>
+                <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate text-sm">{project.name}</h3>
                 <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-gray-500">{project.slide_count} slides</span>
-                  <span className="text-xs text-gray-400">{formatDate(project.updated_at)}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{project.slide_count} slides</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(project.updated_at)}</span>
                 </div>
               </div>
             </div>

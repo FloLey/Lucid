@@ -20,10 +20,10 @@ export default function SlideThumbnails({
           className={`flex-shrink-0 w-16 rounded-lg overflow-hidden border-2 transition-colors ${
             index === selectedSlide
               ? 'border-lucid-600'
-              : 'border-transparent hover:border-gray-300'
+              : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
           }`}
         >
-          <div className="aspect-[4/5] bg-gray-100">
+          <div className="aspect-[4/5] bg-gray-100 dark:bg-gray-700">
             {slide.final_image_url || slide.background_image_url ? (
               <img
                 src={slide.final_image_url || slide.background_image_url || ''}

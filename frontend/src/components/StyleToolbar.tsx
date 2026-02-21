@@ -36,18 +36,18 @@ export default function StyleToolbar({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
         {/* Selected box indicator */}
         {hasTitle && (
           <div className="flex items-center gap-1">
-            <span className="text-xs text-gray-500 mr-1">Editing:</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Editing:</span>
             <button
               onClick={() => setSelectedBox('title')}
               className={`px-2 py-1 text-xs rounded font-medium transition-colors ${
                 selectedBox === 'title'
                   ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               Title
@@ -57,7 +57,7 @@ export default function StyleToolbar({
               className={`px-2 py-1 text-xs rounded font-medium transition-colors ${
                 selectedBox === 'body'
                   ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               Body
@@ -65,13 +65,13 @@ export default function StyleToolbar({
           </div>
         )}
 
-        <div className="w-px h-6 bg-gray-200" />
+        <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
 
         {/* Font family */}
         <select
           value={style.font_family}
           onChange={(e) => updateLocalStyle({ font_family: e.target.value })}
-          className="text-xs border border-gray-300 rounded px-2 py-1.5 bg-white"
+          className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           style={{ fontFamily: style.font_family }}
         >
           {FONTS.map((f) => (
@@ -83,7 +83,7 @@ export default function StyleToolbar({
         <select
           value={getActiveFontSize()}
           onChange={(e) => handleFontSizeChange(Number(e.target.value))}
-          className="text-xs border border-gray-300 rounded px-2 py-1.5 bg-white w-16"
+          className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 w-16"
         >
           {FONT_SIZES.map((s) => (
             <option key={s} value={s}>{s}px</option>
@@ -101,7 +101,7 @@ export default function StyleToolbar({
           />
         </div>
 
-        <div className="w-px h-6 bg-gray-200" />
+        <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
 
         {/* Alignment */}
         {(['left', 'center', 'right'] as const).map((align) => (
@@ -110,8 +110,8 @@ export default function StyleToolbar({
             onClick={() => updateLocalStyle({ alignment: align })}
             className={`p-1.5 rounded transition-colors ${
               style.alignment === align
-                ? 'bg-lucid-100 text-lucid-700'
-                : 'text-gray-500 hover:bg-gray-100'
+                ? 'bg-lucid-100 text-lucid-700 dark:bg-lucid-900/40 dark:text-lucid-300'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
             title={`Align ${align}`}
           >
@@ -119,7 +119,7 @@ export default function StyleToolbar({
           </button>
         ))}
 
-        <div className="w-px h-6 bg-gray-200" />
+        <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
 
         {/* Stroke toggle */}
         <button
@@ -153,7 +153,7 @@ export default function StyleToolbar({
         <button
           onClick={onApplyToAll}
           disabled={loading}
-          className="px-3 py-1.5 text-xs bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          className="px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors"
         >
           {loading ? 'Applying...' : 'Apply to All'}
         </button>
