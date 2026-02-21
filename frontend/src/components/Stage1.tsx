@@ -40,21 +40,17 @@ export default function Stage1() {
     const cfg = project.project_config;
     const isNewProject = !project.slides || project.slides.length === 0;
 
+    setDraftText(project.draft_text || '');
+    setNumSlides(project.num_slides ?? cfg?.global_defaults.num_slides ?? null);
+    setIncludeTitles(project.include_titles ?? cfg?.global_defaults.include_titles ?? true);
+    setLanguage(project.language || cfg?.global_defaults.language || 'English');
+
+    // Instructions are sourced differently for new vs existing projects
     if (isNewProject) {
-      setNumSlides(cfg?.global_defaults.num_slides ?? null);
-      setIncludeTitles(cfg?.global_defaults.include_titles ?? true);
-      setLanguage(cfg?.global_defaults.language ?? 'English');
       if (cfg?.stage_instructions.stage1) {
         setInstructions(cfg.stage_instructions.stage1);
       }
-      if (project.draft_text) {
-        setDraftText(project.draft_text);
-      }
     } else {
-      setDraftText(project.draft_text || '');
-      setNumSlides(project.num_slides ?? cfg?.global_defaults.num_slides ?? null);
-      setIncludeTitles(project.include_titles ?? cfg?.global_defaults.include_titles ?? true);
-      setLanguage(project.language || cfg?.global_defaults.language || 'English');
       setInstructions(project.additional_instructions || '');
     }
   }, [project]);
