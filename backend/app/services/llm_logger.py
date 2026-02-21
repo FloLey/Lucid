@@ -1,7 +1,8 @@
 """JSONL debug logger for all LLM calls.
 
-Enable by setting LLM_DEBUG_LOG=1 (or "true") in the environment.
-Creates one log file per request/flow in backend/logs/.
+Always-on: logs are always written (no env-var toggle needed).
+Creates one log file per project in backend/logs/projects/{project_id}.jsonl.
+Falls back to backend/logs/llm_debug.jsonl when no project context is set.
 """
 
 import asyncio
@@ -20,17 +21,32 @@ from typing import Any, Optional, Callable
 
 logger = logging.getLogger(__name__)
 
-_ENABLED = os.getenv("LLM_DEBUG_LOG", "").lower() in ("1", "true")
+_ENABLED = True  # Always on — one file per project
 _LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
 _lock = threading.Lock()
 
-# Context var holding the log file name for the current request/flow
+# Context var holding the log file name for the current request/flow (fallback)
 _current_flow: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "llm_flow", default=None
 )
 
+# Context var holding the current project_id for per-project log files
+_current_project_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "llm_project_id", default=None
+)
+
 # Regex to strip UUIDs / hex session IDs from paths
 _ID_PATTERN = re.compile(r"[0-9a-f]{8,}")
+
+
+def set_project_context(project_id: str) -> None:
+    """Set the current project for log routing.
+
+    Call this at the start of any service method that processes a specific project.
+    All LLM calls made within the same async context will be written to
+    ``logs/projects/{project_id}.jsonl``.
+    """
+    _current_project_id.set(project_id)
 
 
 def start_flow(name: str) -> str:
@@ -55,7 +71,13 @@ def _flow_name_from_path(path: str) -> str:
 
 
 def _get_log_file() -> Path:
-    """Determine the log file path based on the current context flow."""
+    """Determine the log file path.
+
+    Priority: per-project file > per-request flow file > fallback.
+    """
+    project_id = _current_project_id.get(None)
+    if project_id:
+        return _LOG_DIR / "projects" / f"{project_id}.jsonl"
     flow = _current_flow.get(None)
     if flow:
         return _LOG_DIR / f"{flow}.jsonl"

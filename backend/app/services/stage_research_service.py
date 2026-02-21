@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from app.models.project import MAX_STAGES, ProjectState
 from app.services.prompt_loader import PromptLoader
+from app.services.llm_logger import set_project_context
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -15,8 +16,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _RESEARCH_SYSTEM_PROMPT = (
-    "You are a creative research assistant helping the user brainstorm and gather "
-    "information for a social-media carousel. Be concise, insightful, and factual. "
+    "You are a helpful research assistant. Be concise, insightful, and factual. "
     "Use Google Search to ground your answers in up-to-date information when relevant."
 )
 
@@ -54,6 +54,7 @@ class StageResearchService:
         ``{"role": "user"|"model", "content": "..."}`` dicts inside
         ``project.chat_history``.
         """
+        set_project_context(project_id)
         project = await self.project_manager.get_project(project_id)
         if not project:
             return None
@@ -66,7 +67,7 @@ class StageResearchService:
         history_so_far: List[Dict[str, Any]] = project.chat_history[:-1]
 
         try:
-            reply = await self.gemini_service.generate_chat_response(
+            reply, grounded = await self.gemini_service.generate_chat_response(
                 history=history_so_far,
                 message=message,
                 system_instruction=_RESEARCH_SYSTEM_PROMPT,
@@ -78,7 +79,7 @@ class StageResearchService:
             project.chat_history.pop()
             raise
 
-        model_turn: Dict[str, Any] = {"role": "model", "content": reply}
+        model_turn: Dict[str, Any] = {"role": "model", "content": reply, "grounded": grounded}
         project.chat_history.append(model_turn)
 
         await self.project_manager.update_project(project)
@@ -93,11 +94,12 @@ class StageResearchService:
         project_id: str,
         research_instructions: Optional[str] = None,
     ) -> Optional[ProjectState]:
-        """Summarise the chat history into a draft text and advance to Stage Draft.
+        """Summarise the chat history into a draft text.
 
-        After this call ``project.draft_text`` is populated and
-        ``project.current_stage`` is set to 2 (Stage Draft).
+        After this call ``project.draft_text`` is populated. The stage is NOT
+        advanced automatically — the user must explicitly proceed to Stage Draft.
         """
+        set_project_context(project_id)
         project = await self.project_manager.get_project(project_id)
         if not project:
             return None
@@ -132,10 +134,6 @@ class StageResearchService:
         )
 
         project.draft_text = draft_text.strip()
-
-        # Advance to Stage Draft (stage 2)
-        if project.current_stage < 2:
-            project.current_stage = 2
 
         await self.project_manager.update_project(project)
         return project

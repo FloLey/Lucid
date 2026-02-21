@@ -47,6 +47,11 @@ export const renameProject = async (projectId: string, name: string): Promise<Pr
   return response.data.project;
 };
 
+export const generateProjectTitle = async (projectId: string): Promise<Project> => {
+  const response = await api.post(`/projects/${projectId}/generate-title`);
+  return response.data.project;
+};
+
 export const advanceStage = async (projectId: string): Promise<Project> => {
   const response = await api.post(`/projects/${projectId}/next-stage`);
   return response.data.project;

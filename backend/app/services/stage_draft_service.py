@@ -8,6 +8,7 @@ from app.models.slide import Slide, SlideText
 from app.models.style import TextStyle, StrokeStyle
 from app.models.project import ProjectState
 from app.services.prompt_loader import PromptLoader
+from app.services.llm_logger import set_project_context
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -95,6 +96,7 @@ class StageDraftService:
         words_per_slide: Optional[str] = None,
     ) -> Optional[ProjectState]:
         """Generate slide texts from a draft."""
+        set_project_context(project_id)
         project = await self.project_manager.get_project(project_id)
         if not project:
             return None
@@ -192,12 +194,35 @@ class StageDraftService:
 
         return project
 
-    async def generate_project_title(self, project_id: str) -> None:
-        """Background task: generate and set a descriptive project title."""
+    async def generate_project_title(self, project_id: str, force: bool = False) -> Optional[ProjectState]:
+        """Generate and set a descriptive project title based on slide content.
+
+        Args:
+            project_id: The project to rename.
+            force: If True, generate a title even if the user has manually set the
+                   name, and even if the name is not "Untitled". Use this for
+                   explicit "Generate name" requests from the UI.
+                   If False (default background use), skip if the name was manually
+                   set or if it no longer starts with "Untitled".
+
+        Returns:
+            The updated ProjectState, or None if skipped or on error.
+        """
         try:
+            set_project_context(project_id)
             project = await self.project_manager.get_project(project_id)
-            if not project or not project.name.startswith("Untitled"):
-                return
+            if not project:
+                return None
+
+            # Background auto-rename: skip if user has set the name manually
+            if not force:
+                if project.name_manually_set:
+                    return None
+                if not project.name.startswith("Untitled"):
+                    return None
+
+            if not project.slides:
+                return None
 
             slides_summary = "\n".join(
                 f"Slide {s.index + 1}: {s.text.get_full_text()[:120]}"
@@ -208,13 +233,16 @@ class StageDraftService:
             prompt = prompt_template.format(slides_summary=slides_summary)
 
             result = await self.gemini_service.generate_json(
-                prompt, caller="stage_draft_service._generate_project_title"
+                prompt, caller="stage_draft_service.generate_project_title"
             )
             title = result.get("title", "").strip()
             if title and len(title) <= 80:
-                await self.project_manager.rename_project(project_id, title)
+                # Use manually_set=False so auto-rename remains possible in future
+                return await self.project_manager.rename_project(project_id, title, manually_set=False)
+            return project
         except Exception:
-            logger.exception("Background title generation failed for %s", project_id)
+            logger.exception("Title generation failed for %s", project_id)
+            return None
 
     async def regenerate_all_slide_texts(
         self,

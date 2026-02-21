@@ -8,6 +8,7 @@ from app.dependencies import (
     get_template_manager,
     get_config_manager,
     get_prompt_loader,
+    get_stage_draft_service,
 )
 from app.models.project import (
     MAX_STAGES,
@@ -20,6 +21,7 @@ from app.models.project import (
 from app.services.config_manager import ConfigManager
 from app.services.project_manager import ProjectManager
 from app.services.prompt_loader import PromptLoader
+from app.services.stage_draft_service import StageDraftService
 from app.services.storage_service import StorageService
 from app.services.template_manager import TemplateManager
 
@@ -137,6 +139,22 @@ async def goto_stage(
     if not 1 <= stage <= MAX_STAGES:
         raise HTTPException(status_code=400, detail=f"Stage must be between 1 and {MAX_STAGES}")
     project = await project_manager.go_to_stage(project_id, stage)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"project": project}
+
+
+@router.post("/{project_id}/generate-title", response_model=ProjectResponse)
+async def generate_title(
+    project_id: str,
+    stage_draft_service: StageDraftService = Depends(get_stage_draft_service),
+    project_manager: ProjectManager = Depends(get_project_manager),
+):
+    """Generate a descriptive project title using AI based on slide content."""
+    project = await stage_draft_service.generate_project_title(project_id, force=True)
+    if not project:
+        # Return current project state even if title generation was skipped
+        project = await project_manager.get_project(project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"project": project}

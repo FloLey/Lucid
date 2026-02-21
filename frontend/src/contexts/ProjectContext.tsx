@@ -19,6 +19,8 @@ interface ProjectContextValue {
   createNewProject: (templateId?: string) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   refreshProjects: () => Promise<void>;
+  renameCurrentProject: (name: string) => Promise<void>;
+  generateProjectTitle: () => Promise<void>;
   advanceStage: () => Promise<void>;
   previousStage: () => Promise<void>;
   goToStage: (stage: number) => Promise<void>;
@@ -106,6 +108,28 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     setNormalizedProject(newProject);
   }, [setNormalizedProject]);
 
+  const renameCurrentProject = useCallback(async (name: string) => {
+    if (!currentProject) return;
+    try {
+      const proj = await api.renameProject(currentProject.project_id, name);
+      setNormalizedProject(proj);
+      await refreshProjects();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to rename project'));
+    }
+  }, [currentProject, setNormalizedProject, refreshProjects]);
+
+  const generateProjectTitle = useCallback(async () => {
+    if (!currentProject) return;
+    try {
+      const proj = await api.generateProjectTitle(currentProject.project_id);
+      setNormalizedProject(proj);
+      await refreshProjects();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to generate project title'));
+    }
+  }, [currentProject, setNormalizedProject, refreshProjects]);
+
   const advanceStage = useCallback(async () => {
     if (!currentProject) return;
     try {
@@ -151,6 +175,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     createNewProject,
     deleteProject,
     refreshProjects,
+    renameCurrentProject,
+    generateProjectTitle,
     advanceStage,
     previousStage,
     goToStage,

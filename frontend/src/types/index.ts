@@ -59,11 +59,13 @@ export interface StyleProposal {
 export interface ChatMessage {
   role: 'user' | 'model';
   content: string;
+  grounded?: boolean;
 }
 
 export interface Project {
   project_id: string;
   name: string;
+  name_manually_set: boolean;
   slide_count: number;
   created_at: string;
   updated_at: string;

@@ -1,11 +1,60 @@
+import { useState, useRef, useEffect } from 'react';
+
 interface HeaderProps {
   projectName: string | null;
   onBack: (() => void) | null;
   isDark: boolean;
   onToggleDark: () => void;
+  onRename?: (name: string) => void;
+  onGenerateName?: () => void;
+  canGenerateName?: boolean;
+  isGeneratingName?: boolean;
 }
 
-export default function Header({ projectName, onBack, isDark, onToggleDark }: HeaderProps) {
+export default function Header({
+  projectName,
+  onBack,
+  isDark,
+  onToggleDark,
+  onRename,
+  onGenerateName,
+  canGenerateName = false,
+  isGeneratingName = false,
+}: HeaderProps) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startEdit = () => {
+    if (!onRename || !projectName) return;
+    setEditValue(projectName);
+    setEditing(true);
+  };
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const commitEdit = () => {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== projectName && onRename) {
+      onRename(trimmed);
+    }
+    setEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') commitEdit();
+    if (e.key === 'Escape') cancelEdit();
+  };
+
   return (
     <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -36,9 +85,55 @@ export default function Header({ projectName, onBack, isDark, onToggleDark }: He
           {projectName && (
             <>
               <span className="text-gray-300 dark:text-gray-600 flex-shrink-0">/</span>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-xs">
-                {projectName}
-              </span>
+              {editing ? (
+                <input
+                  ref={inputRef}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={handleKeyDown}
+                  className="text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-lucid-400 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-lucid-500 w-56 max-w-xs"
+                />
+              ) : (
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-xs">
+                    {projectName}
+                  </span>
+                  {onRename && (
+                    <button
+                      onClick={startEdit}
+                      title="Rename project"
+                      className="flex-shrink-0 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  )}
+                  {onGenerateName && canGenerateName && (
+                    <button
+                      onClick={onGenerateName}
+                      disabled={isGeneratingName}
+                      title="Generate name from slide content"
+                      className="flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-gray-400 hover:text-lucid-600 dark:hover:text-lucid-400 hover:bg-lucid-50 dark:hover:bg-lucid-900/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isGeneratingName ? (
+                        <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      )}
+                      <span>AI name</span>
+                    </button>
+                  )}
+                </span>
+              )}
             </>
           )}
         </div>

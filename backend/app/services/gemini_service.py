@@ -118,7 +118,7 @@ class GeminiService:
         system_instruction: Optional[str] = None,
         use_search_grounding: bool = True,
         temperature: float = 1.0,
-    ) -> str:
+    ) -> tuple[str, bool]:
         """Send a message in a multi-turn chat, optionally grounded by Google Search.
 
         Args:
@@ -130,7 +130,8 @@ class GeminiService:
             temperature: Generation temperature.
 
         Returns:
-            The model's plain-text response string.
+            A tuple of (response_text, grounded) where grounded is True if Google
+            Search was actually used to ground the response.
         """
         self._ensure_configured()
         assert self._client is not None
@@ -172,7 +173,15 @@ class GeminiService:
                 contents=contents,
                 config=config,
             )
-            return response.text or ""
+            # Detect if Google Search was actually used by checking grounding_metadata
+            grounded = False
+            if use_search_grounding and response.candidates:
+                for candidate in response.candidates:
+                    gm = getattr(candidate, "grounding_metadata", None)
+                    if gm is not None:
+                        grounded = True
+                        break
+            return response.text or "", grounded
         except Exception as e:
             raise GeminiError(f"Chat generation failed: {e}")
 
