@@ -4,7 +4,7 @@
 
 Lucid transforms rough drafts into polished social media carousels (4:5 aspect ratio, 1080x1350px) for Instagram and similar platforms. It is a containerized monorepo with a Python/FastAPI backend and a React/TypeScript frontend, orchestrated via Docker Compose.
 
-The app follows a 5-stage pipeline: **Draft → Style → Image Prompts → Images → Typography/Design**.
+The app follows a 6-stage pipeline: **Research → Draft → Style → Image Prompts → Images → Typography/Design**.
 
 ## Repository Structure
 
@@ -23,11 +23,11 @@ Lucid/
 │   │   ├── main.py              # FastAPI app, CORS, router registration
 │   │   ├── config.py            # App-level config
 │   │   ├── models/              # Pydantic data models (session, slide, style, config)
-│   │   ├── routes/              # 11 API routers under /api prefix
-│   │   └── services/            # 14 service modules (business logic)
+│   │   ├── routes/              # 12 API routers under /api prefix
+│   │   └── services/            # 18 service modules (business logic)
 │   ├── prompts/                 # LLM prompt templates (.prompt files)
 │   ├── fonts/                   # Downloaded TTF font files (gitignored)
-│   └── tests/                   # pytest test suite (11 test files, ~158 tests)
+│   └── tests/                   # pytest test suite (12 test files)
 └── frontend/                    # React + TypeScript + Vite
     ├── Dockerfile               # Node 22 Alpine
     ├── package.json             # Scripts: dev, build, lint, preview
@@ -37,7 +37,7 @@ Lucid/
     └── src/
         ├── App.tsx              # Root component
         ├── main.tsx             # React entry point
-        ├── components/          # 9 React components (Stage1-5, ChatBar, Header, etc.)
+        ├── components/          # Stage components + shared UI
         ├── hooks/               # useSession custom hook
         ├── services/            # Axios API client (api.ts)
         ├── types/               # TypeScript interfaces (index.ts)
@@ -70,7 +70,7 @@ npm run dev
 ```bash
 cd backend
 pytest -v              # Run all tests
-pytest tests/test_stage1.py -v   # Run a specific test file
+pytest tests/test_stage_draft.py -v   # Run a specific test file
 ```
 
 Tests use FastAPI's `TestClient` (via `conftest.py` fixture). There are no frontend tests.
@@ -87,7 +87,7 @@ npm run build          # tsc type-check + vite production build
 
 ### Backend (FastAPI)
 
-**Entry point:** `backend/app/main.py` — registers 11 routers under `/api`, configures CORS, handles `GeminiError` globally.
+**Entry point:** `backend/app/main.py` — registers 12 routers under `/api`, configures CORS, handles `GeminiError` globally.
 
 **Layers:**
 - **Routes** (`app/routes/`): HTTP endpoints, request validation, delegate to services
@@ -97,20 +97,21 @@ npm run build          # tsc type-check + vite production build
 **Key services:**
 | Service | Role |
 |---|---|
-| `session_manager.py` | In-memory cache + JSON file persistence (`sessions_db.json`) |
-| `gemini_service.py` | Google Gemini API wrapper (text: Gemini 3 Flash Preview, images: Gemini 2.5 Flash) |
-| `stage1_service.py` | Draft text → slide text generation |
-| `stage_style_service.py` | Style proposal generation |
-| `stage2_service.py` | Slide text → image prompt generation |
-| `stage3_service.py` | Image prompt → background image generation |
-| `stage4_service.py` | Typography rendering onto images |
+| `project_manager.py` | Async SQLite persistence for project state |
+| `gemini_service.py` | Google Gemini API wrapper (text: Gemini Flash, images: Gemini 2.5 Flash) |
+| `stage_research_service.py` | Search-grounded chat and draft extraction (Stage 1) |
+| `stage_draft_service.py` | Draft text → slide text generation (Stage 2) |
+| `stage_style_service.py` | Style proposal generation (Stage 3) |
+| `stage_prompts_service.py` | Slide text → image prompt generation (Stage 4) |
+| `stage_images_service.py` | Image prompt → background image generation (Stage 5) |
+| `stage_typography_service.py` | Typography rendering onto images (Stage 6) |
 | `rendering_service.py` | PIL-based text rendering with binary search font-size fitting |
 | `font_manager.py` | Font loading with fuzzy weight matching |
-| `chat_service.py` | Stage-scoped natural language command routing |
 | `export_service.py` | ZIP archive generation |
 | `config_manager.py` | Configuration CRUD |
+| `template_manager.py` | Template CRUD and default seeding |
 
-**API prefix:** All routes are under `/api` (e.g., `/api/sessions`, `/api/stage1`, `/api/chat`).
+**API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`).
 
 **Prompt templates:** Stored as `.prompt` files in `backend/prompts/`. These are the system/user prompts sent to Gemini. Edit these to change LLM behavior.
 
@@ -125,14 +126,14 @@ npm run build          # tsc type-check + vite production build
 **Styling:** Tailwind CSS with a custom `lucid` color palette (blue-based, shades 50–900).
 
 **Components map to stages:**
-- `Stage1.tsx` — Draft input and slide generation
-- `Stage2.tsx` — Style proposal viewing and selection (note: this is the "Style" stage in the UI)
-- `Stage3.tsx` — Image prompt viewing and regeneration
-- `Stage4.tsx` — Typography preview and style editing
-- `Stage5.tsx` — Final carousel preview and export
-- `ChatBar.tsx` — Stage-scoped chat with autocomplete
+- `StageResearch.tsx` — Search-grounded chat and draft extraction (Stage 1)
+- `StageDraft.tsx` — Draft input and slide generation (Stage 2)
+- `StageStyle.tsx` — Style proposal viewing and selection (Stage 3)
+- `StagePrompts.tsx` — Image prompt viewing and regeneration (Stage 4)
+- `StageImages.tsx` — Image generation and review (Stage 5)
+- `StageTypography.tsx` — Typography preview, style editing, and export (Stage 6)
 - `ConfigSettings.tsx` — Configuration UI
-- `Header.tsx` — Session management
+- `Header.tsx` — Project and navigation management
 - `StageIndicator.tsx` — Visual stage progress
 
 ## Code Conventions
@@ -180,5 +181,4 @@ npm run build          # tsc type-check + vite production build
 - `config.json` must exist in the project root before running `docker-compose up` (otherwise Docker creates a directory). Initialize with `echo '{}' > config.json`.
 - Fonts are downloaded during Docker build via `download_fonts.py`. For manual setup, run `python download_fonts.py` in the backend directory first.
 - The frontend proxies `/api` to the backend — API calls in the browser go to the same origin, not directly to port 8000.
-- The chat system is **stage-scoped**: commands are validated against the current stage. Attempting out-of-stage commands returns helpful errors.
-- Session state flows through `SessionManager` — always update sessions via its methods, not by modifying state directly.
+- Project state flows through `ProjectManager` — always update projects via its methods, not by modifying state directly.

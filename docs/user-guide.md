@@ -26,7 +26,7 @@ Click **New Project**. A modal asks for three things:
 | **Slide count** | Choose 3, 5, 7, or 10 slides (ignored for Single Image mode). |
 | **Template** | Optional. Pick a saved template to pre-load its configuration. Defaults to *Carousel Default* or *Single Image Default* if none is chosen. |
 
-Click **Create** to open the project at Stage 1.
+Click **Create** to open the project at Stage 1 (Research).
 
 ### Renaming a project
 
@@ -80,19 +80,43 @@ Template configuration (prompts, style defaults, image settings) is edited throu
 
 ## Overview
 
-Lucid uses a 5-stage pipeline. Each stage builds on the last, and you can always step **backward** to revise without losing downstream work.
+Lucid uses a 6-stage pipeline. Each stage builds on the last, and you can always step **backward** to revise without losing downstream work.
 
 ```
-Stage 1: Draft → Stage 2: Style → Stage 3: Image Prompts → Stage 4: Images → Stage 5: Typography
+Stage 1: Research → Stage 2: Draft → Stage 3: Style → Stage 4: Image Prompts → Stage 5: Images → Stage 6: Typography
 ```
 
 ---
 
-## Stage 1: Draft
+## Stage 1: Research
+
+The Research stage lets you brainstorm and gather information through a chat interface before writing your draft. The AI assistant is grounded in real-time Google Search, so answers are current and factual.
+
+### 1. Ask questions
+
+Type your message in the input box at the bottom of the chat panel and press **Enter** (or click **Send**). The AI will respond with search-grounded information relevant to your carousel topic.
+
+Continue the conversation to explore angles, gather statistics, or refine your ideas. The full conversation is saved as part of your project.
+
+### 2. Add research instructions (optional)
+
+In the right panel, enter any specific guidance for how the conversation should be synthesised into a draft — for example, *"Focus on three key arguments"* or *"Keep it beginner-friendly"*.
+
+### 3. Create your draft
+
+When you're satisfied with the research, click **Create Draft & Proceed →**. Lucid synthesises the entire conversation into a structured draft text and advances you to Stage 2.
+
+### 4. Skip research
+
+If you already have content, click **Skip Research** to go straight to Stage 2 with an empty draft.
+
+---
+
+## Stage 2: Draft
 
 ### 1. Paste your draft
 
-Click the **Your Draft** text area and paste your raw content. It can be anything — bullet points, stream-of-consciousness notes, an existing article. Lucid will restructure it into slides.
+Click the **Your Draft** text area and paste your raw content. It can be anything — bullet points, stream-of-consciousness notes, an existing article. Lucid will restructure it into slides. If you came from Stage 1, the draft has been pre-populated from the research conversation.
 
 ### 2. Configure generation
 
@@ -118,7 +142,7 @@ When you're happy with the slide text, click **Next: Choose Style →**.
 
 ---
 
-## Stage 2: Style Proposals
+## Stage 3: Style Proposals
 
 Lucid generates visual style proposals based on your slide content. All images generated later will follow the style you pick here, ensuring a coherent look across the carousel.
 
@@ -137,11 +161,11 @@ Click **Generate Style Proposals**. Each proposal card shows a preview image and
 
 Click a proposal card to select it — it will highlight with a blue border and a **Selected** badge. You must select a style before advancing.
 
-Click **Next: Image Prompts →** (top-right of the panel) when ready, or **← Back** to revise your slides.
+Click **Next: Image Prompts →** (top-right of the panel) when ready, or **← Back** to revise your draft.
 
 ---
 
-## Stage 3: Image Prompts
+## Stage 4: Image Prompts
 
 Instead of generating images immediately, Lucid first writes a specific, text-free image prompt for each slide. This lets you review and refine what will be generated before spending API calls on images.
 
@@ -164,7 +188,7 @@ Once you're satisfied with all prompts, click **Next: Generate Images →**, or 
 
 ---
 
-## Stage 4: Image Generation
+## Stage 5: Image Generation
 
 Lucid sends all image prompts in parallel to Gemini and displays the results.
 
@@ -182,7 +206,7 @@ Once images look good, click **Next: Apply Typography →**, or **← Back** to 
 
 ---
 
-## Stage 5: Typography & Layout
+## Stage 6: Typography & Layout
 
 This is where your slides come together. A deterministic rendering engine lays text over the backgrounds — no AI involved, pixel-perfect every time.
 
@@ -236,7 +260,7 @@ Click the **gear icon** in the top-right header to open the Settings modal. Chan
 | Tab | What you can configure |
 | :--- | :--- |
 | **Prompts** | Edit the LLM prompt templates used at each stage. The backend validates that required `{variables}` are preserved before saving. |
-| **Instructions** | Pre-seed stage-specific instructions (e.g. always use a certain tone in Stage 1). |
+| **Instructions** | Pre-seed stage-specific instructions (e.g. always use a certain tone in Stage 2). |
 | **Global** | Default slide count, language, and title inclusion. |
 | **Image** | Output resolution (default: 1080×1350) and the image model. |
 | **Style** | Base typography defaults (font family, colors, stroke). |
@@ -247,7 +271,8 @@ Click **Save Changes** to apply. Use **Reset All to Defaults** (red button) to r
 
 ## Tips
 
-- **Start messy.** The Stage 1 AI is designed to handle unstructured input. Don't clean up your draft before pasting — let Lucid do the restructuring.
-- **Edit prompts before generating images.** Image generation is the most expensive step. Spend time in Stage 3 to get prompts right before triggering Stage 4.
-- **Use "Apply to All Slides" early.** Style one slide to your liking in Stage 5, then apply to all before fine-tuning individual slides.
+- **Use Research for unfamiliar topics.** Stage 1 is powered by Google Search — it's especially valuable when you need current statistics, recent news, or want to explore a topic you're less familiar with.
+- **Start messy.** The Stage 2 Draft AI is designed to handle unstructured input. Don't clean up your draft before pasting — let Lucid do the restructuring.
+- **Edit prompts before generating images.** Image generation is the most expensive step. Spend time in Stage 4 to get prompts right before triggering Stage 5.
+- **Use "Apply to All Slides" early.** Style one slide to your liking in Stage 6, then apply to all before fine-tuning individual slides.
 - **No API key?** The app still works — images will be gradient placeholders, and you can test the typography/layout stage with your own content.

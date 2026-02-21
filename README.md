@@ -8,22 +8,25 @@ Lucid is a containerized web application that orchestrates a sophisticated pipel
 Why does Lucid exist? Because **Generative AI struggles with rendering text inside images.** Relying on a single zero-shot prompt to generate a complete, spelled-correctly, well-laid-out slide is a recipe for hallucinations and warped artifacts.
 Lucid solves this by implementing a **Progressive Pipeline Architecture**. We treat AI as a chain of specialized workers rather than a magic black box:
 1. **Separation of Concerns:** The AI is strictly relegated to structural writing and generating *text-free* background imagery. A deterministic engine (Pillow/PIL) handles all typography.
-2. **Grounding & Context:** Each stage's output grounds the next. A raw draft is structured into JSON text arrays $\rightarrow$ Text informs global visual styles $\rightarrow$ Styles dictate slide-specific image prompts $\rightarrow$ Prompts generate clean backgrounds $\rightarrow$ Text is accurately layered on top.
-3. **Human-in-the-Loop Intercession:** By breaking the process into 5 discrete stages, users can audit, edit, and safely course-correct at any step without having to start over.
+2. **Grounding & Context:** Each stage's output grounds the next. Search-grounded research feeds a structured draft $\rightarrow$ Draft is split into slide text $\rightarrow$ Text informs global visual styles $\rightarrow$ Styles dictate slide-specific image prompts $\rightarrow$ Prompts generate clean backgrounds $\rightarrow$ Text is accurately layered on top.
+3. **Human-in-the-Loop Intercession:** By breaking the process into 6 discrete stages, users can audit, edit, and safely course-correct at any step without having to start over.
 ---
 ## The Workflow
-Lucid is designed around a strict, bi-directional 5-stage workflow. At any point, you can regenerate an individual slide, edit the output, or step backward without losing your downstream configurations.
-### 📝 Stage 1: The Draft
-Dump your unstructured notes, bullet points, or stream-of-consciousness text. The AI acts as a content strategist, splitting the draft into a cohesive, logically flowing sequence of slides with distinct Titles and Bodies.
+Lucid is designed around a strict, bi-directional 6-stage workflow. At any point, you can regenerate an individual slide, edit the output, or step backward without losing your downstream configurations.
+### 🔍 Stage 1: Research
+Chat with an AI research assistant grounded in real-time Google Search to brainstorm ideas, gather facts, and explore angles for your carousel. When you're ready, hit **Create Draft** to synthesise the conversation into a structured draft — or skip this stage if you already have content.
+*Add research instructions to guide how the conversation is summarised into a draft.*
+### 📝 Stage 2: Draft
+Paste or refine your draft text. The AI acts as a content strategist, splitting it into a cohesive, logically flowing sequence of slides with distinct Titles and Bodies.
 *Customize language, slide count, and toggle title generation.*
-### 🎨 Stage 2: Style Proposals
+### 🎨 Stage 3: Style Proposals
 The AI analyzes your slide text and generates distinct "Style Proposals" (e.g., *Minimalist geometric, warm watercolor washes, dark moody photography*). This guarantees that every image generated later will share a consistent visual vocabulary.
-### 🧠 Stage 3: Image Prompts
-Instead of generating images directly, the AI first writes highly specific, text-free image prompts for *each individual slide*, prepending the global style you chose in Stage 2.
+### 🧠 Stage 4: Image Prompts
+Instead of generating images directly, the AI first writes highly specific, text-free image prompts for *each individual slide*, prepending the global style you chose in Stage 3.
 *Don't like a specific slide's concept? Edit the prompt manually or ask the AI to regenerate it.*
-### 🖼️ Stage 4: Image Generation
+### 🖼️ Stage 5: Image Generation
 Lucid triggers parallel execution of image generation requests, creating clean, consistent background images mapped to your 4:5 layout.
-### 🔤 Stage 5: Typography & Layout
+### 🔤 Stage 6: Typography & Layout
 The deterministic rendering engine takes over. Drag, drop, and resize text boxes directly on the canvas. Adjust fonts, weights, colors, drop shadows, and strokes. The system automatically calculates perfect scaling to fit your text into the layout. Finally, hit **Export ZIP** to download your ready-to-post carousel.
 ---
 ## Feature Highlights
@@ -85,11 +88,13 @@ The FastAPI backend exposes a clean REST API. Here are the core architectural ro
 | Route | Method | Description |
 | :--- | :--- | :--- |
 | `/api/projects/` | `POST` | Create a new project state (optionally from a Template). |
-| `/api/stage1/generate` | `POST` | Convert draft string $\rightarrow$ JSON slide array using Gemini 3 Flash. |
+| `/api/stage-research/chat` | `POST` | Send a user message and receive a search-grounded AI reply. |
+| `/api/stage-research/extract-draft` | `POST` | Summarise the research conversation into a draft text. |
+| `/api/stage-draft/generate` | `POST` | Convert draft string $\rightarrow$ JSON slide array using Gemini Flash. |
 | `/api/stage-style/generate` | `POST` | Propose visual theme prompts. |
-| `/api/stage2/generate` | `POST` | Generate individual image prompts in parallel. |
-| `/api/stage3/generate` | `POST` | Render image prompts $\rightarrow$ Base64/Disk PNGs using Gemini 2.5 Image. |
-| `/api/stage4/apply-all` | `POST` | Run PIL typography engine to composite text over backgrounds. |
+| `/api/stage-prompts/generate` | `POST` | Generate individual image prompts in parallel. |
+| `/api/stage-images/generate` | `POST` | Render image prompts $\rightarrow$ Base64/Disk PNGs using Gemini 2.5 Image. |
+| `/api/stage-typography/apply-all` | `POST` | Run PIL typography engine to composite text over backgrounds. |
 | `/api/export/zip` | `POST` | Archive project metadata and final composited images. |
 | `/api/prompts/validate` | `POST` | Dry-run validation of `.prompt` template edits. |
 *Local Dev Note: If running without Docker, utilize the provided `install-deps.sh` script to install Node/Python requirements and trigger the `download_fonts.py` hook.*
