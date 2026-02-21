@@ -33,7 +33,7 @@ export default function StageResearch() {
 
   // Auto-scroll to the bottom whenever chat history grows
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [project?.chat_history]);
 
   const chatHistory: ChatMessage[] = project?.chat_history ?? [];
