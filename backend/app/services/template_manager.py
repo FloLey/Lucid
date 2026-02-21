@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from sqlalchemy import delete, select
@@ -132,13 +132,23 @@ Respond with JSON: {response_format}""",
 }
 
 
-def _load_default_prompts() -> Dict[str, str]:
-    """Load all known .prompt files into a dict keyed by stem."""
-    from app.services.prompt_loader import PromptLoader
+_prompts_cache: Optional[Dict[str, str]] = None
 
-    loader = PromptLoader()
-    all_prompts = loader.load_all()
-    return {name: content for name, content in all_prompts.items()}
+
+def _load_default_prompts() -> Dict[str, str]:
+    """Load all known .prompt files into a dict keyed by stem.
+
+    The result is cached at module level so repeated calls (e.g. every
+    create_template API call) don't re-read files from disk.
+    """
+    global _prompts_cache
+    if _prompts_cache is None:
+        from app.services.prompt_loader import PromptLoader
+
+        loader = PromptLoader()
+        all_prompts = loader.load_all()
+        _prompts_cache = {name: content for name, content in all_prompts.items()}
+    return dict(_prompts_cache)
 
 
 def _row_to_data(row: TemplateDB) -> TemplateData:
@@ -216,7 +226,7 @@ class TemplateManager:
                         name=name,
                         default_slide_count=slide_count,
                         config=config.model_dump(mode="json"),
-                        created_at=datetime.utcnow(),
+                        created_at=datetime.now(timezone.utc),
                     )
                     session.add(row)
 
@@ -268,7 +278,7 @@ class TemplateManager:
             name=name,
             default_slide_count=default_slide_count,
             config=config.model_dump(mode="json"),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         async with self._session_factory() as session:
             async with session.begin():
