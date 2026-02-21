@@ -4,6 +4,8 @@
   "service": "frontend",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 
+  "initializeCommand": "test -f config.json || echo '{}' > config.json",
+
   "forwardPorts": [5173, 8000],
 
   "portsAttributes": {
