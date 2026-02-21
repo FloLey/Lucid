@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
-import { useAppConfig } from '../hooks/useAppConfig';
 import { PROPOSAL_COUNT_OPTIONS } from '../constants';
 import { StyleProposal } from '../types';
 import Spinner from './Spinner';
@@ -20,18 +19,18 @@ export default function Stage2() {
     previousStage: onBack,
   } = useProject();
 
-  const config = useAppConfig();
   const [numProposals, setNumProposals] = useState(3);
   const [instructions, setInstructions] = useState('');
 
-  // Apply config default instructions for new sessions (no proposals yet)
+  // Apply project-scoped config default instructions for new projects (no proposals yet)
   useEffect(() => {
-    if (!config) return;
-    const isNewProject = !project?.style_proposals || project.style_proposals.length === 0;
-    if (isNewProject && config.stage_instructions.stage_style) {
-      setInstructions(config.stage_instructions.stage_style);
+    if (!project) return;
+    const cfg = project.project_config;
+    const isNewProject = !project.style_proposals || project.style_proposals.length === 0;
+    if (isNewProject && cfg?.stage_instructions.stage_style) {
+      setInstructions(cfg.stage_instructions.stage_style);
     }
-  }, [config, project]);
+  }, [project]);
 
   const proposals = project?.style_proposals || [];
   const selectedIndex = project?.selected_style_proposal_index ?? null;

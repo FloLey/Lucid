@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as api from '../services/api';
 import { useProject } from '../contexts/ProjectContext';
-import { useAppConfig } from '../hooks/useAppConfig';
 import { useDragResize } from '../hooks/useDragResize';
 import { useStyleManager } from '../hooks/useStyleManager';
 import { useApiAction } from '../hooks/useApiAction';
@@ -23,7 +22,6 @@ export default function Stage5() {
     previousStage: onBack,
   } = useProject();
 
-  const config = useAppConfig();
   const [selectedSlide, setSelectedSlide] = useState(0);
   const [selectedBox, setSelectedBox] = useState<SelectedBox>('title');
 
@@ -37,7 +35,6 @@ export default function Stage5() {
     projectId,
     slideIndex: selectedSlide,
     initialStyle: currentSlide?.style || null,
-    config
   });
 
   // Local text state
