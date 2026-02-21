@@ -54,16 +54,16 @@ export default function Stage4() {
   return (
     <StageLayout
       leftPanel={
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col min-h-0">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex flex-col min-h-0">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <button
                 onClick={onBack}
-                className="px-3 py-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 ← Back
               </button>
-              <h2 className="text-lg font-semibold text-gray-900">Image Prompts</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Image Prompts</h2>
             </div>
           </div>
 
@@ -76,7 +76,7 @@ export default function Stage4() {
 
           <div className="overflow-y-auto flex-1 min-h-0 space-y-3">
             {slides.map((slide, index) => (
-              <div key={index} className="p-3 bg-gray-50 rounded-lg text-sm">
+              <div key={index} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
                 <span className="font-medium text-lucid-600">Slide {index + 1}</span>
                 <p className="text-gray-500 text-xs mt-1">
                   {slide.image_prompt || 'No prompt generated'}
@@ -97,7 +97,7 @@ export default function Stage4() {
       rightPanel={
         <>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Background Images</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Background Images</h2>
             {hasImages && !loading && regeneratingImages.size === 0 && (
               <button
                 onClick={onNext}
@@ -113,7 +113,7 @@ export default function Stage4() {
               slides.map((_, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4"
                 >
                   <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
                   <div className="flex items-center gap-3 mt-3 text-gray-400">
@@ -123,8 +123,8 @@ export default function Stage4() {
                 </div>
               ))
             ) : !hasImages ? (
-              <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
-                <p className="text-gray-500">
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-8 text-center">
+                <p className="text-gray-500 dark:text-gray-400">
                   Click "Generate Images" to create background images for each slide
                 </p>
               </div>
@@ -132,7 +132,7 @@ export default function Stage4() {
               slides.map((slide, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
                 >
                   <div className="flex items-start gap-4 p-4">
                     <div className="w-48 shrink-0 aspect-[4/5] relative bg-gray-100 rounded-lg overflow-hidden">
@@ -154,7 +154,7 @@ export default function Stage4() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-gray-900">Slide {index + 1}</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Slide {index + 1}</span>
                         <button
                           onClick={() => handleRegenerateImage(index)}
                           disabled={regeneratingImages.has(index)}
@@ -164,9 +164,9 @@ export default function Stage4() {
                         </button>
                       </div>
                       {slide.text.title && (
-                        <h3 className="font-semibold text-gray-900 text-sm mb-1">{slide.text.title}</h3>
+                        <h3 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">{slide.text.title}</h3>
                       )}
-                      <p className="text-xs text-gray-700">{slide.text.body}</p>
+                      <p className="text-xs text-gray-700 dark:text-gray-300">{slide.text.body}</p>
                     </div>
                   </div>
                 </div>

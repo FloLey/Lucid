@@ -121,23 +121,23 @@ function StyleControlPanel({
   onGenerate,
 }: StyleControlPanelProps) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Slide Texts</h2>
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Slide Texts</h2>
 
       <div className="space-y-3 max-h-48 overflow-y-auto">
         {slides.map((slide, index) => (
-          <div key={index} className="p-3 bg-gray-50 rounded-lg text-sm">
+          <div key={index} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
             <span className="font-medium text-lucid-600">{index + 1}.</span>{' '}
             {slide.text.title && (
-              <span className="font-semibold">{slide.text.title}: </span>
+              <span className="font-semibold dark:text-gray-200">{slide.text.title}: </span>
             )}
-            <span className="text-gray-700">{slide.text.body}</span>
+            <span className="text-gray-700 dark:text-gray-300">{slide.text.body}</span>
           </div>
         ))}
       </div>
 
       <div className="mt-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Number of Proposals
         </label>
         <div className="flex gap-2">
@@ -148,7 +148,7 @@ function StyleControlPanel({
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 numProposals === n
                   ? 'bg-lucid-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {n}
@@ -158,14 +158,14 @@ function StyleControlPanel({
       </div>
 
       <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Additional Instructions (optional)
         </label>
         <textarea
           value={instructions}
           onChange={(e) => onInstructionsChange(e.target.value)}
           placeholder="e.g., Warm colors, minimalist, professional photography"
-          className="w-full h-24 px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-lucid-500 focus:border-transparent"
+          className="w-full h-24 px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-lucid-500 focus:border-transparent"
         />
       </div>
 
@@ -212,11 +212,11 @@ function StyleProposalList({
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="px-3 py-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             &larr; Back
           </button>
-          <h2 className="text-lg font-semibold text-gray-900">Style Proposals</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Style Proposals</h2>
         </div>
         {selectedIndex !== null && (
           <button
@@ -233,7 +233,7 @@ function StyleProposalList({
           Array.from({ length: numProposals }).map((_, index) => (
             <div
               key={index}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4"
             >
               <span className="text-sm font-medium text-lucid-600">Proposal {index + 1}</span>
               <div className="mt-3 animate-pulse">
@@ -244,8 +244,8 @@ function StyleProposalList({
             </div>
           ))
         ) : !hasProposals ? (
-          <div className="bg-gray-50 rounded-xl border border-dashed border-gray-300 p-8 text-center">
-            <p className="text-gray-500">
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-8 text-center">
+            <p className="text-gray-500 dark:text-gray-400">
               Click "Generate Style Proposals" to create visual style options for your carousel
             </p>
           </div>
@@ -254,10 +254,10 @@ function StyleProposalList({
             <button
               key={proposal.index}
               onClick={() => onSelect(proposal.index)}
-              className={`w-full text-left bg-white rounded-lg shadow-sm border-2 p-4 transition-colors ${
+              className={`w-full text-left bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 p-4 transition-colors ${
                 selectedIndex === proposal.index
-                  ? 'border-lucid-500 ring-2 ring-lucid-200'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-lucid-500 ring-2 ring-lucid-200 dark:ring-lucid-900/50'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'
               }`}
             >
               <div className="flex items-start justify-between mb-2">
@@ -280,7 +280,7 @@ function StyleProposalList({
                 />
               )}
 
-              <p className="text-gray-700 text-sm">{proposal.description}</p>
+              <p className="text-gray-700 dark:text-gray-300 text-sm">{proposal.description}</p>
             </button>
           ))
         )}

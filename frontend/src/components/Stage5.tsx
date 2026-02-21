@@ -145,11 +145,11 @@ export default function Stage5() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleBack}
-            className="px-3 py-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             &larr; Back
           </button>
-          <h2 className="text-lg font-semibold text-gray-900">Typography & Layout</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Typography & Layout</h2>
         </div>
         {hasFinalImages && (
           <button

@@ -10,6 +10,7 @@ import StageIndicator from './components/StageIndicator';
 import ProjectHome from './components/ProjectHome';
 import NewProjectModal from './components/NewProjectModal';
 import TemplatesPage from './components/TemplatesPage';
+import { useDarkMode } from './hooks/useDarkMode';
 
 function AppContent() {
   const {
@@ -25,6 +26,7 @@ function AppContent() {
     goToStage,
   } = useProject();
 
+  const { isDark, toggle: toggleDark } = useDarkMode();
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showTemplatesPage, setShowTemplatesPage] = useState(false);
 
@@ -47,6 +49,8 @@ function AppContent() {
         <Header
           projectName={currentProject?.name ?? null}
           onBack={currentProject ? closeProject : null}
+          isDark={isDark}
+          onToggleDark={toggleDark}
         />
 
         {currentProject && (
@@ -55,11 +59,11 @@ function AppContent() {
 
         <main className="flex-1 min-h-0 overflow-y-auto">
           {error && (
-            <div className="mx-4 mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
+            <div className="mx-4 mt-4 p-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
               {error}
               <button
                 onClick={() => setError(null)}
-                className="ml-2 text-red-500 hover:text-red-700"
+                className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200"
               >
                 Dismiss
               </button>
