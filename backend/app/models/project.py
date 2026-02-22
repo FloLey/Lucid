@@ -1,6 +1,6 @@
 """Project and Template Pydantic models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -71,8 +71,8 @@ class ProjectState(BaseModel):
     project_id: str = Field(description="Unique project identifier (UUID)")
     name: str = Field(default="Untitled Project")
     slide_count: int = Field(default=5, ge=1, le=20)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Stage tracking
     current_stage: int = Field(default=1, ge=1, le=MAX_STAGES)
@@ -110,7 +110,7 @@ class ProjectState(BaseModel):
 
     def update_timestamp(self) -> None:
         """Refresh the updated_at timestamp."""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def get_slide(self, index: int) -> Optional[Slide]:
         """Return slide at *index*, or None if out of range."""

@@ -5,7 +5,7 @@ import json
 import logging
 import re
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from typing import Optional
 
@@ -68,7 +68,7 @@ class ExportService:
             "project_id": project.project_id,
             "project_name": project.name,
             "created_at": project.created_at.isoformat(),
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
             "num_slides": len(project.slides),
             "draft_text": project.draft_text,
             "image_style_instructions": project.image_style_instructions,
@@ -155,7 +155,7 @@ class ExportService:
         if not self.project_manager:
             return None
         project = await self.project_manager.get_project(project_id)
-        if not project or slide_index >= len(project.slides):
+        if not project or not (0 <= slide_index < len(project.slides)):
             return None
 
         slide = project.slides[slide_index]

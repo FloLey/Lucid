@@ -243,13 +243,8 @@ class ProjectManager:
     # Test helpers
     # ------------------------------------------------------------------
 
-    def clear_all(self) -> None:
+    async def clear_all(self) -> None:
         """Wipe all projects from the DB.  Used in tests."""
-        import asyncio
-
-        asyncio.run(self._async_clear_db())
-
-    async def _async_clear_db(self) -> None:
         async with self._session_factory() as session:
             async with session.begin():
                 await session.execute(delete(ProjectDB))

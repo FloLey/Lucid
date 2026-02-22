@@ -1,12 +1,13 @@
 """Stage Style service - Generate and select shared visual style proposals."""
 
 from __future__ import annotations
-import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
 from app.models.project import ProjectState
 from app.models.style_proposal import StyleProposal
+from app.services.async_utils import bounded_gather
+from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
 from app.services.storage_service import StorageService
 from app.services.llm_logger import set_project_context
@@ -19,7 +20,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class StageStyleService:
+class StageStyleService(BaseStageService):
     """Service for Stage Style: Visual style proposal generation and selection."""
 
     project_manager: ProjectManager
@@ -35,19 +36,10 @@ class StageStyleService:
         storage_service: Optional[StorageService] = None,
         prompt_loader: Optional[PromptLoader] = None,
     ):
-        if not project_manager:
-            raise ValueError("project_manager dependency is required")
-        if not gemini_service:
-            raise ValueError("gemini_service dependency is required")
-        if not image_service:
-            raise ValueError("image_service dependency is required")
-        if not storage_service:
-            raise ValueError("storage_service dependency is required")
-
-        self.project_manager = project_manager
-        self.gemini_service = gemini_service
-        self.image_service = image_service
-        self.storage_service = storage_service
+        self.project_manager = self._require(project_manager, "project_manager")
+        self.gemini_service = self._require(gemini_service, "gemini_service")
+        self.image_service = self._require(image_service, "image_service")
+        self.storage_service = self._require(storage_service, "storage_service")
         self.prompt_loader = prompt_loader or PromptLoader()
 
     async def generate_proposals(
@@ -97,14 +89,11 @@ class StageStyleService:
 
         raw_proposals = result.get("proposals", [])
 
-        sem = asyncio.Semaphore(concurrency_limit)
-
         async def generate_preview(i: int, proposal_data: dict) -> StyleProposal:
             common_flow = proposal_data.get("description", "")
             preview_path: Optional[str] = None
             try:
-                async with sem:
-                    b64 = await self.image_service.generate_image(common_flow)
+                b64 = await self.image_service.generate_image(common_flow)
                 preview_path = self.storage_service.save_image_to_disk(b64)
             except Exception as e:
                 logger.warning(f"Failed to generate preview for proposal {i}: {e}")
@@ -115,8 +104,9 @@ class StageStyleService:
                 preview_image=preview_path,
             )
 
-        proposals = await asyncio.gather(
-            *[generate_preview(i, p) for i, p in enumerate(raw_proposals)]
+        proposals = await bounded_gather(
+            [generate_preview(i, p) for i, p in enumerate(raw_proposals)],
+            concurrency_limit,
         )
 
         old_proposals = project.style_proposals

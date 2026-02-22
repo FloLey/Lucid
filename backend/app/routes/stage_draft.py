@@ -59,7 +59,12 @@ async def generate_slide_texts(
     background_tasks: BackgroundTasks,
     stage_draft_service: StageDraftService = Depends(get_stage_draft_service),
 ):
-    """Generate slide texts from a draft."""
+    """Generate slide texts from a draft.
+
+    Note: cannot use execute_service_action here because we need to schedule
+    a BackgroundTasks title-generation job on success, which requires access
+    to the returned project before sending the response.
+    """
     try:
         project = await stage_draft_service.generate_slide_texts(
             project_id=request.project_id,

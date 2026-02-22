@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Project, ProjectCard, AppConfig, TemplateData, ProjectConfig } from '../types';
+import type { Project, ProjectCard, AppConfig, TemplateData, ProjectConfig, TextStyle } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -240,7 +240,7 @@ export const applyTextToSlide = async (
 export const updateStyle = async (
   projectId: string,
   slideIndex: number,
-  style: Record<string, unknown>
+  style: TextStyle
 ): Promise<Project> => {
   const response = await api.post('/stage-typography/update-style', {
     project_id: projectId,
@@ -252,7 +252,7 @@ export const updateStyle = async (
 
 export const applyStyleToAll = async (
   projectId: string,
-  style: Record<string, unknown>
+  style: TextStyle
 ): Promise<Project> => {
   const response = await api.post('/stage-typography/apply-style-all', {
     project_id: projectId,

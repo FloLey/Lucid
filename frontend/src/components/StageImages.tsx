@@ -76,7 +76,7 @@ export default function Stage4() {
 
           <div className="overflow-y-auto flex-1 min-h-0 space-y-3">
             {slides.map((slide, index) => (
-              <div key={index} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
+              <div key={slide.index} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
                 <span className="font-medium text-lucid-600">Slide {index + 1}</span>
                 <p className="text-gray-500 text-xs mt-1">
                   {slide.image_prompt || 'No prompt generated'}

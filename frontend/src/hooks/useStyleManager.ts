@@ -40,7 +40,7 @@ export function useStyleManager({
 
     setIsUpdating(true);
     try {
-      await api.updateStyle(projectId, slideIndex, newStyle as unknown as Record<string, unknown>);
+      await api.updateStyle(projectId, slideIndex, newStyle);
     } catch (error) {
       console.error('Failed to update style:', error);
       // Revert on error

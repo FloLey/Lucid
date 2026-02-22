@@ -16,14 +16,14 @@ project_manager = container.project_manager
 @pytest.fixture
 def client():
     """Create a test client."""
-    project_manager.clear_all()
+    run_async(project_manager.clear_all())
     return TestClient(app)
 
 
 @pytest.fixture
 def project_with_slides():
     """Create a project with slides for testing."""
-    project_manager.clear_all()
+    run_async(project_manager.clear_all())
     project = run_async(project_manager.create_project())
     project.slides = [
         Slide(index=0, text=SlideText(title="Hook", body="Grab attention")),
@@ -64,7 +64,7 @@ class TestStage2Service:
 
     def test_generate_prompts_no_project(self, mock_gemini):
         """Test generating prompts with no project."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         project = run_async(
             stage2_service.generate_all_prompts(project_id="nonexistent")
         )
@@ -72,7 +72,7 @@ class TestStage2Service:
 
     def test_generate_prompts_no_slides(self, mock_gemini):
         """Test generating prompts with no slides."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage2_service.generate_all_prompts(project_id=created.project_id)
@@ -147,7 +147,7 @@ class TestStage2Service:
 
     def test_update_style_no_project(self):
         """Test updating style with no project."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         project = run_async(
             stage2_service.update_style_instructions(
                 project_id="nonexistent",

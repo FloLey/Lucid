@@ -63,5 +63,5 @@ def client():
     """
     from app.dependencies import container
 
-    container.project_manager.clear_all()
+    run_async(container.project_manager.clear_all())
     return TestClient(app)

@@ -6,6 +6,7 @@ import logging
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from app.models.project import MAX_STAGES, ProjectState
+from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
 from app.services.llm_logger import set_project_context
 
@@ -21,7 +22,7 @@ _RESEARCH_SYSTEM_PROMPT = (
 )
 
 
-class StageResearchService:
+class StageResearchService(BaseStageService):
     """Service for Stage Research: grounded chat and draft extraction."""
 
     def __init__(
@@ -30,13 +31,8 @@ class StageResearchService:
         gemini_service: Optional[GeminiService] = None,
         prompt_loader: Optional[PromptLoader] = None,
     ) -> None:
-        if not project_manager:
-            raise ValueError("project_manager dependency is required")
-        if not gemini_service:
-            raise ValueError("gemini_service dependency is required")
-
-        self.project_manager = project_manager
-        self.gemini_service = gemini_service
+        self.project_manager = self._require(project_manager, "project_manager")
+        self.gemini_service = self._require(gemini_service, "gemini_service")
         self.prompt_loader = prompt_loader or PromptLoader()
 
     # ------------------------------------------------------------------

@@ -16,7 +16,7 @@ project_manager = container.project_manager
 @pytest.fixture
 def client():
     """Create a test client."""
-    project_manager.clear_all()
+    run_async(project_manager.clear_all())
     return TestClient(app)
 
 
@@ -45,7 +45,7 @@ class TestStage1Service:
 
     def test_generate_slide_texts_creates_slides(self, mock_gemini):
         """Test that generate_slide_texts populates slides on a project."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage1_service.generate_slide_texts(
@@ -61,7 +61,7 @@ class TestStage1Service:
 
     def test_generate_slide_texts_stores_inputs(self, mock_gemini):
         """Test that inputs are stored in project."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage1_service.generate_slide_texts(
@@ -79,7 +79,7 @@ class TestStage1Service:
 
     def test_generate_slide_texts_with_titles(self, mock_gemini):
         """Test slide generation with titles."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage1_service.generate_slide_texts(
@@ -95,7 +95,7 @@ class TestStage1Service:
 
     def test_generate_slide_texts_nonexistent_project(self, mock_gemini):
         """Test that generate_slide_texts returns None for nonexistent project."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         result = run_async(
             stage1_service.generate_slide_texts(
                 project_id="nonexistent",
@@ -107,7 +107,7 @@ class TestStage1Service:
 
     def test_regenerate_all_requires_draft(self, mock_gemini):
         """Test that regenerate_all requires existing draft."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         result = run_async(
             stage1_service.regenerate_all_slide_texts(created.project_id)
@@ -116,7 +116,7 @@ class TestStage1Service:
 
     def test_regenerate_single_slide(self, mock_gemini):
         """Test regenerating a single slide."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         run_async(
             stage1_service.generate_slide_texts(
@@ -137,7 +137,7 @@ class TestStage1Service:
 
     def test_update_slide_text(self):
         """Test manually updating slide text."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [Slide(index=0)]
         run_async(project_manager.update_project(created))
@@ -156,7 +156,7 @@ class TestStage1Service:
 
     def test_update_slide_text_partial(self):
         """Test partially updating slide text."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [
             Slide(index=0, text=SlideText(title="Original", body="Original body"))
@@ -175,7 +175,7 @@ class TestStage1Service:
 
     def test_update_nonexistent_slide(self):
         """Test updating a nonexistent slide."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         result = run_async(
             stage1_service.update_slide_text(
@@ -441,7 +441,7 @@ class TestWordsPerSlide:
 
     def test_keep_as_is_service_direct(self):
         """Test keep_as_is path directly through the service."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage1_service.generate_slide_texts(

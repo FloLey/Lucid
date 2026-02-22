@@ -5,14 +5,12 @@ interface UseApiActionOptions<TArgs extends any[], TResult> {
   action: (...args: TArgs) => Promise<TResult>;
   onSuccess?: (result: TResult) => void;
   onError?: (error: string) => void;
-  successMessage?: string;
 }
 
 export function useApiAction<TArgs extends any[], TResult>({
   action,
   onSuccess,
   onError,
-  successMessage
 }: UseApiActionOptions<TArgs, TResult>) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +34,6 @@ export function useApiAction<TArgs extends any[], TResult>({
       if (onSuccessRef.current) {
         onSuccessRef.current(data);
       }
-      if (successMessage) {
-        console.log(successMessage);
-      }
       return data;
     } catch (err) {
       const message = getErrorMessage(err, 'Action failed');
@@ -50,7 +45,7 @@ export function useApiAction<TArgs extends any[], TResult>({
     } finally {
       setIsLoading(false);
     }
-  }, [successMessage]);
+  }, []);
 
   const reset = useCallback(() => {
     setError(null);

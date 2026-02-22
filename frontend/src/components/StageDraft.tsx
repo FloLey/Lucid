@@ -287,7 +287,7 @@ export default function Stage1() {
               </div>
             ) : (
               slides.map((slide, index) => (
-                <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                <div key={slide.index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
                     <div className="flex gap-2">

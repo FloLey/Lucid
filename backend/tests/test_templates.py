@@ -15,7 +15,7 @@ project_manager = container.project_manager
 def client():
     """Create a test client with empty template and project tables."""
     run_async(template_manager._clear_all())
-    project_manager.clear_all()
+    run_async(project_manager.clear_all())
     return TestClient(app)
 
 

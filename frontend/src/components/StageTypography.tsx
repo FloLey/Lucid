@@ -30,6 +30,10 @@ export default function Stage5() {
   const slides = project?.slides || [];
   const currentSlide = slides[selectedSlide];
 
+  // Keep a ref to slides so effects can read the latest value without re-running
+  const slidesRef = useRef(slides);
+  slidesRef.current = slides;
+
   // Style management using useStyleManager hook
   const { style, updateStyle, isUpdating: styleUpdating } = useStyleManager({
     projectId,
@@ -67,11 +71,23 @@ export default function Stage5() {
     scheduleTextSyncAndRender(newTitle, newBody);
   }, [scheduleTextSyncAndRender, localTitle, localBody]);
 
-  // Update local text when selected slide changes
+  // applyToAll — defined before the mount effect so it can be listed as a dep
+  const { execute: applyToAll, isLoading: applyingToAll } = useApiAction({
+    action: async () => {
+      if (!style) throw new Error('No style to apply');
+      await api.applyStyleToAll(projectId, style);
+      return await api.applyTextToAll(projectId);
+    },
+    onSuccess: (newSession) => updateProject(newSession),
+    onError: (error) => setError(error)
+  });
+
+  // Update local text when selected slide changes.
+  // Read via slidesRef so this only fires on slide navigation, not on every project update.
   useEffect(() => {
-    setLocalTitle(currentSlide?.text.title || null);
-    setLocalBody(currentSlide?.text.body || '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const slide = slidesRef.current[selectedSlide];
+    setLocalTitle(slide?.text.title || null);
+    setLocalBody(slide?.text.body || '');
   }, [selectedSlide]);
 
   // If no title, auto-select body
@@ -81,13 +97,13 @@ export default function Stage5() {
     }
   }, [hasTitle, selectedBox]);
 
-  // Auto-apply to all slides on first render
+  // Auto-apply to all slides on first render.
+  // applyToAll is stable (useCallback with [] deps) so this runs once on mount.
   useEffect(() => {
-    if (slides.length > 0 && slides.some((s) => s.background_image_url && !s.final_image_url)) {
+    if (slidesRef.current.length > 0 && slidesRef.current.some((s) => s.background_image_url && !s.final_image_url)) {
       applyToAll();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [applyToAll]);
 
   // Auto-render when style changes (fires when styleUpdating transitions true → false)
   const prevStyleUpdatingRef = useRef(false);
@@ -115,18 +131,6 @@ export default function Stage5() {
     selectedBox,
     setSelectedBox,
     updateLocalStyle: updateStyle,
-  });
-
-  // Use ApiAction for applyToAll
-  const { execute: applyToAll, isLoading: applyingToAll } = useApiAction({
-    action: async () => {
-      if (!style) throw new Error('No style to apply');
-      const styleDict = style as unknown as Record<string, unknown>;
-      await api.applyStyleToAll(projectId, styleDict);
-      return await api.applyTextToAll(projectId);
-    },
-    onSuccess: (newSession) => updateProject(newSession),
-    onError: (error) => setError(error)
   });
 
   const handleExport = () => {

@@ -86,7 +86,7 @@ class StageTypographyService:
     ) -> Optional[ProjectState]:
         """Apply text styling to a single slide image."""
         project = await self.project_manager.get_project(project_id)
-        if not project or slide_index >= len(project.slides):
+        if not project or not (0 <= slide_index < len(project.slides)):
             return None
 
         slide = project.slides[slide_index]
@@ -136,7 +136,7 @@ class StageTypographyService:
     ) -> Optional[ProjectState]:
         """Update style properties for a slide."""
         project = await self.project_manager.get_project(project_id)
-        if not project or slide_index >= len(project.slides):
+        if not project or not (0 <= slide_index < len(project.slides)):
             return None
 
         slide = project.slides[slide_index]
@@ -168,7 +168,7 @@ class StageTypographyService:
     ) -> Optional[ProjectState]:
         """Use image analysis to suggest optimal style for a slide."""
         project = await self.project_manager.get_project(project_id)
-        if not project or slide_index >= len(project.slides):
+        if not project or not (0 <= slide_index < len(project.slides)):
             return None
 
         slide = project.slides[slide_index]

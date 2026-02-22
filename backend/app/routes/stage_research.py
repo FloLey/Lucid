@@ -1,18 +1,15 @@
 """Stage Research routes — grounded chat and draft extraction."""
 
-import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.models.project import ProjectResponse
 from app.dependencies import get_stage_research_service
-from app.services.gemini_service import GeminiError
 from app.services.stage_research_service import StageResearchService
 from app.routes.utils import execute_service_action
 
-logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -39,19 +36,13 @@ async def research_chat(
     stage_research_service: StageResearchService = Depends(get_stage_research_service),
 ):
     """Send a user message and receive a search-grounded AI reply."""
-    try:
-        project = await stage_research_service.send_message(
+    return await execute_service_action(
+        lambda: stage_research_service.send_message(
             project_id=request.project_id,
             message=request.message,
-        )
-    except GeminiError:
-        raise
-    except Exception as e:
-        logger.error("Research chat failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Research chat failed")
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return {"project": project.model_dump()}
+        ),
+        "Research chat failed",
+    )
 
 
 @router.post("/extract-draft", response_model=ProjectResponse)
