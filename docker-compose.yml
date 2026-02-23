@@ -12,7 +12,7 @@ services:
       - ./backend/prompts:/app/prompts
       - ./backend/fonts:/app/fonts
       - lucid-data:/app/data
-      - ./config.json:/app/config.json:delegated
+      - ./config.json:/app/config.json
       - ./backend/logs:/app/logs
     env_file:
       - path: .env
@@ -20,6 +20,7 @@ services:
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - LLM_DEBUG_LOG=${LLM_DEBUG_LOG:-}
+    restart: unless-stopped
     networks:
       - lucid-network
 
@@ -38,6 +39,7 @@ services:
       - VITE_API_TARGET=http://backend:8000
     depends_on:
       - backend
+    restart: unless-stopped
     networks:
       - lucid-network
 

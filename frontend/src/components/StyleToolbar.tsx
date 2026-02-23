@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import type { TextStyle } from '../types';
 import { FONTS, FONT_SIZES } from '../constants';
 import AlignIcon from './AlignIcon';
@@ -23,6 +24,14 @@ export default function StyleToolbar({
   updateLocalStyle,
   onApplyToAll,
 }: StyleToolbarProps) {
+  // Local state for the color picker so dragging doesn't fire an API call on
+  // every pixel. We commit the final value only when the picker loses focus.
+  const [pendingColor, setPendingColor] = useState(style.text_color.slice(0, 7));
+
+  useEffect(() => {
+    setPendingColor(style.text_color.slice(0, 7));
+  }, [style.text_color]);
+
   const getActiveFontSize = (): number => {
     return selectedBox === 'title' ? style.font_size_px : style.body_font_size_px;
   };
@@ -90,12 +99,17 @@ export default function StyleToolbar({
           ))}
         </select>
 
-        {/* Color picker */}
+        {/* Color picker — local state avoids API calls on every drag pixel */}
         <div className="relative">
           <input
             type="color"
-            value={style.text_color.slice(0, 7)}
-            onChange={(e) => updateLocalStyle({ text_color: e.target.value })}
+            value={pendingColor}
+            onChange={(e) => setPendingColor(e.target.value)}
+            onBlur={() => {
+              if (pendingColor !== style.text_color.slice(0, 7)) {
+                updateLocalStyle({ text_color: pendingColor });
+              }
+            }}
             className="w-7 h-7 rounded cursor-pointer border border-gray-300"
             title="Text color"
           />

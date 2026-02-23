@@ -65,8 +65,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Include routers
@@ -85,7 +85,6 @@ app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
 
 # Serve generated images directly so the frontend can load them via
 # /images/<uuid>.png without going through the API layer.
-IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/images", StaticFiles(directory=str(IMAGE_DIR)), name="images")
 
 

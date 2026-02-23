@@ -8,7 +8,8 @@
   "global_defaults": {
     "num_slides": 5,
     "language": "English",
-    "include_titles": true
+    "include_titles": true,
+    "words_per_slide": null
   },
   "image": {
     "width": 1080,
@@ -20,6 +21,10 @@
     "default_font_weight": 700,
     "default_font_size_px": 72,
     "default_text_color": "#FFFFFF",
-    "default_alignment": "center"
+    "default_alignment": "center",
+    "default_text_enabled": true,
+    "default_stroke_enabled": false,
+    "default_stroke_width_px": 2,
+    "default_stroke_color": "#000000"
   }
 }

@@ -42,7 +42,6 @@ export function useStyleManager({
     try {
       await api.updateStyle(projectId, slideIndex, newStyle);
     } catch (error) {
-      console.error('Failed to update style:', error);
       // Revert on error
       setStyle(style);
       throw error;

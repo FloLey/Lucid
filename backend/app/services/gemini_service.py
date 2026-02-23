@@ -1,5 +1,6 @@
 """Gemini AI service for text generation (google.genai SDK)."""
 
+import asyncio
 import json
 import logging
 from typing import List, Optional, Dict, Any
@@ -71,7 +72,8 @@ class GeminiService:
             system_instruction=system_instruction,
         )
 
-        response = self._client.models.generate_content(
+        response = await asyncio.to_thread(
+            self._client.models.generate_content,
             model=GEMINI_TEXT_MODEL,
             contents=[prompt],
             config=config,
@@ -105,7 +107,8 @@ class GeminiService:
             system_instruction=system_instruction,
             temperature=temperature,
         )
-        return self._client.models.generate_content(
+        return await asyncio.to_thread(
+            self._client.models.generate_content,
             model=GEMINI_TEXT_MODEL,
             contents=contents,
             config=config,
@@ -168,7 +171,8 @@ class GeminiService:
         )
 
         try:
-            response = self._client.models.generate_content(
+            response = await asyncio.to_thread(
+                self._client.models.generate_content,
                 model=GEMINI_TEXT_MODEL,
                 contents=contents,
                 config=config,

@@ -22,9 +22,10 @@ Lucid/
 │   ├── app/
 │   │   ├── main.py              # FastAPI app, CORS, router registration
 │   │   ├── config.py            # App-level config
+│   │   ├── dependencies.py      # ServiceContainer (dependency injection wiring)
 │   │   ├── models/              # Pydantic data models (session, slide, style, config)
 │   │   ├── routes/              # 12 API routers under /api prefix
-│   │   └── services/            # 18 service modules (business logic)
+│   │   └── services/            # 20+ service modules (business logic)
 │   ├── prompts/                 # LLM prompt templates (.prompt files)
 │   ├── fonts/                   # Downloaded TTF font files (gitignored)
 │   └── tests/                   # pytest test suite (12 test files)
@@ -93,6 +94,7 @@ npm run build          # tsc type-check + vite production build
 - **Routes** (`app/routes/`): HTTP endpoints, request validation, delegate to services
 - **Services** (`app/services/`): Business logic, LLM calls, image processing
 - **Models** (`app/models/`): Pydantic v2 schemas for all data structures
+- **Dependencies** (`app/dependencies.py`): `ServiceContainer` wires all singleton services for dependency injection
 
 **Key services:**
 | Service | Role |
@@ -110,6 +112,12 @@ npm run build          # tsc type-check + vite production build
 | `export_service.py` | ZIP archive generation |
 | `config_manager.py` | Configuration CRUD |
 | `template_manager.py` | Template CRUD and default seeding |
+| `storage_service.py` | Disk-based image read/write/delete |
+| `async_utils.py` | `bounded_gather()` — concurrent async operations with a concurrency limit |
+| `base_stage_service.py` | Base class for stage services with `_require()` dependency validation |
+| `llm_logger.py` | Structured JSONL logging of all LLM calls |
+| `prompt_loader.py` | Loads `.prompt` files with template-aware fallback |
+| `prompt_validator.py` | Validates prompt variable substitution at startup |
 
 **API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`).
 
@@ -182,3 +190,5 @@ npm run build          # tsc type-check + vite production build
 - Fonts are downloaded during Docker build via `download_fonts.py`. For manual setup, run `python download_fonts.py` in the backend directory first.
 - The frontend proxies `/api` to the backend — API calls in the browser go to the same origin, not directly to port 8000.
 - Project state flows through `ProjectManager` — always update projects via its methods, not by modifying state directly.
+- The database is SQLite (`aiosqlite`) stored in the `lucid-data` Docker volume. SQLite is single-writer — horizontal scaling beyond one backend process requires migrating to PostgreSQL.
+- Generated images are stored on disk in the `lucid-data` volume. They are not backed up automatically; use `docker volume` tools or mount a host path for persistence.

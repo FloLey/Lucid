@@ -56,7 +56,10 @@ class StorageService:
         """Return raw PNG bytes from either an /images/ path or a base64 string."""
         if _is_file_path(path_or_b64):
             file_name = path_or_b64[len(_IMAGE_URL_PREFIX):]
-            return (IMAGE_DIR / file_name).read_bytes()
+            safe_path = (IMAGE_DIR / file_name).resolve()
+            if not safe_path.is_relative_to(IMAGE_DIR.resolve()):
+                raise ValueError(f"Invalid image path: {file_name!r}")
+            return safe_path.read_bytes()
         return base64.b64decode(path_or_b64)
 
     def decode_image_from_path_or_b64(self, data: str) -> Image.Image:
