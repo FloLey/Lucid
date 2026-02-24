@@ -13,6 +13,8 @@ interface StyleToolbarProps {
   setSelectedBox: (box: SelectedBox) => void;
   updateLocalStyle: (updates: Record<string, unknown>) => void;
   onApplyToAll: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 export default function StyleToolbar({
@@ -23,6 +25,8 @@ export default function StyleToolbar({
   setSelectedBox,
   updateLocalStyle,
   onApplyToAll,
+  onUndo,
+  onRedo,
 }: StyleToolbarProps) {
   // Local state for the color picker so dragging doesn't fire an API call on
   // every pixel. We commit the final value only when the picker loses focus.
@@ -162,6 +166,26 @@ export default function StyleToolbar({
         </button>
 
         <div className="flex-1" />
+
+        {/* Undo / Redo */}
+        {onUndo && (
+          <button
+            onClick={onUndo}
+            title="Undo (Ctrl+Z)"
+            className="px-2 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+          >
+            ↩
+          </button>
+        )}
+        {onRedo && (
+          <button
+            onClick={onRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            className="px-2 py-1 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+          >
+            ↪
+          </button>
+        )}
 
         {/* Apply to All */}
         <button

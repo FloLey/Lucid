@@ -315,6 +315,43 @@ class StageDraftService(BaseStageService):
 
         return project
 
+    async def regenerate_slide_text_stream(
+        self,
+        project_id: str,
+        slide_index: int,
+        instruction: Optional[str] = None,
+    ):
+        """Stream plain-text body content for single-slide regeneration.
+
+        Yields text chunks as they arrive. Saves nothing — the caller is
+        responsible for persisting the final text (e.g., via update_slide_text).
+        """
+        project = await self.project_manager.get_project(project_id)
+        if not project or not (0 <= slide_index < len(project.slides)):
+            return
+
+        instruction_text = (
+            f"\nSpecific instruction: {instruction}" if instruction else ""
+        )
+
+        all_slides = "\n".join(
+            f"Slide {i + 1}: {s.text.get_full_text()}"
+            for i, s in enumerate(project.slides)
+        )
+
+        prompt = (
+            f"You are rewriting the body text of slide {slide_index + 1} in a carousel.\n"
+            f"Original draft: {(project.draft_text or '')[:500]}\n"
+            f"All slides context:\n{all_slides}\n"
+            f"Language: {project.language}\n"
+            f"{instruction_text}\n\n"
+            f"Output ONLY the new body text for slide {slide_index + 1}. "
+            f"No titles, no labels, no JSON — just the text content."
+        )
+
+        async for chunk in self.gemini_service.generate_text_stream(prompt):
+            yield chunk
+
     async def update_slide_text(
         self,
         project_id: str,

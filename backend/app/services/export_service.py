@@ -41,14 +41,37 @@ class ExportService:
         text = re.sub(r"\s+", "_", text)
         return text[:max_length].strip("_")
 
-    def _generate_filename(self, index: int, title: Optional[str]) -> str:
+    def _generate_filename(self, index: int, title: Optional[str], ext: str = "png") -> str:
         """Generate filename for a slide."""
         prefix = f"{index + 1:02d}"
         if title:
             sanitized = self._sanitize_filename(title)
             if sanitized:
-                return f"{prefix}_{sanitized}.png"
-        return f"{prefix}_slide.png"
+                return f"{prefix}_{sanitized}.{ext}"
+        return f"{prefix}_slide.{ext}"
+
+    def _convert_image(self, png_bytes: bytes, fmt: str) -> tuple[bytes, str]:
+        """Convert PNG bytes to the requested format. Returns (image_bytes, extension)."""
+        if fmt == "png":
+            return png_bytes, "png"
+        from PIL import Image
+
+        img = Image.open(BytesIO(png_bytes))
+        buf = BytesIO()
+        if fmt == "jpeg":
+            if img.mode in ("RGBA", "LA", "P"):
+                bg = Image.new("RGB", img.size, (255, 255, 255))
+                if img.mode == "RGBA":
+                    bg.paste(img, mask=img.split()[3])
+                else:
+                    bg.paste(img)
+                img = bg
+            img.save(buf, format="JPEG", quality=92)
+            return buf.getvalue(), "jpg"
+        elif fmt == "webp":
+            img.save(buf, format="WEBP", quality=92)
+            return buf.getvalue(), "webp"
+        return png_bytes, "png"
 
     def _generate_metadata(self, project: ProjectState) -> dict:
         """Generate metadata for the export."""
@@ -75,7 +98,7 @@ class ExportService:
             "slides": slides_meta,
         }
 
-    def _build_zip(self, project: ProjectState) -> BytesIO:
+    def _build_zip(self, project: ProjectState, fmt: str = "png") -> BytesIO:
         """Build a ZIP archive synchronously (intended for use in a thread)."""
         zip_buffer = BytesIO()
 
@@ -85,10 +108,10 @@ class ExportService:
                 if not image_data:
                     continue
 
-                filename = self._generate_filename(slide.index, slide.text.title)
-
                 try:
-                    image_bytes = self.storage_service.read_image_bytes(image_data)
+                    raw_bytes = self.storage_service.read_image_bytes(image_data)
+                    image_bytes, ext = self._convert_image(raw_bytes, fmt)
+                    filename = self._generate_filename(slide.index, slide.text.title, ext)
                     zip_file.writestr(f"slides/{filename}", image_bytes)
                 except Exception as e:
                     logger.error(f"Error adding slide {slide.index}: {e}")
@@ -103,7 +126,7 @@ class ExportService:
         zip_buffer.seek(0)
         return zip_buffer
 
-    async def export_project(self, project_id: str) -> Optional[BytesIO]:
+    async def export_project(self, project_id: str, fmt: str = "png") -> Optional[BytesIO]:
         """Export project slides as ZIP archive."""
         if not self.project_manager:
             return None
@@ -111,7 +134,7 @@ class ExportService:
         if not project or not project.slides:
             return None
 
-        return await asyncio.to_thread(self._build_zip, project)
+        return await asyncio.to_thread(self._build_zip, project, fmt)
 
     def _generate_text_file(self, project: ProjectState) -> str:
         """Generate a text file with all slide content."""
@@ -139,19 +162,13 @@ class ExportService:
 
         return "\n".join(lines)
 
-    def _read_slide_bytes(self, image_data: str) -> BytesIO:
-        """Read a single slide's image bytes synchronously (intended for use in a thread)."""
-        image_bytes = self.storage_service.read_image_bytes(image_data)
-        buffer = BytesIO(image_bytes)
-        buffer.seek(0)
-        return buffer
-
     async def export_single_slide(
         self,
         project_id: str,
         slide_index: int,
+        fmt: str = "png",
     ) -> Optional[BytesIO]:
-        """Export a single slide as PNG."""
+        """Export a single slide image in the requested format."""
         if not self.project_manager:
             return None
         project = await self.project_manager.get_project(project_id)
@@ -164,7 +181,14 @@ class ExportService:
             return None
 
         try:
-            return await asyncio.to_thread(self._read_slide_bytes, image_data)
+            def _read_and_convert() -> BytesIO:
+                raw = self.storage_service.read_image_bytes(image_data)
+                converted, _ = self._convert_image(raw, fmt)
+                buf = BytesIO(converted)
+                buf.seek(0)
+                return buf
+
+            return await asyncio.to_thread(_read_and_convert)
         except Exception as e:
             logger.error(f"Error exporting slide {slide_index}: {e}")
             return None

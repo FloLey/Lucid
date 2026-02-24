@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
@@ -18,10 +18,22 @@ export default function Stage4() {
   } = useProject();
 
   const [regeneratingImages, setRegeneratingImages] = useState<Set<number>>(new Set());
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
+
+    // Poll every 2 s so the UI shows per-slide progress as images arrive
+    pollingRef.current = setInterval(async () => {
+      try {
+        const refreshed = await api.getProject(projectId);
+        updateProject(refreshed);
+      } catch {
+        // ignore transient poll errors
+      }
+    }, 2000);
+
     try {
       const sess = await api.generateImages(projectId);
       updateProject(sess);
@@ -29,6 +41,10 @@ export default function Stage4() {
       setError(getErrorMessage(err, 'Failed to generate images'));
     } finally {
       setLoading(false);
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
     }
   };
 
@@ -110,16 +126,22 @@ export default function Stage4() {
 
           <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
             {loading && regeneratingImages.size === 0 ? (
-              slides.map((_, index) => (
+              slides.map((slide, index) => (
                 <div
                   key={index}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4"
                 >
                   <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
-                  <div className="flex items-center gap-3 mt-3 text-gray-400">
-                    <Spinner size="sm" />
-                    <span className="text-sm">Generating image...</span>
-                  </div>
+                  {slide.background_image_url ? (
+                    <div className="flex items-center gap-2 mt-2 text-green-600 dark:text-green-400">
+                      <span className="text-sm">✓ Ready</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 mt-3 text-gray-400">
+                      <Spinner size="sm" />
+                      <span className="text-sm">Generating image...</span>
+                    </div>
+                  )}
                 </div>
               ))
             ) : !hasImages ? (

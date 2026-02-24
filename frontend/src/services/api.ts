@@ -67,6 +67,16 @@ export const goToStage = async (projectId: string, stage: number): Promise<Proje
   return response.data.project;
 };
 
+export const reorderSlides = async (
+  projectId: string,
+  newOrder: number[]
+): Promise<Project> => {
+  const response = await api.post(`/projects/${projectId}/reorder`, {
+    new_order: newOrder,
+  });
+  return response.data.project;
+};
+
 // Stage Research APIs
 export const sendResearchMessage = async (
   projectId: string,
@@ -262,12 +272,12 @@ export const applyStyleToAll = async (
 };
 
 // Export API
-export const getExportZipUrl = (projectId: string): string => {
-  return `/api/export/zip/${projectId}`;
+export const getExportZipUrl = (projectId: string, format: string = 'png'): string => {
+  return `/api/export/zip/${projectId}?format=${format}`;
 };
 
-export const getExportSlideUrl = (projectId: string, slideIndex: number): string => {
-  return `/api/export/slide/${projectId}/${slideIndex}`;
+export const getExportSlideUrl = (projectId: string, slideIndex: number, format: string = 'png'): string => {
+  return `/api/export/slide/${projectId}/${slideIndex}?format=${format}`;
 };
 
 // Config APIs
@@ -331,6 +341,19 @@ export const createTemplate = async (
   const response = await api.post('/templates/', {
     name,
     default_slide_count: defaultSlideCount,
+  });
+  return response.data;
+};
+
+export const saveProjectAsTemplate = async (
+  name: string,
+  config: ProjectConfig,
+  defaultSlideCount: number = 5
+): Promise<TemplateData> => {
+  const response = await api.post('/templates/', {
+    name,
+    default_slide_count: defaultSlideCount,
+    config,
   });
   return response.data;
 };

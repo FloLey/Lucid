@@ -63,9 +63,10 @@ export default function Stage1() {
   }, [project]);
 
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
-  const [regeneratingSlides, setRegeneratingSlides] = useState<Set<number>>(new Set());
   const [regenInstructionSlide, setRegenInstructionSlide] = useState<number | null>(null);
   const [regenInstruction, setRegenInstruction] = useState('');
+  // Streaming state: maps slide index → accumulated text so far
+  const [streamingTexts, setStreamingTexts] = useState<Map<number, string>>(new Map());
 
   const handleGenerate = async () => {
     if (!draftText.trim()) {
@@ -116,15 +117,64 @@ export default function Stage1() {
   const handleRegenerateSlide = async (index: number, instruction?: string) => {
     setRegenInstructionSlide(null);
     setRegenInstruction('');
-    setRegeneratingSlides((prev) => new Set(prev).add(index));
+
+    // Use streaming endpoint for a live preview of the regenerated text
+    setStreamingTexts((prev) => new Map(prev).set(index, ''));
+
     try {
-      const sess = await api.regenerateSlideText(projectId, index, instruction || undefined);
-      updateProject(sess);
+      const response = await fetch('/api/stage-draft/regenerate-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          slide_index: index,
+          instruction: instruction || null,
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse complete SSE lines from the buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6)) as { text?: string; done?: boolean };
+              if (typeof data.text === 'string') {
+                setStreamingTexts((prev) => new Map(prev).set(index, data.text!));
+              }
+              if (data.done) {
+                const refreshed = await api.getProject(projectId);
+                updateProject(refreshed);
+                setStreamingTexts((prev) => {
+                  const next = new Map(prev);
+                  next.delete(index);
+                  return next;
+                });
+              }
+            } catch {
+              // ignore malformed SSE lines
+            }
+          }
+        }
+      }
     } catch (err) {
       setError(getErrorMessage(err, `Failed to regenerate slide ${index + 1}`));
-    } finally {
-      setRegeneratingSlides((prev) => {
-        const next = new Set(prev);
+      setStreamingTexts((prev) => {
+        const next = new Map(prev);
         next.delete(index);
         return next;
       });
@@ -258,7 +308,7 @@ export default function Stage1() {
         <>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Slide Texts</h2>
-            {hasSlides && !loading && regeneratingSlides.size === 0 && (
+            {hasSlides && !loading && streamingTexts.size === 0 && (
               <button
                 onClick={onNext}
                 className="px-4 py-2 bg-lucid-600 text-white font-medium rounded-lg hover:bg-lucid-700 transition-colors"
@@ -269,7 +319,7 @@ export default function Stage1() {
           </div>
 
           <div className="overflow-y-auto flex-1 min-h-0 space-y-4 pr-1">
-            {loading && regeneratingSlides.size === 0 ? (
+            {loading && streamingTexts.size === 0 ? (
               Array.from({ length: isKeepAsIs ? 1 : (numSlides ?? 3) }).map((_, index) => (
                 <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
                   <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
@@ -294,7 +344,7 @@ export default function Stage1() {
                       <button
                         onClick={() => setEditingSlide(editingSlide === index ? null : index)}
                         className="text-xs text-gray-500 hover:text-gray-700"
-                        disabled={regeneratingSlides.has(index)}
+                        disabled={streamingTexts.has(index) || streamingTexts.has(index)}
                       >
                         {editingSlide === index ? 'Cancel' : 'Edit'}
                       </button>
@@ -308,7 +358,7 @@ export default function Stage1() {
                             setRegenInstruction('');
                           }
                         }}
-                        disabled={regeneratingSlides.has(index)}
+                        disabled={streamingTexts.has(index) || streamingTexts.has(index)}
                         className="text-xs text-lucid-600 hover:text-lucid-700"
                       >
                         Regenerate
@@ -316,7 +366,7 @@ export default function Stage1() {
                     </div>
                   </div>
 
-                  {regenInstructionSlide === index && !regeneratingSlides.has(index) && (
+                  {regenInstructionSlide === index && !streamingTexts.has(index) && (
                     <div className="mb-2 flex gap-2">
                       <input
                         type="text"
@@ -339,10 +389,17 @@ export default function Stage1() {
                     </div>
                   )}
 
-                  {regeneratingSlides.has(index) ? (
+                  {streamingTexts.has(index) ? (
                     <div className="flex items-center gap-3 text-gray-400">
                       <Spinner size="sm" />
                       <span className="text-sm">Regenerating...</span>
+                    </div>
+                  ) : streamingTexts.has(index) ? (
+                    <div className="space-y-1">
+                      <p className="text-gray-700 dark:text-gray-300 text-sm">
+                        {streamingTexts.get(index)}
+                        <span className="inline-block w-1 h-4 bg-lucid-500 animate-pulse ml-0.5 align-middle" />
+                      </p>
                     </div>
                   ) : editingSlide === index ? (
                     <SlideEditor
