@@ -135,7 +135,7 @@ export default function Stage4() {
             {loading && regeneratingImages.size === 0 ? (
               slides.map((slide, index) => (
                 <div
-                  key={index}
+                  key={slide.index}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4"
                 >
                   <span className="text-sm font-medium text-lucid-600">Slide {index + 1}</span>
@@ -160,7 +160,7 @@ export default function Stage4() {
             ) : (
               slides.map((slide, index) => (
                 <div
-                  key={index}
+                  key={slide.index}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
                 >
                   <div className="flex items-start gap-4 p-4">

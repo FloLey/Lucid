@@ -1,6 +1,7 @@
 """Stage Style service - Generate and select shared visual style proposals."""
 
 from __future__ import annotations
+import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
@@ -94,7 +95,9 @@ class StageStyleService(BaseStageService):
             preview_path: Optional[str] = None
             try:
                 b64 = await self.image_service.generate_image(common_flow)
-                preview_path = self.storage_service.save_image_to_disk(b64)
+                preview_path = await asyncio.to_thread(
+                    self.storage_service.save_image_to_disk, b64
+                )
             except Exception as e:
                 logger.warning(f"Failed to generate preview for proposal {i}: {e}")
 
@@ -113,7 +116,7 @@ class StageStyleService(BaseStageService):
         project.style_proposals = list(proposals)
         # Delete old proposal preview images from disk after replacing them
         for old in old_proposals:
-            self.storage_service.delete_image(old.preview_image)
+            await asyncio.to_thread(self.storage_service.delete_image, old.preview_image)
         project.selected_style_proposal_index = None
         # Use the first proposal's preview as the initial thumbnail
         if proposals and proposals[0].preview_image:
