@@ -5,6 +5,7 @@ import { useDragResize } from '../hooks/useDragResize';
 import { useStyleManager } from '../hooks/useStyleManager';
 import { useApiAction } from '../hooks/useApiAction';
 import { useDebouncedRender } from '../hooks/useDebouncedRender';
+import { useTemplateManager } from '../hooks/useTemplateManager';
 import { getErrorMessage } from '../utils/error';
 import CarouselCanvas from './CarouselCanvas';
 import SlideThumbnails from './SlideThumbnails';
@@ -31,10 +32,20 @@ export default function Stage5() {
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png');
 
   // Save-as-template state (F6)
-  const [showTemplateForm, setShowTemplateForm] = useState(false);
-  const [templateName, setTemplateName] = useState('');
-  const [savingTemplate, setSavingTemplate] = useState(false);
-  const [templateSaved, setTemplateSaved] = useState(false);
+  const {
+    showTemplateForm,
+    templateName,
+    savingTemplate,
+    templateSaved,
+    setTemplateName,
+    openForm: openTemplateForm,
+    closeForm: closeTemplateForm,
+    saveTemplate: handleSaveTemplate,
+  } = useTemplateManager({
+    projectConfig: project?.project_config,
+    slideCount: project?.slide_count || 5,
+    onError: (msg) => setError(msg),
+  });
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -162,27 +173,6 @@ export default function Stage5() {
     window.open(api.getExportZipUrl(projectId, exportFormat), '_blank');
   };
 
-  // F6: save project style as a reusable template
-  const handleSaveTemplate = useCallback(async () => {
-    if (!templateName.trim() || !project) return;
-    setSavingTemplate(true);
-    try {
-      await api.saveProjectAsTemplate(
-        templateName.trim(),
-        project.project_config,
-        project.slide_count || 5,
-      );
-      setTemplateSaved(true);
-      setShowTemplateForm(false);
-      setTemplateName('');
-      setTimeout(() => setTemplateSaved(false), 3000);
-    } catch (err) {
-      setError(getErrorMessage(err, 'Failed to save template'));
-    } finally {
-      setSavingTemplate(false);
-    }
-  }, [templateName, project, setError]);
-
   // F10: copy style from another slide
   const handleCopyStyleFrom = useCallback(async (sourceIndex: number) => {
     const sourceSlide = slidesRef.current[sourceIndex];
@@ -253,7 +243,7 @@ export default function Stage5() {
                   onChange={(e) => setTemplateName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveTemplate();
-                    if (e.key === 'Escape') setShowTemplateForm(false);
+                    if (e.key === 'Escape') closeTemplateForm();
                   }}
                   placeholder="Template name"
                   className="text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded px-2 py-1.5 w-36 focus:outline-none focus:ring-2 focus:ring-lucid-500"
@@ -267,7 +257,7 @@ export default function Stage5() {
                   {savingTemplate ? 'Saving…' : 'Save'}
                 </button>
                 <button
-                  onClick={() => setShowTemplateForm(false)}
+                  onClick={closeTemplateForm}
                   className="px-2 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancel
@@ -277,7 +267,7 @@ export default function Stage5() {
               <span className="text-sm text-green-600 dark:text-green-400">Template saved!</span>
             ) : (
               <button
-                onClick={() => setShowTemplateForm(true)}
+                onClick={openTemplateForm}
                 className="px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
               >
                 Save as Template

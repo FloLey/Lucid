@@ -49,7 +49,7 @@ export default function SlideThumbnails({
     <div className="flex gap-2 overflow-x-auto pb-2">
       {slides.map((slide, index) => (
         <button
-          key={index}
+          key={slide.index}
           onClick={() => onSlideChange(index)}
           draggable={!!onReorder}
           onDragStart={() => handleDragStart(index)}

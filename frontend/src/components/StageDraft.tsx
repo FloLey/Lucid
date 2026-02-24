@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
+import { useStreamingText } from '../hooks/useStreamingText';
 import { SLIDE_COUNT_OPTIONS, LANGUAGES } from '../constants';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
@@ -65,8 +66,12 @@ export default function Stage1() {
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
   const [regenInstructionSlide, setRegenInstructionSlide] = useState<number | null>(null);
   const [regenInstruction, setRegenInstruction] = useState('');
-  // Streaming state: maps slide index → accumulated text so far
-  const [streamingTexts, setStreamingTexts] = useState<Map<number, string>>(new Map());
+
+  const { streamingTexts, startStream } = useStreamingText({
+    projectId,
+    onProjectUpdate: updateProject,
+    onError: (msg) => setError(msg),
+  });
 
   const handleGenerate = async () => {
     if (!draftText.trim()) {
@@ -117,68 +122,7 @@ export default function Stage1() {
   const handleRegenerateSlide = async (index: number, instruction?: string) => {
     setRegenInstructionSlide(null);
     setRegenInstruction('');
-
-    // Use streaming endpoint for a live preview of the regenerated text
-    setStreamingTexts((prev) => new Map(prev).set(index, ''));
-
-    try {
-      const response = await fetch('/api/stage-draft/regenerate-stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          slide_index: index,
-          instruction: instruction || null,
-        }),
-      });
-
-      if (!response.ok || !response.body) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        // Parse complete SSE lines from the buffer
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6)) as { text?: string; done?: boolean };
-              if (typeof data.text === 'string') {
-                setStreamingTexts((prev) => new Map(prev).set(index, data.text!));
-              }
-              if (data.done) {
-                const refreshed = await api.getProject(projectId);
-                updateProject(refreshed);
-                setStreamingTexts((prev) => {
-                  const next = new Map(prev);
-                  next.delete(index);
-                  return next;
-                });
-              }
-            } catch {
-              // ignore malformed SSE lines
-            }
-          }
-        }
-      }
-    } catch (err) {
-      setError(getErrorMessage(err, `Failed to regenerate slide ${index + 1}`));
-      setStreamingTexts((prev) => {
-        const next = new Map(prev);
-        next.delete(index);
-        return next;
-      });
-    }
+    await startStream(index, instruction);
   };
 
   const handleUpdateSlide = async (index: number, title?: string, body?: string) => {
@@ -344,7 +288,7 @@ export default function Stage1() {
                       <button
                         onClick={() => setEditingSlide(editingSlide === index ? null : index)}
                         className="text-xs text-gray-500 hover:text-gray-700"
-                        disabled={streamingTexts.has(index) || streamingTexts.has(index)}
+                        disabled={streamingTexts.has(index)}
                       >
                         {editingSlide === index ? 'Cancel' : 'Edit'}
                       </button>
@@ -358,7 +302,7 @@ export default function Stage1() {
                             setRegenInstruction('');
                           }
                         }}
-                        disabled={streamingTexts.has(index) || streamingTexts.has(index)}
+                        disabled={streamingTexts.has(index)}
                         className="text-xs text-lucid-600 hover:text-lucid-700"
                       >
                         Regenerate
@@ -389,7 +333,7 @@ export default function Stage1() {
                     </div>
                   )}
 
-                  {streamingTexts.has(index) ? (
+                  {streamingTexts.has(index) && !streamingTexts.get(index) ? (
                     <div className="flex items-center gap-3 text-gray-400">
                       <Spinner size="sm" />
                       <span className="text-sm">Regenerating...</span>

@@ -39,7 +39,7 @@ Lucid/
         ├── App.tsx              # Root component
         ├── main.tsx             # React entry point
         ├── components/          # Stage components + shared UI
-        ├── hooks/               # useSession custom hook
+        ├── hooks/               # Custom hooks: useStyleManager, useApiAction, useDebouncedRender, useDragResize, useDarkMode
         ├── services/            # Axios API client (api.ts)
         ├── types/               # TypeScript interfaces (index.ts)
         └── utils/               # Error handling utilities
@@ -88,7 +88,7 @@ npm run build          # tsc type-check + vite production build
 
 ### Backend (FastAPI)
 
-**Entry point:** `backend/app/main.py` — registers 12 routers under `/api`, configures CORS, handles `GeminiError` globally.
+**Entry point:** `backend/app/main.py` — registers 12 routers under `/api`, configures CORS (restricted methods/headers), registers an in-memory sliding-window rate limiter (120 req/min/IP), handles `GeminiError` globally.
 
 **Layers:**
 - **Routes** (`app/routes/`): HTTP endpoints, request validation, delegate to services
@@ -119,7 +119,7 @@ npm run build          # tsc type-check + vite production build
 | `prompt_loader.py` | Loads `.prompt` files with template-aware fallback |
 | `prompt_validator.py` | Validates prompt variable substitution at startup |
 
-**API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`).
+**API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`). Notable endpoints added in recent sessions: `POST /api/projects/{id}/reorder` (slide reordering) and `POST /api/stage-draft/regenerate-stream` (SSE streaming text regeneration).
 
 **Prompt templates:** Stored as `.prompt` files in `backend/prompts/`. These are the system/user prompts sent to Gemini. Edit these to change LLM behavior.
 
@@ -127,7 +127,7 @@ npm run build          # tsc type-check + vite production build
 
 **Entry point:** `frontend/src/main.tsx` → `App.tsx`
 
-**State management:** Custom `useSession` hook manages session lifecycle with localStorage persistence for the session ID and API calls for session data.
+**State management:** `ProjectContext` (in `src/contexts/ProjectContext.tsx`) manages project lifecycle — exposes `useProject()` hook consumed by all stage components. Persists the active project ID in `localStorage`.
 
 **API client:** `frontend/src/services/api.ts` — Axios-based, 30+ endpoint wrappers. The Vite dev server proxies `/api` requests to the backend.
 
@@ -159,7 +159,7 @@ npm run build          # tsc type-check + vite production build
 - **Strict mode** enabled in `tsconfig.json` (`strict: true`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`)
 - **Zero ESLint warnings** enforced (`--max-warnings 0`)
 - **React functional components** with hooks (no class components)
-- **Axios** for all HTTP calls (never raw `fetch`)
+- **Axios** for all HTTP calls; exception: `StageDraft.tsx` uses native `fetch` + `ReadableStream` for SSE streaming from `/api/stage-draft/regenerate-stream`
 - **Tailwind CSS** for styling (no CSS modules or styled-components)
 
 ### General
