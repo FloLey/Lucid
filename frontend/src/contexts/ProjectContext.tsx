@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import type { Project, ProjectCard } from '../types';
 import * as api from '../services/api';
@@ -160,27 +160,35 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, [currentProject, setNormalizedProject]);
 
-  const value: ProjectContextValue = {
-    projects,
-    projectsLoading,
-    currentProject,
-    projectId: currentProject?.project_id ?? '',
-    stageLoading,
-    error,
-    setStageLoading,
-    setError,
-    updateProject,
-    openProject,
-    closeProject,
-    createNewProject,
-    deleteProject,
-    refreshProjects,
-    renameCurrentProject,
-    generateProjectTitle,
-    advanceStage,
-    previousStage,
-    goToStage,
-  };
+  const value = useMemo<ProjectContextValue>(
+    () => ({
+      projects,
+      projectsLoading,
+      currentProject,
+      projectId: currentProject?.project_id ?? '',
+      stageLoading,
+      error,
+      setStageLoading,
+      setError,
+      updateProject,
+      openProject,
+      closeProject,
+      createNewProject,
+      deleteProject,
+      refreshProjects,
+      renameCurrentProject,
+      generateProjectTitle,
+      advanceStage,
+      previousStage,
+      goToStage,
+    }),
+    [
+      projects, projectsLoading, currentProject, stageLoading, error,
+      setStageLoading, setError, updateProject, openProject, closeProject,
+      createNewProject, deleteProject, refreshProjects, renameCurrentProject,
+      generateProjectTitle, advanceStage, previousStage, goToStage,
+    ],
+  );
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
 }

@@ -1,6 +1,7 @@
 """Stage Images service - Image prompts to Images transformation."""
 
 from __future__ import annotations
+import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
@@ -14,6 +15,8 @@ if TYPE_CHECKING:
     from app.services.image_service import ImageService
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_IMAGE_PROMPT = "Abstract professional background for slide {n}"
 
 
 class StageImagesService(BaseStageService):
@@ -50,9 +53,7 @@ class StageImagesService(BaseStageService):
 
         for slide in project.slides:
             if not slide.image_prompt:
-                slide.image_prompt = (
-                    f"Abstract professional background for slide {slide.index + 1}"
-                )
+                slide.image_prompt = _DEFAULT_IMAGE_PROMPT.format(n=slide.index + 1)
 
         full_prompts = [
             self._build_full_prompt(project, i) for i in range(len(project.slides))
@@ -60,7 +61,9 @@ class StageImagesService(BaseStageService):
 
         # Delete existing background images before overwriting
         for slide in project.slides:
-            self.storage_service.delete_image(slide.background_image_url)
+            await asyncio.to_thread(
+                self.storage_service.delete_image, slide.background_image_url
+            )
 
         results = await bounded_gather(
             [self.image_service.generate_image(p) for p in full_prompts],
@@ -88,13 +91,13 @@ class StageImagesService(BaseStageService):
 
         slide = project.slides[slide_index]
         if not slide.image_prompt:
-            slide.image_prompt = (
-                f"Abstract professional background for slide {slide_index + 1}"
-            )
+            slide.image_prompt = _DEFAULT_IMAGE_PROMPT.format(n=slide_index + 1)
 
         full_prompt = self._build_full_prompt(project, slide_index)
         # Delete existing background image before overwriting
-        self.storage_service.delete_image(slide.background_image_url)
+        await asyncio.to_thread(
+            self.storage_service.delete_image, slide.background_image_url
+        )
         b64 = await self.image_service.generate_image(full_prompt)
         slide.background_image_url = self.storage_service.save_image_to_disk(b64)
 

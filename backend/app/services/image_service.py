@@ -4,6 +4,7 @@ Handles AI-based image generation only. For local disk storage of image
 files, use StorageService instead.
 """
 
+import asyncio
 import base64
 import logging
 from io import BytesIO
@@ -61,7 +62,8 @@ class ImageService:
             "High quality, suitable for social media carousel background."
         )
 
-        response = self._client.models.generate_content(
+        response = await asyncio.to_thread(
+            self._client.models.generate_content,
             model=GEMINI_IMAGE_MODEL,
             contents=[full_prompt],
             config=types.GenerateContentConfig(
@@ -91,7 +93,8 @@ class ImageService:
         # Create gradient background
         image = Image.new("RGB", (IMAGE_WIDTH, IMAGE_HEIGHT))
         pixels = image.load()
-        assert pixels is not None
+        if pixels is None:
+            raise RuntimeError("Failed to load pixel data for placeholder image")
 
         # Simple gradient based on prompt hash for variety
         prompt_hash = hash(prompt) % 360
@@ -133,31 +136,6 @@ class ImageService:
         )
 
         # Convert to base64
-        buffer = BytesIO()
-        image.save(buffer, format="PNG")
-        return base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-    def decode_image(self, base64_data: str) -> Image.Image:
-        """Decode a base64 image string to a PIL Image object.
-
-        Args:
-            base64_data: The base64 encoded image string.
-
-        Returns:
-            A PIL Image object.
-        """
-        image_bytes = base64.b64decode(base64_data)
-        return Image.open(BytesIO(image_bytes))
-
-    def encode_image(self, image: Image.Image) -> str:
-        """Encode a PIL Image object to a base64 string.
-
-        Args:
-            image: The PIL Image object to encode.
-
-        Returns:
-            A base64 encoded string of the image in PNG format.
-        """
         buffer = BytesIO()
         image.save(buffer, format="PNG")
         return base64.b64encode(buffer.getvalue()).decode("utf-8")

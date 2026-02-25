@@ -1,20 +1,9 @@
 """Tests for project management."""
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
 from app.dependencies import container
 from tests.conftest import run_async
 
 project_manager = container.project_manager
-
-
-@pytest.fixture
-def client():
-    """Create a test client."""
-    run_async(project_manager.clear_all())
-    return TestClient(app)
 
 
 class TestProjectManager:

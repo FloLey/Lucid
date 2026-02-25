@@ -37,7 +37,11 @@ export default function SlideThumbnails({
     const newOrder = slides.map((_, i) => i);
     newOrder.splice(dragIndex, 1);
     newOrder.splice(dropIndex, 0, dragIndex);
-    await onReorder(newOrder);
+    try {
+      await onReorder(newOrder);
+    } catch {
+      // Error handling is the caller's responsibility via the onReorder callback
+    }
   };
 
   const handleDragEnd = () => {

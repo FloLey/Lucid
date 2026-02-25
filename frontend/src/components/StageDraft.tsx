@@ -6,6 +6,7 @@ import { useStreamingText } from '../hooks/useStreamingText';
 import { SLIDE_COUNT_OPTIONS, LANGUAGES } from '../constants';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
+import RegenerateInput from './RegenerateInput';
 
 const WORDS_PER_SLIDE_OPTIONS = [
   { value: 'ai', label: 'Let AI decide' },
@@ -311,26 +312,12 @@ export default function Stage1() {
                   </div>
 
                   {regenInstructionSlide === index && !streamingTexts.has(index) && (
-                    <div className="mb-2 flex gap-2">
-                      <input
-                        type="text"
-                        value={regenInstruction}
-                        onChange={(e) => setRegenInstruction(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleRegenerateSlide(index, regenInstruction);
-                          if (e.key === 'Escape') { setRegenInstructionSlide(null); setRegenInstruction(''); }
-                        }}
-                        placeholder="Instruction (optional), Enter to regenerate"
-                        className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => handleRegenerateSlide(index, regenInstruction)}
-                        className="px-2 py-1 text-xs bg-lucid-600 text-white rounded-lg hover:bg-lucid-700"
-                      >
-                        Go
-                      </button>
-                    </div>
+                    <RegenerateInput
+                      value={regenInstruction}
+                      onChange={setRegenInstruction}
+                      onSubmit={() => handleRegenerateSlide(index, regenInstruction)}
+                      onCancel={() => { setRegenInstructionSlide(null); setRegenInstruction(''); }}
+                    />
                   )}
 
                   {streamingTexts.has(index) && !streamingTexts.get(index) ? (
