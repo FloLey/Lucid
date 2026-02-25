@@ -139,28 +139,3 @@ class ImageService:
         buffer = BytesIO()
         image.save(buffer, format="PNG")
         return base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-    def decode_image(self, base64_data: str) -> Image.Image:
-        """Decode a base64 image string to a PIL Image object.
-
-        Args:
-            base64_data: The base64 encoded image string.
-
-        Returns:
-            A PIL Image object.
-        """
-        image_bytes = base64.b64decode(base64_data)
-        return Image.open(BytesIO(image_bytes))
-
-    def encode_image(self, image: Image.Image) -> str:
-        """Encode a PIL Image object to a base64 string.
-
-        Args:
-            image: The PIL Image object to encode.
-
-        Returns:
-            A base64 encoded string of the image in PNG format.
-        """
-        buffer = BytesIO()
-        image.save(buffer, format="PNG")
-        return base64.b64encode(buffer.getvalue()).decode("utf-8")

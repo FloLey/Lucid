@@ -1,6 +1,7 @@
 """Stage Images service - Image prompts to Images transformation."""
 
 from __future__ import annotations
+import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
@@ -60,7 +61,9 @@ class StageImagesService(BaseStageService):
 
         # Delete existing background images before overwriting
         for slide in project.slides:
-            self.storage_service.delete_image(slide.background_image_url)
+            await asyncio.to_thread(
+                self.storage_service.delete_image, slide.background_image_url
+            )
 
         results = await bounded_gather(
             [self.image_service.generate_image(p) for p in full_prompts],
@@ -92,7 +95,9 @@ class StageImagesService(BaseStageService):
 
         full_prompt = self._build_full_prompt(project, slide_index)
         # Delete existing background image before overwriting
-        self.storage_service.delete_image(slide.background_image_url)
+        await asyncio.to_thread(
+            self.storage_service.delete_image, slide.background_image_url
+        )
         b64 = await self.image_service.generate_image(full_prompt)
         slide.background_image_url = self.storage_service.save_image_to_disk(b64)
 

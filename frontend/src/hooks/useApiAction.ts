@@ -1,13 +1,13 @@
 import { useState, useCallback, useRef } from 'react';
 import { getErrorMessage } from '../utils/error';
 
-interface UseApiActionOptions<TArgs extends any[], TResult> {
+interface UseApiActionOptions<TArgs extends unknown[], TResult> {
   action: (...args: TArgs) => Promise<TResult>;
   onSuccess?: (result: TResult) => void;
   onError?: (error: string) => void;
 }
 
-export function useApiAction<TArgs extends any[], TResult>({
+export function useApiAction<TArgs extends unknown[], TResult>({
   action,
   onSuccess,
   onError,

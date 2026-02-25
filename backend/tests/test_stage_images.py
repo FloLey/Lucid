@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from app.dependencies import container
 from app.models.slide import Slide, SlideText
+from app.services.storage_service import storage_service
 from tests.conftest import run_async
 
 stage3_service = container.stage_images
@@ -71,12 +72,12 @@ class TestImageService:
         assert img1 != img2
 
     def test_decode_encode_roundtrip(self):
-        """Test decoding and re-encoding an image."""
+        """Test decoding and re-encoding an image via StorageService."""
         original = image_service._generate_placeholder("Test")
-        decoded = image_service.decode_image(original)
-        re_encoded = image_service.encode_image(decoded)
+        decoded = storage_service.decode_image_from_path_or_b64(original)
+        re_encoded = storage_service.encode_image(decoded)
         # Re-decoding should work
-        image_service.decode_image(re_encoded)
+        storage_service.decode_image_from_path_or_b64(re_encoded)
 
 
 class TestStage3Service:
