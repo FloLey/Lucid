@@ -20,7 +20,7 @@ image_service = container.image_service
 @pytest.fixture
 def client():
     """Create a test client."""
-    project_manager.clear_all()
+    run_async(project_manager.clear_all())
     return TestClient(app)
 
 
@@ -33,7 +33,7 @@ def sample_image_base64():
 @pytest.fixture
 def project_with_final_images(sample_image_base64):
     """Create a project with final images."""
-    project_manager.clear_all()
+    run_async(project_manager.clear_all())
     project = run_async(project_manager.create_project())
     project.draft_text = "This is my test draft for export"
     project.slides = [
@@ -135,7 +135,7 @@ class TestExportService:
 
     def test_export_project_no_project(self):
         """Test export with no project."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         zip_buffer = run_async(export_service.export_project("nonexistent"))
         assert zip_buffer is None
 

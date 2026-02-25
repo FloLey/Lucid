@@ -18,14 +18,14 @@ image_service = container.image_service
 @pytest.fixture
 def client():
     """Create a test client."""
-    project_manager.clear_all()
+    run_async(project_manager.clear_all())
     return TestClient(app)
 
 
 @pytest.fixture
 def project_with_prompts():
     """Create a project with image prompts."""
-    project_manager.clear_all()
+    run_async(project_manager.clear_all())
     project = run_async(project_manager.create_project())
     project.shared_prompt_prefix = "Modern minimalist style"
     project.slides = [
@@ -106,7 +106,7 @@ class TestStage3Service:
 
     def test_generate_images_no_project(self, mock_image_service):
         """Test generating images with no project."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         project = run_async(
             stage3_service.generate_all_images(project_id="nonexistent")
         )
@@ -114,7 +114,7 @@ class TestStage3Service:
 
     def test_generate_images_fills_missing_prompts(self, mock_image_service):
         """Test that missing prompts are filled with defaults."""
-        project_manager.clear_all()
+        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [
             Slide(index=0, text=SlideText(body="Content")),  # No prompt

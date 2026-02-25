@@ -99,7 +99,7 @@ export default function Stage2() {
 // ---------------------------------------------------------------------------
 
 interface StyleControlPanelProps {
-  slides: { text: { title: string | null; body: string } }[];
+  slides: { index: number; text: { title: string | null; body: string } }[];
   numProposals: number;
   onNumProposalsChange: (n: number) => void;
   instructions: string;
@@ -125,7 +125,7 @@ function StyleControlPanel({
 
       <div className="space-y-3 max-h-48 overflow-y-auto">
         {slides.map((slide, index) => (
-          <div key={index} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
+          <div key={slide.index} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
             <span className="font-medium text-lucid-600">{index + 1}.</span>{' '}
             {slide.text.title && (
               <span className="font-semibold dark:text-gray-200">{slide.text.title}: </span>

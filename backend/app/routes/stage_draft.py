@@ -1,8 +1,10 @@
 """Stage Draft routes - Draft to Slide texts."""
 
+import json
 import logging
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.models.project import ProjectResponse
@@ -59,7 +61,12 @@ async def generate_slide_texts(
     background_tasks: BackgroundTasks,
     stage_draft_service: StageDraftService = Depends(get_stage_draft_service),
 ):
-    """Generate slide texts from a draft."""
+    """Generate slide texts from a draft.
+
+    Note: cannot use execute_service_action here because we need to schedule
+    a BackgroundTasks title-generation job on success, which requires access
+    to the returned project before sending the response.
+    """
     try:
         project = await stage_draft_service.generate_slide_texts(
             project_id=request.project_id,
@@ -128,4 +135,44 @@ async def update_slide_text(
             body=request.body,
         ),
         "Project or slide not found",
+    )
+
+
+@router.post("/regenerate-stream")
+async def regenerate_slide_text_stream(
+    request: RegenerateSlideTextRequest,
+    stage_draft_service: StageDraftService = Depends(get_stage_draft_service),
+):
+    """Stream body-text regeneration for a single slide via Server-Sent Events.
+
+    Each event carries ``{"text": "<accumulated text so far>"}`` while streaming,
+    followed by a final ``{"done": true}`` event when the text has been saved.
+    """
+
+    async def event_stream():
+        full_text = ""
+        async for chunk in stage_draft_service.regenerate_slide_text_stream(
+            request.project_id, request.slide_index, request.instruction
+        ):
+            full_text += chunk
+            yield f"data: {json.dumps({'text': full_text})}\n\n"
+
+        # Persist the final result before sending the done event
+        try:
+            await stage_draft_service.update_slide_text(
+                request.project_id, request.slide_index, body=full_text
+            )
+        except Exception:
+            logger.exception("Failed to save streamed slide text")
+
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
     )

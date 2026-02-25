@@ -22,9 +22,10 @@ Lucid/
 │   ├── app/
 │   │   ├── main.py              # FastAPI app, CORS, router registration
 │   │   ├── config.py            # App-level config
+│   │   ├── dependencies.py      # ServiceContainer (dependency injection wiring)
 │   │   ├── models/              # Pydantic data models (session, slide, style, config)
 │   │   ├── routes/              # 12 API routers under /api prefix
-│   │   └── services/            # 18 service modules (business logic)
+│   │   └── services/            # 20+ service modules (business logic)
 │   ├── prompts/                 # LLM prompt templates (.prompt files)
 │   ├── fonts/                   # Downloaded TTF font files (gitignored)
 │   └── tests/                   # pytest test suite (12 test files)
@@ -38,7 +39,7 @@ Lucid/
         ├── App.tsx              # Root component
         ├── main.tsx             # React entry point
         ├── components/          # Stage components + shared UI
-        ├── hooks/               # useSession custom hook
+        ├── hooks/               # Custom hooks: useStyleManager, useApiAction, useDebouncedRender, useDragResize, useDarkMode
         ├── services/            # Axios API client (api.ts)
         ├── types/               # TypeScript interfaces (index.ts)
         └── utils/               # Error handling utilities
@@ -87,12 +88,13 @@ npm run build          # tsc type-check + vite production build
 
 ### Backend (FastAPI)
 
-**Entry point:** `backend/app/main.py` — registers 12 routers under `/api`, configures CORS, handles `GeminiError` globally.
+**Entry point:** `backend/app/main.py` — registers 12 routers under `/api`, configures CORS (restricted methods/headers), registers an in-memory sliding-window rate limiter (120 req/min/IP), handles `GeminiError` globally.
 
 **Layers:**
 - **Routes** (`app/routes/`): HTTP endpoints, request validation, delegate to services
 - **Services** (`app/services/`): Business logic, LLM calls, image processing
 - **Models** (`app/models/`): Pydantic v2 schemas for all data structures
+- **Dependencies** (`app/dependencies.py`): `ServiceContainer` wires all singleton services for dependency injection
 
 **Key services:**
 | Service | Role |
@@ -110,8 +112,14 @@ npm run build          # tsc type-check + vite production build
 | `export_service.py` | ZIP archive generation |
 | `config_manager.py` | Configuration CRUD |
 | `template_manager.py` | Template CRUD and default seeding |
+| `storage_service.py` | Disk-based image read/write/delete |
+| `async_utils.py` | `bounded_gather()` — concurrent async operations with a concurrency limit |
+| `base_stage_service.py` | Base class for stage services with `_require()` dependency validation |
+| `llm_logger.py` | Structured JSONL logging of all LLM calls |
+| `prompt_loader.py` | Loads `.prompt` files with template-aware fallback |
+| `prompt_validator.py` | Validates prompt variable substitution at startup |
 
-**API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`).
+**API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`). Notable endpoints added in recent sessions: `POST /api/projects/{id}/reorder` (slide reordering) and `POST /api/stage-draft/regenerate-stream` (SSE streaming text regeneration).
 
 **Prompt templates:** Stored as `.prompt` files in `backend/prompts/`. These are the system/user prompts sent to Gemini. Edit these to change LLM behavior.
 
@@ -119,7 +127,7 @@ npm run build          # tsc type-check + vite production build
 
 **Entry point:** `frontend/src/main.tsx` → `App.tsx`
 
-**State management:** Custom `useSession` hook manages session lifecycle with localStorage persistence for the session ID and API calls for session data.
+**State management:** `ProjectContext` (in `src/contexts/ProjectContext.tsx`) manages project lifecycle — exposes `useProject()` hook consumed by all stage components. Persists the active project ID in `localStorage`.
 
 **API client:** `frontend/src/services/api.ts` — Axios-based, 30+ endpoint wrappers. The Vite dev server proxies `/api` requests to the backend.
 
@@ -151,7 +159,7 @@ npm run build          # tsc type-check + vite production build
 - **Strict mode** enabled in `tsconfig.json` (`strict: true`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`)
 - **Zero ESLint warnings** enforced (`--max-warnings 0`)
 - **React functional components** with hooks (no class components)
-- **Axios** for all HTTP calls (never raw `fetch`)
+- **Axios** for all HTTP calls; exception: `StageDraft.tsx` uses native `fetch` + `ReadableStream` for SSE streaming from `/api/stage-draft/regenerate-stream`
 - **Tailwind CSS** for styling (no CSS modules or styled-components)
 
 ### General
@@ -182,3 +190,5 @@ npm run build          # tsc type-check + vite production build
 - Fonts are downloaded during Docker build via `download_fonts.py`. For manual setup, run `python download_fonts.py` in the backend directory first.
 - The frontend proxies `/api` to the backend — API calls in the browser go to the same origin, not directly to port 8000.
 - Project state flows through `ProjectManager` — always update projects via its methods, not by modifying state directly.
+- The database is SQLite (`aiosqlite`) stored in the `lucid-data` Docker volume. SQLite is single-writer — horizontal scaling beyond one backend process requires migrating to PostgreSQL.
+- Generated images are stored on disk in the `lucid-data` volume. They are not backed up automatically; use `docker volume` tools or mount a host path for persistence.

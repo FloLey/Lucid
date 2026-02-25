@@ -1,6 +1,9 @@
 """Project management routes — /api/projects."""
 
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from app.dependencies import (
     get_project_manager,
@@ -155,6 +158,28 @@ async def generate_title(
     if not project:
         # Return current project state even if title generation was skipped
         project = await project_manager.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"project": project}
+
+
+class ReorderSlidesRequest(BaseModel):
+    """Request to reorder slides within a project."""
+
+    new_order: List[int]
+
+
+@router.post("/{project_id}/reorder", response_model=ProjectResponse)
+async def reorder_slides(
+    project_id: str,
+    request: ReorderSlidesRequest,
+    project_manager: ProjectManager = Depends(get_project_manager),
+):
+    """Reorder the slides in a project."""
+    try:
+        project = await project_manager.reorder_slides(project_id, request.new_order)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"project": project}

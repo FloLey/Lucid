@@ -1,11 +1,12 @@
 """Stage Images service - Image prompts to Images transformation."""
 
 from __future__ import annotations
-import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
 from app.models.project import ProjectState
+from app.services.async_utils import bounded_gather
+from app.services.base_stage_service import BaseStageService
 from app.services.storage_service import StorageService
 
 if TYPE_CHECKING:
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class StageImagesService:
+class StageImagesService(BaseStageService):
     """Service for Stage Images: Image prompts to Images transformation."""
 
     project_manager: ProjectManager
@@ -28,16 +29,9 @@ class StageImagesService:
         image_service: Optional[ImageService] = None,
         storage_service: Optional[StorageService] = None,
     ):
-        if not project_manager:
-            raise ValueError("project_manager dependency is required")
-        if not image_service:
-            raise ValueError("image_service dependency is required")
-        if not storage_service:
-            raise ValueError("storage_service dependency is required")
-
-        self.project_manager = project_manager
-        self.image_service = image_service
-        self.storage_service = storage_service
+        self.project_manager = self._require(project_manager, "project_manager")
+        self.image_service = self._require(image_service, "image_service")
+        self.storage_service = self._require(storage_service, "storage_service")
 
     def _build_full_prompt(self, project: ProjectState, slide_index: int) -> str:
         """Combine the project's shared visual theme with slide-specific details."""
@@ -64,18 +58,13 @@ class StageImagesService:
             self._build_full_prompt(project, i) for i in range(len(project.slides))
         ]
 
-        sem = asyncio.Semaphore(concurrency_limit)
-
-        async def generate_single_image(prompt: str) -> str:
-            async with sem:
-                return await self.image_service.generate_image(prompt)
-
         # Delete existing background images before overwriting
         for slide in project.slides:
             self.storage_service.delete_image(slide.background_image_url)
 
-        results = await asyncio.gather(
-            *(generate_single_image(prompt) for prompt in full_prompts)
+        results = await bounded_gather(
+            [self.image_service.generate_image(p) for p in full_prompts],
+            concurrency_limit,
         )
         for slide, image_data in zip(project.slides, results):
             slide.background_image_url = self.storage_service.save_image_to_disk(image_data)
@@ -94,7 +83,7 @@ class StageImagesService:
     ) -> Optional[ProjectState]:
         """Regenerate image for a single slide."""
         project = await self.project_manager.get_project(project_id)
-        if not project or slide_index >= len(project.slides):
+        if not project or not (0 <= slide_index < len(project.slides)):
             return None
 
         slide = project.slides[slide_index]
@@ -125,7 +114,7 @@ class StageImagesService:
     ) -> Optional[ProjectState]:
         """Set image data directly (for uploads)."""
         project = await self.project_manager.get_project(project_id)
-        if not project or slide_index >= len(project.slides):
+        if not project or not (0 <= slide_index < len(project.slides)):
             return None
 
         project.slides[slide_index].background_image_url = image_data

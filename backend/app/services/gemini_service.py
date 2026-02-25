@@ -1,5 +1,6 @@
 """Gemini AI service for text generation (google.genai SDK)."""
 
+import asyncio
 import json
 import logging
 from typing import List, Optional, Dict, Any
@@ -71,7 +72,8 @@ class GeminiService:
             system_instruction=system_instruction,
         )
 
-        response = self._client.models.generate_content(
+        response = await asyncio.to_thread(
+            self._client.models.generate_content,
             model=GEMINI_TEXT_MODEL,
             contents=[prompt],
             config=config,
@@ -105,7 +107,8 @@ class GeminiService:
             system_instruction=system_instruction,
             temperature=temperature,
         )
-        return self._client.models.generate_content(
+        return await asyncio.to_thread(
+            self._client.models.generate_content,
             model=GEMINI_TEXT_MODEL,
             contents=contents,
             config=config,
@@ -168,7 +171,8 @@ class GeminiService:
         )
 
         try:
-            response = self._client.models.generate_content(
+            response = await asyncio.to_thread(
+                self._client.models.generate_content,
                 model=GEMINI_TEXT_MODEL,
                 contents=contents,
                 config=config,
@@ -223,3 +227,52 @@ class GeminiService:
             return json.loads(text)
         except json.JSONDecodeError as e:
             raise GeminiError(f"Failed to parse AI response as JSON: {e}")
+
+    async def generate_text_stream(
+        self,
+        prompt: str,
+        system_instruction: Optional[str] = None,
+        temperature: float = 0.7,
+    ):
+        """Stream text generation using the sync SDK via thread + asyncio.Queue.
+
+        Yields text chunks as they arrive from the model.
+        """
+        import threading
+
+        self._ensure_configured()
+        assert self._client is not None
+
+        from google.genai import types
+
+        config = types.GenerateContentConfig(
+            temperature=temperature,
+            max_output_tokens=65536,
+            system_instruction=system_instruction,
+        )
+
+        loop = asyncio.get_event_loop()
+        queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
+
+        def _worker() -> None:
+            try:
+                for chunk in self._client.models.generate_content_stream(  # type: ignore[union-attr]
+                    model=GEMINI_TEXT_MODEL,
+                    contents=[prompt],
+                    config=config,
+                ):
+                    text = getattr(chunk, "text", None)
+                    if text:
+                        loop.call_soon_threadsafe(queue.put_nowait, text)
+            except Exception as exc:
+                logger.error("Streaming generation error: %s", exc)
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, None)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+        while True:
+            chunk = await queue.get()
+            if chunk is None:
+                break
+            yield chunk

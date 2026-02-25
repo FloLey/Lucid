@@ -2,6 +2,8 @@
 
 import logging
 import os
+import time
+from collections import defaultdict
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -28,6 +30,28 @@ from app.services.storage_service import IMAGE_DIR
 from app.services.llm_logger import start_flow, _flow_name_from_path
 
 logger = logging.getLogger(__name__)
+
+
+class _RateLimiter:
+    """In-memory sliding-window rate limiter (per IP)."""
+
+    def __init__(self, max_calls: int, window_seconds: float) -> None:
+        self._max = max_calls
+        self._window = window_seconds
+        self._hits: dict[str, list[float]] = defaultdict(list)
+
+    def is_allowed(self, key: str) -> bool:
+        now = time.monotonic()
+        cutoff = now - self._window
+        hits = self._hits[key]
+        hits[:] = [t for t in hits if t > cutoff]
+        if len(hits) >= self._max:
+            return False
+        hits.append(now)
+        return True
+
+
+_limiter = _RateLimiter(max_calls=120, window_seconds=60.0)
 
 
 @asynccontextmanager
@@ -65,8 +89,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Include routers
@@ -85,7 +109,6 @@ app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
 
 # Serve generated images directly so the frontend can load them via
 # /images/<uuid>.png without going through the API layer.
-IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/images", StaticFiles(directory=str(IMAGE_DIR)), name="images")
 
 
@@ -93,6 +116,20 @@ app.mount("/images", StaticFiles(directory=str(IMAGE_DIR)), name="images")
 async def llm_log_flow(request: Request, call_next):
     """Assign a per-request log flow so all LLM calls land in one file."""
     start_flow(_flow_name_from_path(request.url.path))
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Reject /api requests that exceed 120 per minute per IP."""
+    if request.url.path.startswith("/api/"):
+        client_ip = request.client.host if request.client else "unknown"
+        if not _limiter.is_allowed(client_ip):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please slow down."},
+                headers={"Retry-After": "60"},
+            )
     return await call_next(request)
 
 

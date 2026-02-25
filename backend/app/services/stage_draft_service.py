@@ -7,6 +7,7 @@ from typing import Optional, TYPE_CHECKING
 from app.models.slide import Slide, SlideText
 from app.models.style import TextStyle, StrokeStyle
 from app.models.project import ProjectState
+from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
 from app.services.llm_logger import set_project_context
 
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class StageDraftService:
+class StageDraftService(BaseStageService):
     """Service for Stage Draft: Draft to Slide texts transformation."""
 
     project_manager: ProjectManager
@@ -29,13 +30,8 @@ class StageDraftService:
         gemini_service: Optional[GeminiService] = None,
         prompt_loader: Optional[PromptLoader] = None,
     ):
-        if not project_manager:
-            raise ValueError("project_manager dependency is required")
-        if not gemini_service:
-            raise ValueError("gemini_service dependency is required")
-
-        self.project_manager = project_manager
-        self.gemini_service = gemini_service
+        self.project_manager = self._require(project_manager, "project_manager")
+        self.gemini_service = self._require(gemini_service, "gemini_service")
         self.prompt_loader = prompt_loader or PromptLoader()
 
     @staticmethod
@@ -270,7 +266,7 @@ class StageDraftService:
     ) -> Optional[ProjectState]:
         """Regenerate a single slide text."""
         project = await self.project_manager.get_project(project_id)
-        if not project or slide_index >= len(project.slides):
+        if not project or not (0 <= slide_index < len(project.slides)):
             return None
 
         instruction_text = (
@@ -319,6 +315,43 @@ class StageDraftService:
 
         return project
 
+    async def regenerate_slide_text_stream(
+        self,
+        project_id: str,
+        slide_index: int,
+        instruction: Optional[str] = None,
+    ):
+        """Stream plain-text body content for single-slide regeneration.
+
+        Yields text chunks as they arrive. Saves nothing — the caller is
+        responsible for persisting the final text (e.g., via update_slide_text).
+        """
+        project = await self.project_manager.get_project(project_id)
+        if not project or not (0 <= slide_index < len(project.slides)):
+            return
+
+        instruction_text = (
+            f"\nSpecific instruction: {instruction}" if instruction else ""
+        )
+
+        all_slides = "\n".join(
+            f"Slide {i + 1}: {s.text.get_full_text()}"
+            for i, s in enumerate(project.slides)
+        )
+
+        prompt = (
+            f"You are rewriting the body text of slide {slide_index + 1} in a carousel.\n"
+            f"Original draft: {(project.draft_text or '')[:500]}\n"
+            f"All slides context:\n{all_slides}\n"
+            f"Language: {project.language}\n"
+            f"{instruction_text}\n\n"
+            f"Output ONLY the new body text for slide {slide_index + 1}. "
+            f"No titles, no labels, no JSON — just the text content."
+        )
+
+        async for chunk in self.gemini_service.generate_text_stream(prompt):
+            yield chunk
+
     async def update_slide_text(
         self,
         project_id: str,
@@ -328,7 +361,7 @@ class StageDraftService:
     ) -> Optional[ProjectState]:
         """Manually update a slide's text."""
         project = await self.project_manager.get_project(project_id)
-        if not project or slide_index >= len(project.slides):
+        if not project or not (0 <= slide_index < len(project.slides)):
             return None
 
         slide = project.slides[slide_index]

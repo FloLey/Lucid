@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Project, ProjectCard, AppConfig, TemplateData, ProjectConfig } from '../types';
+import type { Project, ProjectCard, AppConfig, TemplateData, ProjectConfig, TextStyle } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -64,6 +64,16 @@ export const previousStage = async (projectId: string): Promise<Project> => {
 
 export const goToStage = async (projectId: string, stage: number): Promise<Project> => {
   const response = await api.post(`/projects/${projectId}/goto-stage/${stage}`);
+  return response.data.project;
+};
+
+export const reorderSlides = async (
+  projectId: string,
+  newOrder: number[]
+): Promise<Project> => {
+  const response = await api.post(`/projects/${projectId}/reorder`, {
+    new_order: newOrder,
+  });
   return response.data.project;
 };
 
@@ -240,7 +250,7 @@ export const applyTextToSlide = async (
 export const updateStyle = async (
   projectId: string,
   slideIndex: number,
-  style: Record<string, unknown>
+  style: TextStyle
 ): Promise<Project> => {
   const response = await api.post('/stage-typography/update-style', {
     project_id: projectId,
@@ -252,7 +262,7 @@ export const updateStyle = async (
 
 export const applyStyleToAll = async (
   projectId: string,
-  style: Record<string, unknown>
+  style: TextStyle
 ): Promise<Project> => {
   const response = await api.post('/stage-typography/apply-style-all', {
     project_id: projectId,
@@ -262,12 +272,12 @@ export const applyStyleToAll = async (
 };
 
 // Export API
-export const getExportZipUrl = (projectId: string): string => {
-  return `/api/export/zip/${projectId}`;
+export const getExportZipUrl = (projectId: string, format: string = 'png'): string => {
+  return `/api/export/zip/${projectId}?format=${format}`;
 };
 
-export const getExportSlideUrl = (projectId: string, slideIndex: number): string => {
-  return `/api/export/slide/${projectId}/${slideIndex}`;
+export const getExportSlideUrl = (projectId: string, slideIndex: number, format: string = 'png'): string => {
+  return `/api/export/slide/${projectId}/${slideIndex}?format=${format}`;
 };
 
 // Config APIs
@@ -331,6 +341,19 @@ export const createTemplate = async (
   const response = await api.post('/templates/', {
     name,
     default_slide_count: defaultSlideCount,
+  });
+  return response.data;
+};
+
+export const saveProjectAsTemplate = async (
+  name: string,
+  config: ProjectConfig,
+  defaultSlideCount: number = 5
+): Promise<TemplateData> => {
+  const response = await api.post('/templates/', {
+    name,
+    default_slide_count: defaultSlideCount,
+    config,
   });
   return response.data;
 };

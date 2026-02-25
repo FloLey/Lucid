@@ -239,17 +239,37 @@ class ProjectManager:
             await self.update_project(project)
         return project
 
+    async def reorder_slides(
+        self, project_id: str, new_order: list[int]
+    ) -> Optional[ProjectState]:
+        """Reorder slides according to new_order (a permutation of current indices).
+
+        Args:
+            project_id: The project to update.
+            new_order: A list of current slide indices specifying the desired order.
+                       Must be a permutation of [0, 1, ..., n-1].
+
+        Raises:
+            ValueError: If new_order is not a valid permutation.
+        """
+        project = await self.get_project(project_id)
+        if not project:
+            return None
+        n = len(project.slides)
+        if len(new_order) != n or sorted(new_order) != list(range(n)):
+            raise ValueError(f"new_order must be a permutation of 0..{n - 1}")
+        reordered = [project.slides[i] for i in new_order]
+        for new_idx, slide in enumerate(reordered):
+            slide.index = new_idx
+        project.slides = reordered
+        return await self.update_project(project)
+
     # ------------------------------------------------------------------
     # Test helpers
     # ------------------------------------------------------------------
 
-    def clear_all(self) -> None:
+    async def clear_all(self) -> None:
         """Wipe all projects from the DB.  Used in tests."""
-        import asyncio
-
-        asyncio.run(self._async_clear_db())
-
-    async def _async_clear_db(self) -> None:
         async with self._session_factory() as session:
             async with session.begin():
                 await session.execute(delete(ProjectDB))
