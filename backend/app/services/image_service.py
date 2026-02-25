@@ -4,6 +4,7 @@ Handles AI-based image generation only. For local disk storage of image
 files, use StorageService instead.
 """
 
+import asyncio
 import base64
 import logging
 from io import BytesIO
@@ -61,7 +62,8 @@ class ImageService:
             "High quality, suitable for social media carousel background."
         )
 
-        response = self._client.models.generate_content(
+        response = await asyncio.to_thread(
+            self._client.models.generate_content,
             model=GEMINI_IMAGE_MODEL,
             contents=[full_prompt],
             config=types.GenerateContentConfig(
@@ -91,7 +93,8 @@ class ImageService:
         # Create gradient background
         image = Image.new("RGB", (IMAGE_WIDTH, IMAGE_HEIGHT))
         pixels = image.load()
-        assert pixels is not None
+        if pixels is None:
+            raise RuntimeError("Failed to load pixel data for placeholder image")
 
         # Simple gradient based on prompt hash for variety
         prompt_hash = hash(prompt) % 360

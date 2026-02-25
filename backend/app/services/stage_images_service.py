@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_IMAGE_PROMPT = "Abstract professional background for slide {n}"
+
 
 class StageImagesService(BaseStageService):
     """Service for Stage Images: Image prompts to Images transformation."""
@@ -50,9 +52,7 @@ class StageImagesService(BaseStageService):
 
         for slide in project.slides:
             if not slide.image_prompt:
-                slide.image_prompt = (
-                    f"Abstract professional background for slide {slide.index + 1}"
-                )
+                slide.image_prompt = _DEFAULT_IMAGE_PROMPT.format(n=slide.index + 1)
 
         full_prompts = [
             self._build_full_prompt(project, i) for i in range(len(project.slides))
@@ -88,9 +88,7 @@ class StageImagesService(BaseStageService):
 
         slide = project.slides[slide_index]
         if not slide.image_prompt:
-            slide.image_prompt = (
-                f"Abstract professional background for slide {slide_index + 1}"
-            )
+            slide.image_prompt = _DEFAULT_IMAGE_PROMPT.format(n=slide_index + 1)
 
         full_prompt = self._build_full_prompt(project, slide_index)
         # Delete existing background image before overwriting

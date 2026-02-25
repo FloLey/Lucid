@@ -92,6 +92,7 @@ export default function Header({
                   onChange={(e) => setEditValue(e.target.value)}
                   onBlur={commitEdit}
                   onKeyDown={handleKeyDown}
+                  aria-label="Project name"
                   className="text-sm font-medium text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-lucid-400 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-lucid-500 w-56 max-w-xs"
                 />
               ) : (

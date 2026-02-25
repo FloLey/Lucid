@@ -3,9 +3,7 @@
 import base64
 import pytest
 from unittest.mock import patch
-from fastapi.testclient import TestClient
 
-from app.main import app
 from app.dependencies import container
 from app.models.slide import Slide, SlideText
 from tests.conftest import run_async
@@ -13,13 +11,6 @@ from tests.conftest import run_async
 stage3_service = container.stage_images
 project_manager = container.project_manager
 image_service = container.image_service
-
-
-@pytest.fixture
-def client():
-    """Create a test client."""
-    run_async(project_manager.clear_all())
-    return TestClient(app)
 
 
 @pytest.fixture

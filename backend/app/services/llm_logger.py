@@ -225,10 +225,55 @@ def log_llm_call(
     log_file = _get_log_file()
     try:
         loop = asyncio.get_running_loop()
-        loop.run_in_executor(None, _write_log_sync, log_file, line)
+        future = loop.run_in_executor(None, _write_log_sync, log_file, line)
+        # Log any write failure without blocking the caller
+        future.add_done_callback(
+            lambda f: logger.warning("LLM log write failed: %s", f.exception())
+            if not f.cancelled() and f.exception()
+            else None
+        )
     except RuntimeError:
         # No running event loop — write synchronously (e.g. during tests)
         _write_log_sync(log_file, line)
+
+
+def _build_log_params(
+    func: Callable,
+    args: tuple,
+    kwargs: dict,
+    method_name: Optional[str],
+    model: Optional[str],
+    model_param: str,
+    input_params: Optional[list],
+    config_params: Optional[list],
+) -> tuple[str, str, dict, dict]:
+    """Extract log metadata from a bound function call. Returns (log_method_name,
+    effective_model, input_data, config_summary)."""
+    log_method_name = method_name or func.__name__
+
+    bound_args = inspect.signature(func).bind(*args, **kwargs)
+    bound_args.apply_defaults()
+    effective_model = (
+        model if model is not None else bound_args.arguments.get(model_param, "unknown")
+    )
+
+    input_data: dict = {}
+    if input_params:
+        for param in input_params:
+            if param in bound_args.arguments:
+                value = bound_args.arguments[param]
+                if isinstance(value, str) and len(value) > 500:
+                    input_data[param] = value[:500] + "..."
+                else:
+                    input_data[param] = value
+
+    config_summary: dict = {}
+    if config_params:
+        for param in config_params:
+            if param in bound_args.arguments:
+                config_summary[param] = bound_args.arguments[param]
+
+    return log_method_name, effective_model, input_data, config_summary
 
 
 def log_llm_method(
@@ -254,42 +299,15 @@ def log_llm_method(
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
-            # Extract method name
-            log_method_name = method_name or func.__name__
-
-            # Extract model from parameters
-            bound_args = inspect.signature(func).bind(*args, **kwargs)
-            bound_args.apply_defaults()
-            effective_model = (
-                model
-                if model is not None
-                else bound_args.arguments.get(model_param, "unknown")
+            log_method_name, effective_model, input_data, config_summary = (
+                _build_log_params(
+                    func, args, kwargs, method_name, model, model_param,
+                    input_params, config_params,
+                )
             )
-
-            # Extract input data
-            input_data = {}
-            if input_params:
-                for param in input_params:
-                    if param in bound_args.arguments:
-                        value = bound_args.arguments[param]
-                        # Truncate long strings
-                        if isinstance(value, str) and len(value) > 500:
-                            input_data[param] = value[:500] + "..."
-                        else:
-                            input_data[param] = value
-
-            # Extract config summary
-            config_summary = {}
-            if config_params:
-                for param in config_params:
-                    if param in bound_args.arguments:
-                        config_summary[param] = bound_args.arguments[param]
-
-            # Time the call
             start = timer()
             error = None
             output_data = None
-
             try:
                 result = await func(*args, **kwargs)
                 output_data = result
@@ -298,56 +316,28 @@ def log_llm_method(
                 error = str(e)
                 raise
             finally:
-                duration = elapsed_ms(start)
                 log_llm_call(
                     method=log_method_name,
                     model=effective_model,
                     caller=caller,
                     input_data=input_data if input_data else None,
                     output_data=output_data,
-                    duration_ms=duration,
+                    duration_ms=elapsed_ms(start),
                     error=error,
                     config_summary=config_summary if config_summary else None,
                 )
 
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
-            # Extract method name
-            log_method_name = method_name or func.__name__
-
-            # Extract model from parameters
-            bound_args = inspect.signature(func).bind(*args, **kwargs)
-            bound_args.apply_defaults()
-            effective_model = (
-                model
-                if model is not None
-                else bound_args.arguments.get(model_param, "unknown")
+            log_method_name, effective_model, input_data, config_summary = (
+                _build_log_params(
+                    func, args, kwargs, method_name, model, model_param,
+                    input_params, config_params,
+                )
             )
-
-            # Extract input data
-            input_data = {}
-            if input_params:
-                for param in input_params:
-                    if param in bound_args.arguments:
-                        value = bound_args.arguments[param]
-                        # Truncate long strings
-                        if isinstance(value, str) and len(value) > 500:
-                            input_data[param] = value[:500] + "..."
-                        else:
-                            input_data[param] = value
-
-            # Extract config summary
-            config_summary = {}
-            if config_params:
-                for param in config_params:
-                    if param in bound_args.arguments:
-                        config_summary[param] = bound_args.arguments[param]
-
-            # Time the call
             start = timer()
             error = None
             output_data = None
-
             try:
                 result = func(*args, **kwargs)
                 output_data = result
@@ -356,14 +346,13 @@ def log_llm_method(
                 error = str(e)
                 raise
             finally:
-                duration = elapsed_ms(start)
                 log_llm_call(
                     method=log_method_name,
                     model=effective_model,
                     caller=caller,
                     input_data=input_data if input_data else None,
                     output_data=output_data,
-                    duration_ms=duration,
+                    duration_ms=elapsed_ms(start),
                     error=error,
                     config_summary=config_summary if config_summary else None,
                 )

@@ -11,9 +11,10 @@ export default function NewProjectModal({ onClose, onCreate }: NewProjectModalPr
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>(undefined);
   const [templates, setTemplates] = useState<TemplateData[]>([]);
   const [creating, setCreating] = useState(false);
+  const [templateLoadError, setTemplateLoadError] = useState(false);
 
   useEffect(() => {
-    api.listTemplates().then(setTemplates).catch(console.error);
+    api.listTemplates().then(setTemplates).catch(() => setTemplateLoadError(true));
   }, []);
 
   const handleCreate = async () => {
@@ -45,6 +46,9 @@ export default function NewProjectModal({ onClose, onCreate }: NewProjectModalPr
         {/* Body */}
         <div className="px-6 py-5">
           <label className="block text-sm font-medium text-gray-700 mb-3">Choose a template</label>
+          {templateLoadError && (
+            <p className="text-xs text-red-500 mb-2">Failed to load templates. You can still create a blank project.</p>
+          )}
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {/* Blank project option */}
             <button

@@ -74,6 +74,7 @@ class RenderingService:
                 int(color[6:8], 16),
             )
             return (r, g, b, a)
+        logger.warning("Invalid hex color %r — defaulting to white", color)
         return (255, 255, 255, 255)
 
     def _draw_lines(
@@ -265,8 +266,7 @@ class RenderingService:
         has_title = title and title.strip()
         has_body = body and body.strip()
 
-        if has_title:
-            assert title is not None
+        if has_title and title is not None:
             self._render_text_block(
                 draw,
                 title,

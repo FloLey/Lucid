@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import type { ProjectConfig } from '../types';
@@ -29,6 +29,15 @@ export function useTemplateManager({
   const [templateName, setTemplateName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current !== null) {
+        clearTimeout(savedTimerRef.current);
+      }
+    };
+  }, []);
 
   const openForm = useCallback(() => setShowTemplateForm(true), []);
   const closeForm = useCallback(() => {
@@ -44,7 +53,10 @@ export function useTemplateManager({
       setTemplateSaved(true);
       setShowTemplateForm(false);
       setTemplateName('');
-      setTimeout(() => setTemplateSaved(false), 3000);
+      if (savedTimerRef.current !== null) {
+        clearTimeout(savedTimerRef.current);
+      }
+      savedTimerRef.current = setTimeout(() => setTemplateSaved(false), 3000);
     } catch (err) {
       onError(getErrorMessage(err, 'Failed to save template'));
     } finally {

@@ -4,6 +4,7 @@ import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
+import RegenerateInput from './RegenerateInput';
 
 export default function Stage3() {
   const {
@@ -203,26 +204,12 @@ export default function Stage3() {
                   </div>
 
                   {regenInstructionSlide === index && !loading && (
-                    <div className="mb-2 flex gap-2">
-                      <input
-                        type="text"
-                        value={regenInstruction}
-                        onChange={(e) => setRegenInstruction(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleRegeneratePrompt(index, regenInstruction);
-                          if (e.key === 'Escape') { setRegenInstructionSlide(null); setRegenInstruction(''); }
-                        }}
-                        placeholder="Instruction (optional), Enter to regenerate"
-                        className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lucid-500"
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => handleRegeneratePrompt(index, regenInstruction)}
-                        className="px-2 py-1 text-xs bg-lucid-600 text-white rounded-lg hover:bg-lucid-700"
-                      >
-                        Go
-                      </button>
-                    </div>
+                    <RegenerateInput
+                      value={regenInstruction}
+                      onChange={setRegenInstruction}
+                      onSubmit={() => handleRegeneratePrompt(index, regenInstruction)}
+                      onCancel={() => { setRegenInstructionSlide(null); setRegenInstruction(''); }}
+                    />
                   )}
 
                   {editingPrompt === index ? (

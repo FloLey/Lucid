@@ -62,7 +62,8 @@ class GeminiService:
     ) -> str:
         """Generate text using Gemini. Raises GeminiError on failure."""
         self._ensure_configured()
-        assert self._client is not None
+        if self._client is None:
+            raise GeminiError("Gemini client is not initialized")
 
         from google.genai import types
 
@@ -99,7 +100,8 @@ class GeminiService:
             The raw Gemini response object for the caller to handle tool-call loops.
         """
         self._ensure_configured()
-        assert self._client is not None
+        if self._client is None:
+            raise GeminiError("Gemini client is not initialized")
         from google.genai import types
 
         config = types.GenerateContentConfig(
@@ -137,7 +139,8 @@ class GeminiService:
             Search was actually used to ground the response.
         """
         self._ensure_configured()
-        assert self._client is not None
+        if self._client is None:
+            raise GeminiError("Gemini client is not initialized")
 
         from google.genai import types
 
@@ -241,7 +244,8 @@ class GeminiService:
         import threading
 
         self._ensure_configured()
-        assert self._client is not None
+        if self._client is None:
+            raise GeminiError("Gemini client is not initialized")
 
         from google.genai import types
 
@@ -251,7 +255,7 @@ class GeminiService:
             system_instruction=system_instruction,
         )
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
 
         def _worker() -> None:
