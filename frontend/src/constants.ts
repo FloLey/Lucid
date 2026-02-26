@@ -19,3 +19,13 @@ export const STAGES = [
 ];
 
 export const IMAGE_SCALE_FACTOR = 400 / 1080;
+
+export const WORDS_PER_SLIDE_OPTIONS = [
+  { value: 'ai', label: 'Let AI decide' },
+  { value: 'short', label: 'Short (20–50 words)' },
+  { value: 'medium', label: 'Medium (50–100 words)' },
+  { value: 'long', label: 'Long (100–200 words)' },
+];
+
+export const POLL_INTERVAL_MS = 2000;
+export const TEXT_DEBOUNCE_MS = 1000;

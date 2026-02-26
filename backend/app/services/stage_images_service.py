@@ -70,7 +70,9 @@ class StageImagesService(BaseStageService):
             concurrency_limit,
         )
         for slide, image_data in zip(project.slides, results):
-            slide.background_image_url = self.storage_service.save_image_to_disk(image_data)
+            slide.background_image_url = await asyncio.to_thread(
+                self.storage_service.save_image_to_disk, image_data
+            )
 
         # Update thumbnail to the first slide's background image
         if project.slides and project.slides[0].background_image_url:
@@ -86,7 +88,7 @@ class StageImagesService(BaseStageService):
     ) -> Optional[ProjectState]:
         """Regenerate image for a single slide."""
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return None
 
         slide = project.slides[slide_index]
@@ -99,7 +101,9 @@ class StageImagesService(BaseStageService):
             self.storage_service.delete_image, slide.background_image_url
         )
         b64 = await self.image_service.generate_image(full_prompt)
-        slide.background_image_url = self.storage_service.save_image_to_disk(b64)
+        slide.background_image_url = await asyncio.to_thread(
+            self.storage_service.save_image_to_disk, b64
+        )
 
         # Keep the project thumbnail in sync: if this slide was the thumbnail source,
         # update it so the project list doesn't show a broken image.
@@ -117,7 +121,7 @@ class StageImagesService(BaseStageService):
     ) -> Optional[ProjectState]:
         """Set image data directly (for uploads)."""
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return None
 
         project.slides[slide_index].background_image_url = image_data

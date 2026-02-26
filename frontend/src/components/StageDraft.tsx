@@ -3,17 +3,10 @@ import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
 import { useStreamingText } from '../hooks/useStreamingText';
-import { SLIDE_COUNT_OPTIONS, LANGUAGES } from '../constants';
+import { SLIDE_COUNT_OPTIONS, LANGUAGES, WORDS_PER_SLIDE_OPTIONS } from '../constants';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
 import RegenerateInput from './RegenerateInput';
-
-const WORDS_PER_SLIDE_OPTIONS = [
-  { value: 'ai', label: 'Let AI decide' },
-  { value: 'short', label: 'Short (20–50 words)' },
-  { value: 'medium', label: 'Medium (50–100 words)' },
-  { value: 'long', label: 'Long (100–200 words)' },
-];
 
 export default function Stage1() {
   const {

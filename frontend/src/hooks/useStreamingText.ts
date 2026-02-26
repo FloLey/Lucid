@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import type { Project } from '../types';
@@ -21,9 +21,18 @@ export function useStreamingText({
   onError,
 }: UseStreamingTextOptions): UseStreamingTextResult {
   const [streamingTexts, setStreamingTexts] = useState<Map<number, string>>(new Map());
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight stream when the component unmounts
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   const startStream = useCallback(
     async (index: number, instruction?: string) => {
+      // Cancel any previous stream before starting a new one
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       setStreamingTexts((prev) => new Map(prev).set(index, ''));
 
       try {
@@ -35,6 +44,7 @@ export function useStreamingText({
             slide_index: index,
             instruction: instruction || null,
           }),
+          signal: controller.signal,
         });
 
         if (!response.ok || !response.body) {
@@ -76,6 +86,7 @@ export function useStreamingText({
           }
         }
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         onError(getErrorMessage(err, `Failed to regenerate slide ${index + 1}`));
         setStreamingTexts((prev) => {
           const next = new Map(prev);

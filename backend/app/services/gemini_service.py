@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from typing import List, Optional, Dict, Any
+from typing import AsyncGenerator, List, Optional, Dict, Any
 
 from app.config import GOOGLE_API_KEY, GEMINI_TEXT_MODEL
 from app.services.llm_logger import log_llm_method
@@ -236,7 +236,7 @@ class GeminiService:
         prompt: str,
         system_instruction: Optional[str] = None,
         temperature: float = 0.7,
-    ):
+    ) -> AsyncGenerator[str, None]:
         """Stream text generation using the sync SDK via thread + asyncio.Queue.
 
         Yields text chunks as they arrive from the model.
@@ -269,7 +269,7 @@ class GeminiService:
                     if text:
                         loop.call_soon_threadsafe(queue.put_nowait, text)
             except Exception as exc:
-                logger.error("Streaming generation error: %s", exc)
+                logger.error("Streaming generation error: %s", exc, exc_info=True)
             finally:
                 loop.call_soon_threadsafe(queue.put_nowait, None)
 

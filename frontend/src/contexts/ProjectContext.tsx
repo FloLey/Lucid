@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import type { Project, ProjectCard } from '../types';
 import * as api from '../services/api';
@@ -71,11 +71,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const openRequestRef = useRef(0);
   const openProject = useCallback(async (projectId: string) => {
+    const requestId = ++openRequestRef.current;
     try {
       const proj = await api.getProject(projectId);
+      if (requestId !== openRequestRef.current) return;
       setNormalizedProject(proj);
     } catch (err) {
+      if (requestId !== openRequestRef.current) return;
       setError(getErrorMessage(err, 'Failed to open project'));
     }
   }, [setNormalizedProject]);

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import AsyncGenerator, Optional, TYPE_CHECKING
 
 from app.models.slide import Slide, SlideText
 from app.models.style import TextStyle, StrokeStyle
@@ -266,7 +266,7 @@ class StageDraftService(BaseStageService):
     ) -> Optional[ProjectState]:
         """Regenerate a single slide text."""
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return None
 
         instruction_text = (
@@ -320,14 +320,14 @@ class StageDraftService(BaseStageService):
         project_id: str,
         slide_index: int,
         instruction: Optional[str] = None,
-    ):
+    ) -> AsyncGenerator[str, None]:
         """Stream plain-text body content for single-slide regeneration.
 
         Yields text chunks as they arrive. Saves nothing — the caller is
         responsible for persisting the final text (e.g., via update_slide_text).
         """
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return
 
         instruction_text = (
@@ -361,7 +361,7 @@ class StageDraftService(BaseStageService):
     ) -> Optional[ProjectState]:
         """Manually update a slide's text."""
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return None
 
         slide = project.slides[slide_index]

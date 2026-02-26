@@ -10,30 +10,26 @@ from io import BytesIO
 from typing import Optional
 
 from app.models.project import ProjectState
+from app.services.base_stage_service import BaseStageService
 from app.services.project_manager import ProjectManager
 from app.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
 
 
-class ExportService:
+class ExportService(BaseStageService):
     """Service for exporting carousel slides as ZIP archives."""
+
+    project_manager: ProjectManager
+    storage_service: StorageService
 
     def __init__(
         self,
         project_manager: Optional[ProjectManager] = None,
         storage_service: Optional[StorageService] = None,
     ):
-        self.project_manager = project_manager
-        self.storage_service = storage_service
-        if not self.project_manager:
-            raise ValueError(
-                "project_manager dependency must be provided to ExportService"
-            )
-        if not self.storage_service:
-            raise ValueError(
-                "storage_service dependency must be provided to ExportService"
-            )
+        self.project_manager = self._require(project_manager, "project_manager")
+        self.storage_service = self._require(storage_service, "storage_service")
 
     def _sanitize_filename(self, text: str, max_length: int = 30) -> str:
         """Sanitize text for use in filename."""
@@ -114,7 +110,7 @@ class ExportService:
                     filename = self._generate_filename(slide.index, slide.text.title, ext)
                     zip_file.writestr(f"slides/{filename}", image_bytes)
                 except Exception as e:
-                    logger.error(f"Error adding slide {slide.index}: {e}")
+                    logger.error("Error adding slide %d: %s", slide.index, e, exc_info=True)
 
             metadata = self._generate_metadata(project)
             metadata_json = json.dumps(metadata, indent=2)
@@ -128,8 +124,6 @@ class ExportService:
 
     async def export_project(self, project_id: str, fmt: str = "png") -> Optional[BytesIO]:
         """Export project slides as ZIP archive."""
-        if not self.project_manager:
-            return None
         project = await self.project_manager.get_project(project_id)
         if not project or not project.slides:
             return None
@@ -169,10 +163,8 @@ class ExportService:
         fmt: str = "png",
     ) -> Optional[BytesIO]:
         """Export a single slide image in the requested format."""
-        if not self.project_manager:
-            return None
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return None
 
         slide = project.slides[slide_index]
@@ -190,5 +182,5 @@ class ExportService:
 
             return await asyncio.to_thread(_read_and_convert)
         except Exception as e:
-            logger.error(f"Error exporting slide {slide_index}: {e}")
+            logger.error("Error exporting slide %d: %s", slide_index, e, exc_info=True)
             return None

@@ -6,6 +6,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 120_000,
 });
 
 // Global error interceptor — surfaces user-friendly messages from backend detail field

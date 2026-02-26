@@ -6,6 +6,7 @@ from typing import List, Tuple, Optional, Union
 from PIL import Image, ImageDraw, ImageFont
 
 from app.models.style import TextStyle, BoxStyle
+from app.services.base_stage_service import BaseStageService
 from app.services.font_manager import FontManager
 from app.services.storage_service import StorageService
 from app.services.config_manager import ConfigManager
@@ -14,8 +15,12 @@ from app.config import IMAGE_WIDTH, IMAGE_HEIGHT
 logger = logging.getLogger(__name__)
 
 
-class RenderingService:
+class RenderingService(BaseStageService):
     """Service for rendering text onto images with typography and layout."""
+
+    config_manager: ConfigManager
+    font_manager: FontManager
+    storage_service: StorageService
 
     def __init__(
         self,
@@ -23,13 +28,9 @@ class RenderingService:
         font_manager: Optional[FontManager] = None,
         storage_service: Optional[StorageService] = None,
     ):
-        # Dependencies are provided via DI container
-        self.config_manager = config_manager
-        self.font_manager = font_manager
-        self.storage_service = storage_service
-        # Ensure dependencies are present (should always be true with DI container)
-        if not all([self.config_manager, self.font_manager, self.storage_service]):
-            raise ValueError("All dependencies must be provided to RenderingService")
+        self.config_manager = self._require(config_manager, "config_manager")
+        self.font_manager = self._require(font_manager, "font_manager")
+        self.storage_service = self._require(storage_service, "storage_service")
 
     def _wrap_text(
         self,
@@ -145,8 +146,6 @@ class RenderingService:
         draw: ImageDraw.ImageDraw,
     ) -> Tuple[int, List[str]]:
         """Find the largest font size (up to max_size) where all text fits."""
-        if not self.font_manager:
-            raise ValueError("Font manager not initialized")
         min_size = 12
         if max_size < min_size:
             max_size = min_size
@@ -187,8 +186,6 @@ class RenderingService:
         stroke_color: Optional[Tuple[int, int, int, int]],
     ) -> None:
         """Render a single text block within its box, auto-scaling to fit."""
-        if not self.font_manager:
-            raise ValueError("Font manager not initialized")
         padding = int(IMAGE_WIDTH * box.padding_pct)
         box_x = int(IMAGE_WIDTH * box.x_pct)
         box_y = int(IMAGE_HEIGHT * box.y_pct)
@@ -243,8 +240,6 @@ class RenderingService:
         *background_base64* may be either a raw base64 PNG string or an
         ``/images/<uuid>.png`` path written by :meth:`StorageService.save_image_to_disk`.
         """
-        if not self.storage_service:
-            raise ValueError("Storage service not initialized")
         background = self.storage_service.decode_image_from_path_or_b64(background_base64)
         background = background.convert("RGBA")
 
@@ -302,8 +297,6 @@ class RenderingService:
 
         *background_base64* accepts the same formats as :meth:`render_text_on_image`.
         """
-        if not self.storage_service:
-            raise ValueError("Storage service not initialized")
         background = self.storage_service.decode_image_from_path_or_b64(background_base64)
         background = background.convert("RGB")
 
