@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
+import { TEXT_DEBOUNCE_MS } from '../constants';
 import type { Project } from '../types';
 
 interface UseDebouncedRenderOptions {
@@ -71,7 +72,7 @@ export function useDebouncedRender({
         timerRef.current = null;
         const id = ++requestIdRef.current;
         _doSyncAndRender(latestTitleRef.current, latestBodyRef.current, id);
-      }, 1000);
+      }, TEXT_DEBOUNCE_MS);
     },
     [_doSyncAndRender],
   );

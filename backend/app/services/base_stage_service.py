@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, TypeVar
+from typing import Any, Optional, TypeVar
 
 T = TypeVar("T")
 
@@ -16,3 +16,8 @@ class BaseStageService:
         if not value:
             raise ValueError(f"{name} dependency is required")
         return value  # type: ignore[return-value]
+
+    @staticmethod
+    def _valid_slide(project: Any, slide_index: int) -> bool:
+        """Return True if *project* is not None and *slide_index* is in bounds."""
+        return bool(project and 0 <= slide_index < len(project.slides))

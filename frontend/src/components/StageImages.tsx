@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
+import { POLL_INTERVAL_MS } from '../constants';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
 
@@ -31,15 +32,21 @@ export default function Stage4() {
     setLoading(true);
     setError(null);
 
-    // Poll every 2 s so the UI shows per-slide progress as images arrive
+    // Poll so the UI shows per-slide progress as images arrive
+    let pollErrors = 0;
     pollingRef.current = setInterval(async () => {
       try {
         const refreshed = await api.getProject(projectId);
         updateProject(refreshed);
-      } catch {
-        // ignore transient poll errors
+        pollErrors = 0;
+      } catch (err) {
+        if (++pollErrors >= 3) {
+          clearInterval(pollingRef.current!);
+          pollingRef.current = null;
+          setError(getErrorMessage(err, 'Lost connection during image generation'));
+        }
       }
-    }, 2000);
+    }, POLL_INTERVAL_MS);
 
     try {
       const sess = await api.generateImages(projectId);

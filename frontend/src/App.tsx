@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, Component } from 'react';
+import type { ReactNode, ErrorInfo } from 'react';
 import { ProjectProvider, useProject } from './contexts/ProjectContext';
 import StageResearch from './components/StageResearch';
 import StageDraft from './components/StageDraft';
@@ -12,6 +13,39 @@ import ProjectHome from './components/ProjectHome';
 import NewProjectModal from './components/NewProjectModal';
 import TemplatesPage from './components/TemplatesPage';
 import { useDarkMode } from './hooks/useDarkMode';
+
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; message: string }
+> {
+  state = { hasError: false, message: '' };
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, message: error.message };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Unhandled render error:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-screen flex items-center justify-center flex-col gap-4 p-8 text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Something went wrong</h1>
+          <p className="text-gray-500 dark:text-gray-400 max-w-md">{this.state.message}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-lucid-600 text-white rounded-lg hover:bg-lucid-700"
+          >
+            Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function AppContent() {
   const {
@@ -127,9 +161,11 @@ function AppContent() {
 
 function App() {
   return (
-    <ProjectProvider>
-      <AppContent />
-    </ProjectProvider>
+    <ErrorBoundary>
+      <ProjectProvider>
+        <AppContent />
+      </ProjectProvider>
+    </ErrorBoundary>
   );
 }
 

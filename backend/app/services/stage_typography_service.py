@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any, TYPE_CHECKING
 
 from app.models.project import ProjectState
 from app.models.style import TextStyle
+from app.services.base_stage_service import BaseStageService
 from app.services.storage_service import StorageService
 
 if TYPE_CHECKING:
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class StageTypographyService:
+class StageTypographyService(BaseStageService):
     """Service for Stage Typography: Typography/layout rendering."""
 
     project_manager: ProjectManager
@@ -29,12 +30,9 @@ class StageTypographyService:
         rendering_service: Optional[RenderingService] = None,
         storage_service: Optional[StorageService] = None,
     ):
-        if not project_manager or not rendering_service or not storage_service:
-            raise ValueError("All dependencies must be provided to StageTypographyService")
-
-        self.project_manager = project_manager
-        self.rendering_service = rendering_service
-        self.storage_service = storage_service
+        self.project_manager = self._require(project_manager, "project_manager")
+        self.rendering_service = self._require(rendering_service, "rendering_service")
+        self.storage_service = self._require(storage_service, "storage_service")
 
     async def apply_text_to_all_images(
         self,
@@ -86,7 +84,7 @@ class StageTypographyService:
     ) -> Optional[ProjectState]:
         """Apply text styling to a single slide image."""
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return None
 
         slide = project.slides[slide_index]
@@ -136,7 +134,7 @@ class StageTypographyService:
     ) -> Optional[ProjectState]:
         """Update style properties for a slide."""
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return None
 
         slide = project.slides[slide_index]
@@ -168,7 +166,7 @@ class StageTypographyService:
     ) -> Optional[ProjectState]:
         """Use image analysis to suggest optimal style for a slide."""
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return None
 
         slide = project.slides[slide_index]

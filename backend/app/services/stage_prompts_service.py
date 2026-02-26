@@ -118,7 +118,7 @@ class StagePromptsService(BaseStageService):
     ) -> Optional[ProjectState]:
         """Regenerate image prompt for a single slide."""
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return None
 
         prompt = self._build_slide_prompt(project, slide_index, instruction=instruction)
@@ -140,7 +140,7 @@ class StagePromptsService(BaseStageService):
     ) -> Optional[ProjectState]:
         """Manually update an image prompt."""
         project = await self.project_manager.get_project(project_id)
-        if not project or not (0 <= slide_index < len(project.slides)):
+        if not self._valid_slide(project, slide_index):
             return None
 
         project.slides[slide_index].image_prompt = prompt

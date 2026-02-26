@@ -177,8 +177,12 @@ export default function Stage5() {
   const handleCopyStyleFrom = useCallback(async (sourceIndex: number) => {
     const sourceSlide = slidesRef.current[sourceIndex];
     if (!sourceSlide?.style) return;
-    await replaceStyle(sourceSlide.style);
-  }, [replaceStyle]);
+    try {
+      await replaceStyle(sourceSlide.style);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to copy style'));
+    }
+  }, [replaceStyle, setError]);
 
   // F2 keyboard nav + F1 undo/redo shortcuts
   useEffect(() => {

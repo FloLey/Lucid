@@ -99,7 +99,7 @@ class StageStyleService(BaseStageService):
                     self.storage_service.save_image_to_disk, b64
                 )
             except Exception as e:
-                logger.warning(f"Failed to generate preview for proposal {i}: {e}")
+                logger.warning("Failed to generate preview for proposal %d: %s", i, e, exc_info=True)
 
             return StyleProposal(
                 index=i,
@@ -114,14 +114,15 @@ class StageStyleService(BaseStageService):
 
         old_proposals = project.style_proposals
         project.style_proposals = list(proposals)
-        # Delete old proposal preview images from disk after replacing them
-        for old in old_proposals:
-            await asyncio.to_thread(self.storage_service.delete_image, old.preview_image)
         project.selected_style_proposal_index = None
         # Use the first proposal's preview as the initial thumbnail
         if proposals and proposals[0].preview_image:
             project.thumbnail_url = proposals[0].preview_image
+        # Persist before deleting old images — if the DB write fails, old images
+        # remain reachable from the DB record (no orphaned/missing files).
         await self.project_manager.update_project(project)
+        for old in old_proposals:
+            await asyncio.to_thread(self.storage_service.delete_image, old.preview_image)
         return project
 
     async def select_proposal(

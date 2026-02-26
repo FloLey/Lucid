@@ -45,7 +45,7 @@ export function useStyleManager({
       const current = styleRef.current;
       if (!current) return;
 
-      const newStyle = JSON.parse(JSON.stringify(current)) as TextStyle;
+      const newStyle = structuredClone(current);
       for (const [key, value] of Object.entries(updates)) {
         if (key === 'title_box' || key === 'body_box') {
           Object.assign((newStyle as unknown as Record<string, unknown>)[key] as object, value);
