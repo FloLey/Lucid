@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -101,7 +102,6 @@ async def generate_images(
     if service.is_generating(project_id):
         raise HTTPException(status_code=400, detail="Generation already in progress")
     # Run in background
-    import asyncio
     asyncio.create_task(service.generate_images_for_project(project_id))
     return {"started": True}
 

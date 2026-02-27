@@ -288,8 +288,11 @@ class MatrixService:
                 key=lambda rc: (abs(rc[0] - rc[1]), rc[0], rc[1]),
             )
 
-            # Collect all labels to avoid duplicates across cells
+            # Collect all labels to avoid duplicates across cells.
+            # A lock ensures concurrent coroutines take consistent snapshots
+            # and append results without racing.
             used_labels: List[str] = [c["label"] for c in concepts]
+            labels_lock = asyncio.Lock()
 
             async def _gen_one_cell(row: int, col: int) -> None:
                 row_concept = concepts[row]
@@ -300,6 +303,8 @@ class MatrixService:
                     project_id, row, col, cell_status="generating"
                 )
                 try:
+                    async with labels_lock:
+                        snapshot = list(used_labels)
                     result = await self._gen.generate_cell(
                         project_id=project_id,
                         row=row,
@@ -308,13 +313,14 @@ class MatrixService:
                         col_concept=col_concept,
                         row_descriptor=row_descriptor,
                         col_descriptor=col_descriptor,
-                        already_used_labels=list(used_labels),
+                        already_used_labels=snapshot,
                         theme=theme,
                         style_mode=style_mode,
                         settings=settings,
                         emit=self._emit,
                     )
-                    used_labels.append(result["concept"])
+                    async with labels_lock:
+                        used_labels.append(result["concept"])
                     await self._db.upsert_cell(
                         project_id, row, col,
                         concept=result["concept"],

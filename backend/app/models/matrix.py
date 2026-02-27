@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -45,7 +45,7 @@ class MatrixCell(BaseModel):
     # Optional image
     image_url: Optional[str] = None
     # Status
-    cell_status: str = "pending"
+    cell_status: Literal["pending", "generating", "complete", "failed"] = "pending"
     cell_error: Optional[str] = None
     attempts: int = 0
 
@@ -63,7 +63,7 @@ class MatrixProject(BaseModel):
     language: str = "English"
     style_mode: str = "neutral"
     include_images: bool = False
-    status: str = "pending"
+    status: Literal["pending", "generating", "complete", "failed"] = "pending"
     error_message: Optional[str] = None
     cells: List[MatrixCell] = Field(default_factory=list)
     created_at: datetime
@@ -77,7 +77,7 @@ class MatrixProjectCard(BaseModel):
     name: str
     theme: str
     n: int
-    status: str
+    status: Literal["pending", "generating", "complete", "failed"]
     include_images: bool
     created_at: datetime
     updated_at: datetime
