@@ -98,7 +98,8 @@ class MatrixDB:
         # Pre-create all n*n cell stubs so grid renders immediately
         await self._create_cell_stubs(project_id, n)
         project = await self.get_project(project_id)
-        assert project is not None
+        if project is None:
+            raise RuntimeError(f"Failed to fetch project {project_id} after creation")
         return project
 
     async def _create_cell_stubs(self, project_id: str, n: int) -> None:

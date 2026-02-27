@@ -253,14 +253,26 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                     {selectedCell.explanation}
                   </p>
                   <div className="mt-3 space-y-1 text-xs text-gray-400 dark:text-gray-500">
-                    <div>
-                      <span className="font-medium text-gray-500 dark:text-gray-400">Row:</span>{' '}
-                      {getDiagCell(selectedCell.row)?.label} — {getDiagCell(selectedCell.row)?.row_descriptor}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-500 dark:text-gray-400">Col:</span>{' '}
-                      {getDiagCell(selectedCell.col)?.label} — {getDiagCell(selectedCell.col)?.col_descriptor}
-                    </div>
+                    {(() => {
+                      const rowDiag = getDiagCell(selectedCell.row);
+                      const colDiag = getDiagCell(selectedCell.col);
+                      return (
+                        <>
+                          {rowDiag && (
+                            <div>
+                              <span className="font-medium text-gray-500 dark:text-gray-400">Row:</span>{' '}
+                              {rowDiag.label}{rowDiag.row_descriptor ? ` — ${rowDiag.row_descriptor}` : ''}
+                            </div>
+                          )}
+                          {colDiag && (
+                            <div>
+                              <span className="font-medium text-gray-500 dark:text-gray-400">Col:</span>{' '}
+                              {colDiag.label}{colDiag.col_descriptor ? ` — ${colDiag.col_descriptor}` : ''}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </>
               )}

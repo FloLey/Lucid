@@ -109,7 +109,7 @@ export default function MatrixCell({
       )}
 
       {isFailed && (
-        <div className="absolute top-1 right-1 z-10 w-3 h-3 rounded-full bg-red-500" title={cell.cell_error ?? 'Failed'} />
+        <div className="absolute top-1 right-1 z-10 w-3 h-3 rounded-full bg-red-500" title={cell.cell_error || 'Failed'} />
       )}
     </button>
   );

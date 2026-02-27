@@ -132,7 +132,8 @@ async def regenerate_cell(
         image_only=req.image_only,
     )
     updated = await db.get_project(project_id)
-    assert updated is not None
+    if updated is None:
+        raise HTTPException(status_code=500, detail="Failed to fetch regenerated matrix")
     return MatrixProjectResponse(matrix=updated)
 
 

@@ -196,7 +196,7 @@ export interface MatrixProjectCard {
   name: string;
   theme: string;
   n: number;
-  status: string;
+  status: 'pending' | 'generating' | 'complete' | 'failed';
   include_images: boolean;
   created_at: string;
   updated_at: string;
