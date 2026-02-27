@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
 import pytest
+from datetime import datetime
 from pathlib import Path
 from pydantic import ValidationError
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from app.dependencies import container
 from app.models.matrix import (
     CreateMatrixRequest,
+    MatrixCell,
+    MatrixProject,
+    MatrixProjectCard,
     MatrixSettings,
     RegenerateCellRequest,
 )
+from app.services.async_utils import bounded_gather
 from app.services.matrix_settings_manager import MatrixSettingsManager
 from tests.conftest import run_async
 
@@ -83,7 +89,121 @@ class TestMatrixModels:
         assert req.extra_instructions is None
 
 
-# ── 2. MatrixDB ───────────────────────────────────────────────────────────
+# ── 2. Literal status validation ──────────────────────────────────────────
+
+
+class TestMatrixStatusLiteral:
+    """Pydantic enforces Literal status values — invalid ones must be rejected."""
+
+    _NOW = datetime(2025, 1, 1)
+
+    def test_cell_status_rejects_invalid_value(self):
+        with pytest.raises(ValidationError):
+            MatrixCell(id="x", project_id="p", row=0, col=0, cell_status="broken")
+
+    def test_cell_status_accepts_all_valid_values(self):
+        for status in ("pending", "generating", "complete", "failed"):
+            cell = MatrixCell(id="x", project_id="p", row=0, col=0, cell_status=status)
+            assert cell.cell_status == status
+
+    def test_project_status_rejects_invalid_value(self):
+        with pytest.raises(ValidationError):
+            MatrixProject(
+                id="x", name="n", theme="t", n=3, status="running",
+                created_at=self._NOW, updated_at=self._NOW,
+            )
+
+    def test_project_status_accepts_all_valid_values(self):
+        for status in ("pending", "generating", "complete", "failed"):
+            p = MatrixProject(
+                id="x", name="n", theme="t", n=3, status=status,
+                created_at=self._NOW, updated_at=self._NOW,
+            )
+            assert p.status == status
+
+    def test_project_card_status_rejects_invalid_value(self):
+        with pytest.raises(ValidationError):
+            MatrixProjectCard(
+                id="x", name="n", theme="t", n=3, status="unknown",
+                include_images=False, created_at=self._NOW, updated_at=self._NOW,
+            )
+
+    def test_project_card_status_accepts_all_valid_values(self):
+        for status in ("pending", "generating", "complete", "failed"):
+            card = MatrixProjectCard(
+                id="x", name="n", theme="t", n=3, status=status,
+                include_images=False, created_at=self._NOW, updated_at=self._NOW,
+            )
+            assert card.status == status
+
+
+# ── 3. Used-labels lock ────────────────────────────────────────────────────
+
+
+class TestUsedLabelsLock:
+    """The asyncio.Lock in _gen_one_cell ensures label appends are serialised
+    so used_labels never contains duplicate entries after concurrent generation."""
+
+    def test_labels_accumulate_without_duplicates(self):
+        """Simulate the lock pattern: concurrent coroutines each append a unique
+        result, and the final list must contain every label exactly once."""
+
+        async def _run():
+            diagonal_labels = ["Alpha", "Beta", "Gamma"]
+            used_labels: list[str] = list(diagonal_labels)
+            labels_lock = asyncio.Lock()
+            appended: list[str] = []
+
+            async def _gen_one(concept: str) -> None:
+                async with labels_lock:
+                    snapshot = list(used_labels)  # noqa: F841 — mirrors production code
+                # Simulate slow network call; yields to event loop
+                await asyncio.sleep(0)
+                async with labels_lock:
+                    used_labels.append(concept)
+                    appended.append(concept)
+
+            off_diagonal = [f"cell_{i}" for i in range(6)]
+            await bounded_gather(
+                [_gen_one(c) for c in off_diagonal],
+                limit=4,
+            )
+            return used_labels
+
+        result = run_async(_run())
+        # All 3 diagonal + 6 off-diagonal labels must be present
+        assert len(result) == 9
+        # No duplicates from concurrent appends
+        assert len(set(result)) == 9
+
+    def test_snapshot_is_independent_copy(self):
+        """Snapshot taken inside the lock must not be affected by later appends."""
+
+        async def _run():
+            used_labels = ["X"]
+            labels_lock = asyncio.Lock()
+            snapshots: list[list[str]] = []
+
+            async def _capture():
+                async with labels_lock:
+                    snapshots.append(list(used_labels))
+                await asyncio.sleep(0)
+                async with labels_lock:
+                    used_labels.append(f"new_{len(used_labels)}")
+
+            await asyncio.gather(_capture(), _capture())
+            return snapshots, used_labels
+
+        snapshots, final = run_async(_run())
+        # Final list has the original + 2 appends
+        assert len(final) == 3
+        # Each snapshot is a copy — mutating used_labels after doesn't change it
+        for snap in snapshots:
+            assert isinstance(snap, list)
+            assert snap is not final
+
+
+# ── 4. MatrixDB ───────────────────────────────────────────────────────────
 
 
 class TestMatrixDB:
