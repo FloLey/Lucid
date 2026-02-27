@@ -13,7 +13,7 @@ os.environ.setdefault("LUCID_IMAGE_DIR", "./data/images")
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import app, _limiter
 
 
 def run_async(coro):
@@ -53,8 +53,10 @@ def client():
     """Create a test client for the FastAPI app.
 
     Clears all projects before each test to ensure isolation.
+    Resets the rate limiter so the full test suite never gets throttled.
     """
     from app.dependencies import container
 
+    _limiter._hits.clear()
     run_async(container.project_manager.clear_all())
     return TestClient(app)
