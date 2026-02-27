@@ -1,6 +1,7 @@
 import { useState, Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { ProjectProvider, useProject } from './contexts/ProjectContext';
+import { MatrixProvider, useMatrix } from './contexts/MatrixContext';
 import StageResearch from './components/StageResearch';
 import StageDraft from './components/StageDraft';
 import StageStyle from './components/StageStyle';
@@ -12,6 +13,9 @@ import StageIndicator from './components/StageIndicator';
 import ProjectHome from './components/ProjectHome';
 import NewProjectModal from './components/NewProjectModal';
 import TemplatesPage from './components/TemplatesPage';
+import MatrixHome from './components/matrix/MatrixHome';
+import MatrixView from './components/matrix/MatrixView';
+import MatrixSettingsPage from './components/matrix/MatrixSettings';
 import { useDarkMode } from './hooks/useDarkMode';
 
 class ErrorBoundary extends Component<
@@ -47,6 +51,59 @@ class ErrorBoundary extends Component<
   }
 }
 
+type ActiveSection = 'carousel' | 'matrix';
+
+function MatrixSection({ onBack, isDark, onToggleDark }: { onBack: () => void; isDark: boolean; onToggleDark: () => void }) {
+  const { currentMatrix, closeMatrix } = useMatrix();
+  const [showSettings, setShowSettings] = useState(false);
+
+  if (showSettings) {
+    return (
+      <div className="h-screen flex flex-col overflow-hidden">
+        <Header
+          projectName="Matrix Settings"
+          onBack={() => setShowSettings(false)}
+          isDark={isDark}
+          onToggleDark={onToggleDark}
+        />
+        <main className="flex-1 min-h-0 overflow-y-auto">
+          <MatrixSettingsPage onBack={() => setShowSettings(false)} />
+        </main>
+      </div>
+    );
+  }
+
+  if (currentMatrix) {
+    return (
+      <div className="h-screen flex flex-col overflow-hidden">
+        <Header
+          projectName={currentMatrix.name || currentMatrix.theme}
+          onBack={closeMatrix}
+          isDark={isDark}
+          onToggleDark={onToggleDark}
+        />
+        <main className="flex-1 min-h-0 overflow-y-auto">
+          <MatrixView matrix={currentMatrix} />
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen flex flex-col overflow-hidden">
+      <Header
+        projectName={null}
+        onBack={onBack}
+        isDark={isDark}
+        onToggleDark={onToggleDark}
+      />
+      <main className="flex-1 min-h-0 overflow-y-auto">
+        <MatrixHome onOpenSettings={() => setShowSettings(true)} />
+      </main>
+    </div>
+  );
+}
+
 function AppContent() {
   const {
     projects,
@@ -64,6 +121,7 @@ function AppContent() {
   } = useProject();
 
   const { isDark, toggle: toggleDark } = useDarkMode();
+  const [activeSection, setActiveSection] = useState<ActiveSection>('carousel');
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showTemplatesPage, setShowTemplatesPage] = useState(false);
   const [isGeneratingName, setIsGeneratingName] = useState(false);
@@ -91,6 +149,18 @@ function AppContent() {
       default: return <StageResearch />;
     }
   };
+
+  if (activeSection === 'matrix') {
+    return (
+      <MatrixProvider>
+        <MatrixSection
+          onBack={() => setActiveSection('carousel')}
+          isDark={isDark}
+          onToggleDark={toggleDark}
+        />
+      </MatrixProvider>
+    );
+  }
 
   return (
     <>
@@ -137,6 +207,7 @@ function AppContent() {
               onNewProject={() => setShowNewProjectModal(true)}
               onDelete={deleteProject}
               onTemplates={() => setShowTemplatesPage(true)}
+              onMatrix={() => setActiveSection('matrix')}
             />
           )}
         </main>

@@ -1,0 +1,13 @@
+Create a visual image generation prompt for a matrix cell.
+
+Concept: "{concept}"
+Context: "{context}"
+
+Generate a concise image generation prompt (1–2 sentences) that:
+- Visually represents the concept without any text or words
+- Is abstract, atmospheric, and evocative
+- Works well as a card background image (square or portrait format)
+- Uses color, texture, and composition to suggest the concept
+- Is visually distinct and striking
+
+Output only the image generation prompt text — no JSON, no labels, no explanations. Just the prompt.

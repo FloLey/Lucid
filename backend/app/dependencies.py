@@ -23,6 +23,10 @@ from app.services.config_manager import ConfigManager
 from app.services.prompt_validator import PromptValidator
 from app.services.font_manager import FontManager
 from app.services.prompt_loader import PromptLoader
+from app.services.matrix_db import MatrixDB
+from app.services.matrix_generator import MatrixGenerator
+from app.services.matrix_service import MatrixService
+from app.services.matrix_settings_manager import MatrixSettingsManager
 
 
 class ServiceContainer:
@@ -88,6 +92,21 @@ class ServiceContainer:
         self.export_service = ExportService(
             project_manager=self.project_manager,
             storage_service=self.storage_service,
+        )
+
+        # Matrix Generator services
+        self.matrix_settings_manager = MatrixSettingsManager()
+        self.matrix_db = MatrixDB()
+        self.matrix_generator = MatrixGenerator(
+            gemini_service=self.gemini_service,
+            image_service=self.image_service,
+            storage_service=self.storage_service,
+            prompt_loader=self.prompt_loader,
+        )
+        self.matrix_service = MatrixService(
+            matrix_db=self.matrix_db,
+            matrix_generator=self.matrix_generator,
+            settings=self.matrix_settings_manager.get(),
         )
 
 
@@ -179,3 +198,18 @@ def get_stage_typography_service() -> StageTypographyService:
 def get_export_service() -> ExportService:
     """Provider for Export/ZIP service."""
     return container.export_service
+
+
+def get_matrix_db() -> MatrixDB:
+    """Provider for MatrixDB CRUD service."""
+    return container.matrix_db
+
+
+def get_matrix_service() -> MatrixService:
+    """Provider for MatrixService orchestrator."""
+    return container.matrix_service
+
+
+def get_matrix_settings_manager() -> MatrixSettingsManager:
+    """Provider for MatrixSettingsManager."""
+    return container.matrix_settings_manager

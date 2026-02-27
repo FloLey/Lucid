@@ -24,6 +24,7 @@ from app.routes import (
     fonts,
     config,
     prompts,
+    matrix,
 )
 from app.services.gemini_service import GeminiError
 from app.services.storage_service import IMAGE_DIR
@@ -106,6 +107,8 @@ app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(fonts.router, prefix="/api/fonts", tags=["fonts"])
 app.include_router(config.router, prefix="/api/config", tags=["config"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
+app.include_router(matrix.router, prefix="/api/matrix", tags=["matrix"])
+app.include_router(matrix.settings_router, prefix="/api/matrix-settings", tags=["matrix-settings"])
 
 # Serve generated images directly so the frontend can load them via
 # /images/<uuid>.png without going through the API layer.

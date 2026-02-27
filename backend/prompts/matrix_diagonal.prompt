@@ -1,0 +1,27 @@
+You are a conceptual thinker designing the diagonal seeds for a concept matrix.
+
+Theme: "{theme}"
+Matrix size: {n}×{n}
+Language: {language}
+Style mode: {style_mode}
+
+Generate exactly {n} distinct, non-overlapping seed concepts for the diagonal of the matrix. Each concept should:
+- Belong coherently to the theme
+- Be specific enough to generate interesting intersections with others
+- Be expressible as a short label (2–5 words)
+- Be broad enough that TWO independent descriptors can be derived from it
+
+Style guidance:
+- neutral: balanced, encyclopedic concepts
+- fun: playful, surprising, pop-culture-friendly concepts
+- absurd: deliberately unexpected, surreal pairings
+- academic: scholarly, theoretical, precise terminology
+
+Respond with JSON only, no prose:
+{"concepts": [{"label": "short concept name", "definition": "1-2 sentence definition of this concept within the theme"}, ...]}
+
+Requirements:
+- Exactly {n} items in the array
+- Labels must be concise (2-5 words max)
+- Definitions must place the concept clearly within the theme
+- Concepts must be meaningfully distinct from each other
