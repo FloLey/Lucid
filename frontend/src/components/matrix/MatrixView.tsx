@@ -45,8 +45,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
     if (initialMatrix.status === 'generating') {
       startStream(initialMatrix.id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialMatrix.id]);
+  }, [initialMatrix.id, initialMatrix.status, startStream]);
 
   const n = matrix.n;
 
@@ -63,6 +62,13 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
     setRegenInstructions('');
   };
 
+  const refreshSelectedCell = (updated: MatrixProject) => {
+    const refreshed = updated.cells.find(
+      (c) => c.row === selectedCell?.row && c.col === selectedCell?.col
+    );
+    if (refreshed) setSelectedCell(refreshed);
+  };
+
   const handleRegenerate = async () => {
     if (!selectedCell || selectedCell.row === selectedCell.col) return;
     setRegenLoading(true);
@@ -75,11 +81,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
       );
       setMatrix(updated);
       updateMatrix(updated);
-      // Refresh selected cell
-      const refreshed = updated.cells.find(
-        (c) => c.row === selectedCell.row && c.col === selectedCell.col
-      );
-      if (refreshed) setSelectedCell(refreshed);
+      refreshSelectedCell(updated);
     } catch (err) {
       setStreamError(getErrorMessage(err, 'Regeneration failed'));
     } finally {
@@ -100,10 +102,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
       );
       setMatrix(updated);
       updateMatrix(updated);
-      const refreshed = updated.cells.find(
-        (c) => c.row === selectedCell.row && c.col === selectedCell.col
-      );
-      if (refreshed) setSelectedCell(refreshed);
+      refreshSelectedCell(updated);
     } catch (err) {
       setStreamError(getErrorMessage(err, 'Image regeneration failed'));
     } finally {

@@ -31,6 +31,15 @@ export function useMatrixStream({
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Keep callback refs current so startStream always calls the latest versions
+  // without needing them in its dependency array.
+  const onUpdateRef = useRef(onUpdate);
+  const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
+  onUpdateRef.current = onUpdate;
+  onCompleteRef.current = onComplete;
+  onErrorRef.current = onError;
+
   useEffect(
     () => () => {
       abortRef.current?.abort();
@@ -75,12 +84,12 @@ export function useMatrixStream({
               handleEvent(event);
               if (event.type === 'done') {
                 setIsStreaming(false);
-                onComplete();
+                onCompleteRef.current();
                 return;
               }
               if (event.type === 'error') {
                 setIsStreaming(false);
-                onError(event.message);
+                onErrorRef.current(event.message);
                 return;
               }
             } catch {
@@ -90,23 +99,22 @@ export function useMatrixStream({
         }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
-        onError(getErrorMessage(err, 'Stream connection failed'));
+        onErrorRef.current(getErrorMessage(err, 'Stream connection failed'));
       } finally {
         setIsStreaming(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
   function handleEvent(event: MatrixSSEEvent) {
     switch (event.type) {
       case 'snapshot':
-        onUpdate(() => event.matrix);
+        onUpdateRef.current(() => event.matrix);
         break;
 
       case 'diagonal':
-        onUpdate((prev) =>
+        onUpdateRef.current((prev) =>
           patchCell(prev, event.index, event.index, {
             label: event.label,
             definition: event.definition,
@@ -116,7 +124,7 @@ export function useMatrixStream({
         break;
 
       case 'axes':
-        onUpdate((prev) =>
+        onUpdateRef.current((prev) =>
           patchCell(prev, event.row, event.col, {
             row_descriptor: event.row_descriptor,
             col_descriptor: event.col_descriptor,
@@ -125,7 +133,7 @@ export function useMatrixStream({
         break;
 
       case 'cell':
-        onUpdate((prev) =>
+        onUpdateRef.current((prev) =>
           patchCell(prev, event.row, event.col, {
             concept: event.concept,
             explanation: event.explanation,
@@ -135,7 +143,7 @@ export function useMatrixStream({
         break;
 
       case 'cell_failed':
-        onUpdate((prev) =>
+        onUpdateRef.current((prev) =>
           patchCell(prev, event.row, event.col, {
             cell_status: 'failed',
             cell_error: event.error,
@@ -144,7 +152,7 @@ export function useMatrixStream({
         break;
 
       case 'image':
-        onUpdate((prev) =>
+        onUpdateRef.current((prev) =>
           patchCell(prev, event.row, event.col, {
             image_url: event.image_url,
           })
@@ -153,7 +161,7 @@ export function useMatrixStream({
 
       case 'validation':
         // Mark cells being retried as 'generating'
-        onUpdate((prev) => {
+        onUpdateRef.current((prev) => {
           let updated = prev;
           for (const { row, col } of event.failures) {
             updated = patchCell(updated, row, col, { cell_status: 'generating' });

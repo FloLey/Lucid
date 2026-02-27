@@ -44,9 +44,9 @@ class MatrixGenerator:
     # ── Prompt helpers ────────────────────────────────────────────────────
 
     def _get_prompt(self, name: str) -> str:
-        template = self._prompts._cache.get(name, "")
+        template = self._prompts.get_cached(name)
         if not template:
-            logger.warning("Prompt '%s' not found in cache", name)
+            raise RuntimeError(f"Matrix prompt '{name}' not found")
         return template
 
     # ── Step 1: Diagonal concepts (1 LLM call) ───────────────────────────

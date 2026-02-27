@@ -119,6 +119,10 @@ class PromptLoader:
         """
         return project.project_config.get_prompt(name) or self._cache.get(name, "")
 
+    def get_cached(self, name: str) -> str:
+        """Return cached prompt content by name, or empty string if not found."""
+        return self._cache.get(name, "")
+
     def is_known(self, prompt_name: str) -> bool:
         """Check if a prompt name is registered."""
         return prompt_name in PROMPT_FILES

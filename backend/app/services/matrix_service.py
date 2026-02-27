@@ -452,7 +452,7 @@ class MatrixService:
 
 
 def _build_grid(
-    cells: list, n: int
+    cells: List[Any], n: int
 ) -> List[List[Dict[str, str]]]:
     """Build n×n grid of cell dicts for the validator prompt."""
     grid: List[List[Dict[str, str]]] = [[{} for _ in range(n)] for _ in range(n)]

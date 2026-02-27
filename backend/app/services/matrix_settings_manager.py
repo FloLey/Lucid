@@ -36,13 +36,13 @@ class MatrixSettingsManager:
         return self.settings
 
     def update(self, settings: MatrixSettings) -> MatrixSettings:
-        self.settings = settings
         try:
             with open(self._file, "w", encoding="utf-8") as f:
                 json.dump(settings.model_dump(), f, indent=2)
         except Exception as exc:
             logger.error("Failed to save %s: %s", self._file, exc)
             raise
+        self.settings = settings
         return self.settings
 
     def reset(self) -> MatrixSettings:

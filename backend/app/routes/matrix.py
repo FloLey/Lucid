@@ -48,8 +48,6 @@ async def create_matrix(
     service: MatrixService = Depends(get_matrix_service),
 ) -> MatrixProjectResponse:
     """Create a matrix project and launch background generation."""
-    if req.n > 8:
-        raise HTTPException(status_code=400, detail="n must be ≤ 8")
     project = await service.create_and_start(req)
     return MatrixProjectResponse(matrix=project)
 
