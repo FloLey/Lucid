@@ -243,3 +243,10 @@ class MatrixDB:
             )
             rows = result.scalars().all()
         return [_row_to_cell(r) for r in rows]
+
+    async def clear_all(self) -> None:
+        """Delete all matrix projects and cells. For tests only."""
+        async with async_session_factory() as session:
+            async with session.begin():
+                await session.execute(delete(MatrixCellDB))
+                await session.execute(delete(MatrixProjectDB))
