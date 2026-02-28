@@ -20,6 +20,7 @@ PROMPT_FILES: Dict[str, str] = {
     "style_proposal": "style_proposal.prompt",
     "generate_single_image_prompt": "generate_single_image_prompt.prompt",
     "regenerate_single_slide": "regenerate_single_slide.prompt",
+    "generate_project_title": "generate_project_title.prompt",
     # Concept Matrix prompts
     "matrix_diagonal": "matrix_diagonal.prompt",
     "matrix_axes": "matrix_axes.prompt",

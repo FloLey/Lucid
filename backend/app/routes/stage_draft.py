@@ -3,7 +3,7 @@
 import json
 import logging
 from typing import Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -58,15 +58,9 @@ class RegenerateAllRequest(BaseModel):
 @router.post("/generate", response_model=ProjectResponse)
 async def generate_slide_texts(
     request: GenerateSlideTextsRequest,
-    background_tasks: BackgroundTasks,
     stage_draft_service: StageDraftService = Depends(get_stage_draft_service),
 ):
-    """Generate slide texts from a draft.
-
-    Note: cannot use execute_service_action here because we need to schedule
-    a BackgroundTasks title-generation job on success, which requires access
-    to the returned project before sending the response.
-    """
+    """Generate slide texts from a draft."""
     try:
         project = await stage_draft_service.generate_slide_texts(
             project_id=request.project_id,
@@ -84,10 +78,10 @@ async def generate_slide_texts(
         raise HTTPException(status_code=500, detail="Failed to generate slide texts")
     if not project:
         raise HTTPException(status_code=404, detail="Failed to generate slide texts")
-    if project.name.startswith("Untitled"):
-        background_tasks.add_task(
-            stage_draft_service.generate_project_title, project.project_id
-        )
+    if project.name.startswith("Untitled") and not project.name_manually_set:
+        updated = await stage_draft_service.generate_project_title(project.project_id)
+        if updated:
+            project = updated
     return {"project": project.model_dump()}
 
 
