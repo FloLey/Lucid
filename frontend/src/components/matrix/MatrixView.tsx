@@ -14,7 +14,11 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
   const { updateMatrix, closeMatrix } = useMatrix();
   const [matrix, setMatrix] = useState<MatrixProject>(initialMatrix);
   const [selectedCell, setSelectedCell] = useState<MatrixCellType | null>(null);
-  const [streamError, setStreamError] = useState<string | null>(null);
+  const [streamError, setStreamError] = useState<string | null>(
+    initialMatrix.status === 'failed'
+      ? (initialMatrix.error_message ?? 'Generation failed')
+      : null
+  );
   const [regenInstructions, setRegenInstructions] = useState('');
   const [regenLoading, setRegenLoading] = useState(false);
 

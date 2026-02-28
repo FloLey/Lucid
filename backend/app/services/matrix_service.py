@@ -208,10 +208,13 @@ class MatrixService:
                 "project_id": project_id,
                 "matrix": project.model_dump(mode="json"),
             }
-            yield {
+            terminal_event: Dict[str, Any] = {
                 "type": "done" if project.status == "complete" else "error",
                 "project_id": project_id,
             }
+            if project.status == "failed":
+                terminal_event["message"] = project.error_message or "Generation failed"
+            yield terminal_event
             return
 
         # Create a personal queue and register it
