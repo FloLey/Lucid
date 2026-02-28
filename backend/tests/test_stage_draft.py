@@ -1,7 +1,7 @@
 """Tests for Stage Draft - Draft to Slide texts."""
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 from app.dependencies import container
 from app.models.slide import Slide, SlideText
@@ -444,4 +444,253 @@ class TestWordsPerSlide:
         assert project is not None
         assert len(project.slides) == 1
         assert project.slides[0].text.body == "Keep this text."
+
+
+@pytest.fixture
+def mock_title_gemini():
+    """Mock Gemini to return a title for generate_project_title tests."""
+
+    async def mock_generate_json(*args, **kwargs):
+        return {"title": "Productivity Tips"}
+
+    with patch("app.dependencies.container.stage_draft.gemini_service") as mock:
+        mock.generate_json = mock_generate_json
+        yield mock
+
+
+class TestGenerateProjectTitle:
+    """Tests for StageDraftService.generate_project_title."""
+
+    def test_generate_title_sets_name(self, mock_title_gemini):
+        """generate_project_title renames the project when slides exist."""
+        run_async(project_manager.clear_all())
+        created = run_async(project_manager.create_project())
+        created.slides = [
+            Slide(index=0, text=SlideText(title="Hook", body="Intro text")),
+            Slide(index=1, text=SlideText(title="Tip 1", body="First tip content")),
+        ]
+        run_async(project_manager.update_project(created))
+
+        result = run_async(
+            stage1_service.generate_project_title(created.project_id, force=True)
+        )
+        assert result is not None
+        assert result.name == "Productivity Tips"
+        assert result.name_manually_set is False
+
+    def test_generate_title_no_slides_returns_project_unchanged(self, mock_title_gemini):
+        """generate_project_title returns project unchanged when there are no slides."""
+        run_async(project_manager.clear_all())
+        created = run_async(project_manager.create_project())
+
+        result = run_async(
+            stage1_service.generate_project_title(created.project_id, force=True)
+        )
+        assert result is not None
+        assert result.name == created.name
+
+    def test_generate_title_nonexistent_project_returns_none(self, mock_title_gemini):
+        """generate_project_title returns None for a nonexistent project."""
+        run_async(project_manager.clear_all())
+
+        result = run_async(
+            stage1_service.generate_project_title("nonexistent-id", force=True)
+        )
+        assert result is None
+
+    def test_generate_title_skips_when_manually_set_without_force(self, mock_title_gemini):
+        """generate_project_title skips when name was manually set and force=False."""
+        run_async(project_manager.clear_all())
+        created = run_async(project_manager.create_project())
+        created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
+        created.name = "My Custom Name"
+        created.name_manually_set = True
+        run_async(project_manager.update_project(created))
+
+        result = run_async(
+            stage1_service.generate_project_title(created.project_id, force=False)
+        )
+        assert result is None
+
+    def test_generate_title_skips_when_not_untitled_without_force(self, mock_title_gemini):
+        """generate_project_title skips when name doesn't start with Untitled and force=False."""
+        run_async(project_manager.clear_all())
+        created = run_async(project_manager.create_project())
+        created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
+        created.name = "Already Named Project"
+        run_async(project_manager.update_project(created))
+
+        result = run_async(
+            stage1_service.generate_project_title(created.project_id, force=False)
+        )
+        assert result is None
+
+    def test_generate_title_force_overrides_manually_set(self, mock_title_gemini):
+        """generate_project_title renames even a manually-set name when force=True."""
+        run_async(project_manager.clear_all())
+        created = run_async(project_manager.create_project())
+        created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
+        created.name = "Old Manual Name"
+        created.name_manually_set = True
+        run_async(project_manager.update_project(created))
+
+        result = run_async(
+            stage1_service.generate_project_title(created.project_id, force=True)
+        )
+        assert result is not None
+        assert result.name == "Productivity Tips"
+
+    def test_generate_title_gemini_failure_returns_none(self):
+        """generate_project_title returns None gracefully when Gemini raises."""
+
+        async def mock_generate_json_fail(*args, **kwargs):
+            raise RuntimeError("Gemini unavailable")
+
+        run_async(project_manager.clear_all())
+        created = run_async(project_manager.create_project())
+        created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
+        run_async(project_manager.update_project(created))
+
+        with patch(
+            "app.dependencies.container.stage_draft.gemini_service"
+        ) as mock:
+            mock.generate_json = mock_generate_json_fail
+            result = run_async(
+                stage1_service.generate_project_title(created.project_id, force=True)
+            )
+        assert result is None
+
+    def test_generate_title_empty_response_leaves_name_unchanged(self):
+        """generate_project_title leaves name unchanged when Gemini returns no title."""
+
+        async def mock_generate_json_empty(*args, **kwargs):
+            return {}
+
+        run_async(project_manager.clear_all())
+        created = run_async(project_manager.create_project())
+        created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
+        run_async(project_manager.update_project(created))
+        original_name = created.name
+
+        with patch(
+            "app.dependencies.container.stage_draft.gemini_service"
+        ) as mock:
+            mock.generate_json = mock_generate_json_empty
+            result = run_async(
+                stage1_service.generate_project_title(created.project_id, force=True)
+            )
+        assert result is not None
+        assert result.name == original_name
+
+    def test_generate_title_auto_runs_on_untitled_project(self, mock_title_gemini):
+        """generate_project_title runs (force=False) when project name starts with Untitled."""
+        run_async(project_manager.clear_all())
+        created = run_async(project_manager.create_project())
+        created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
+        run_async(project_manager.update_project(created))
+        assert created.name.startswith("Untitled")
+
+        result = run_async(
+            stage1_service.generate_project_title(created.project_id, force=False)
+        )
+        assert result is not None
+        assert result.name == "Productivity Tips"
+
+
+class TestGenerateTitleRoute:
+    """Tests for the POST /api/projects/{id}/generate-title route."""
+
+    def test_generate_title_route_success(self, client, mock_title_gemini):
+        """generate-title endpoint returns project with updated name."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        # Add slides directly via service so title generation proceeds
+        proj = run_async(project_manager.get_project(project_id))
+        proj.slides = [Slide(index=0, text=SlideText(body="Some content"))]
+        run_async(project_manager.update_project(proj))
+
+        response = client.post(f"/api/projects/{project_id}/generate-title")
+        assert response.status_code == 200
+        data = response.json()
+        assert "project" in data
+        assert data["project"]["name"] == "Productivity Tips"
+
+    def test_generate_title_route_nonexistent_project(self, client):
+        """generate-title returns 404 for unknown project."""
+        response = client.post("/api/projects/nonexistent/generate-title")
+        assert response.status_code == 404
+
+    def test_generate_title_route_no_slides_returns_current_project(self, client, mock_title_gemini):
+        """generate-title returns the project unchanged when it has no slides."""
+        create_resp = client.post("/api/projects/", json={})
+        project = create_resp.json()["project"]
+        project_id = project["project_id"]
+        original_name = project["name"]
+
+        response = client.post(f"/api/projects/{project_id}/generate-title")
+        assert response.status_code == 200
+        assert response.json()["project"]["name"] == original_name
+
+    def test_auto_naming_included_in_slide_generation_response(self, client, mock_title_gemini):
+        """Slide generation response already includes the AI-generated project name."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        with patch("app.dependencies.container.stage_draft.gemini_service") as mock:
+            mock.generate_json = AsyncMock(
+                side_effect=[
+                    {
+                        "slides": [
+                            {"title": "Slide 1", "body": "Content 1"},
+                            {"title": "Slide 2", "body": "Content 2"},
+                        ]
+                    },
+                    {"title": "Productivity Tips"},
+                ]
+            )
+            response = client.post(
+                "/api/stage-draft/generate",
+                json={
+                    "project_id": project_id,
+                    "draft_text": "Tips for being productive.",
+                    "num_slides": 2,
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["project"]["name"] == "Productivity Tips"
+        assert len(data["project"]["slides"]) == 2
+
+    def test_auto_naming_skipped_for_manually_named_project(self, client):
+        """Slide generation does not overwrite a manually-set project name."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        # Manually rename the project first
+        client.patch(
+            f"/api/projects/{project_id}/name",
+            json={"name": "My Chosen Name"},
+        )
+
+        with patch("app.dependencies.container.stage_draft.gemini_service") as mock:
+            mock.generate_json = AsyncMock(
+                return_value={
+                    "slides": [
+                        {"title": "Slide 1", "body": "Content 1"},
+                    ]
+                }
+            )
+            response = client.post(
+                "/api/stage-draft/generate",
+                json={
+                    "project_id": project_id,
+                    "draft_text": "Some draft.",
+                    "num_slides": 1,
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["project"]["name"] == "My Chosen Name"
 
