@@ -83,6 +83,118 @@ docker-compose up --build
 Access the application at **`http://localhost:5173`**.
 Access the Swagger API documentation at **`http://localhost:8000/docs`**.
 ---
+## Deploy on VPS (private access via Tailscale)
+
+This section describes how to run Lucid on a VPS so that the frontend and API
+are reachable **only from devices on your Tailscale network** — not from the
+public internet.
+
+The key idea: instead of binding ports to `0.0.0.0` (all interfaces), we bind
+them exclusively to the Tailscale IP (`100.x.y.z`).  Docker's port-publishing
+mechanism goes through iptables, which bypasses UFW — binding to the Tailscale
+interface sidesteps this entirely.
+
+### Prerequisites
+
+- Docker & Docker Compose installed on the VPS
+- [Tailscale](https://tailscale.com/download) installed and connected on the VPS (`tailscale up`)
+- Tailscale also installed on any client device you want to access the app from
+
+### 1. Clone and configure
+
+```bash
+git clone https://github.com/FloLey/Lucid.git
+cd Lucid
+cp .env.example .env
+# Edit .env and set your GOOGLE_API_KEY
+```
+
+Ensure the base config file exists:
+
+```bash
+echo '{}' > config.json
+```
+
+### 2. Start in production mode
+
+```bash
+./scripts/prod_up.sh
+```
+
+The script will:
+1. Detect your Tailscale IPv4 address via `tailscale ip -4`.
+2. Bind the frontend (port 5173) and backend (port 8000) **only** to that IP.
+3. Build and start the containers in detached mode.
+4. Print the private URLs.
+
+Example output:
+
+```
+Tailscale IP detected: 100.64.0.12
+Starting Lucid (production mode) on 100.64.0.12 ...
+...
+Lucid is running (Tailscale-private access only):
+  Frontend : http://100.64.0.12:5173
+  API docs : http://100.64.0.12:8000/docs
+
+These URLs are reachable only from devices on your Tailscale network.
+```
+
+### 3. Verify access
+
+From any device on your Tailscale network, open:
+
+- `http://<TAILSCALE_IP>:5173` — Lucid UI
+- `http://<TAILSCALE_IP>:8000/docs` — Swagger API docs
+
+The same URLs will return "connection refused" from the public internet.
+
+### 4. Stop
+
+```bash
+./scripts/prod_down.sh
+```
+
+This stops the containers. The `lucid-data` volume (database + generated images)
+is **preserved**. To also delete the data volume, run
+`docker compose down -v` manually.
+
+### Firewall notes
+
+Binding ports to the Tailscale IP is sufficient to prevent public access —
+Docker's iptables rules will only forward traffic that arrives on the Tailscale
+interface.  You do **not** need UFW rules for the app ports.
+
+If you want defence-in-depth, a minimal UFW policy:
+
+```bash
+sudo ufw default deny incoming
+sudo ufw allow ssh          # or: ufw allow in on tailscale0
+sudo ufw allow in on tailscale0
+sudo ufw enable
+```
+
+### Manual usage (without the script)
+
+If you prefer to run the compose command directly, export `LUCID_BIND_IP` first:
+
+```bash
+export LUCID_BIND_IP="$(tailscale ip -4 | head -n1)"
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+The `docker-compose.prod.yml` overlay has **no fallback** for `LUCID_BIND_IP`.
+If the variable is unset, Docker Compose will error out rather than silently
+bind on `0.0.0.0`.
+
+### Future auto-deploy
+
+When automating deployments (e.g. via GitHub Actions or a deploy hook), always
+invoke `./scripts/prod_up.sh` rather than a plain `docker compose up`.  This
+guarantees that the Tailscale IP is detected at deploy time and the ports are
+never accidentally exposed publicly.
+
+---
 ## API & CLI Reference
 The FastAPI backend exposes a clean REST API. Here are the core architectural routes:
 | Route | Method | Description |
