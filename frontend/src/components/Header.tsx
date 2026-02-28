@@ -1,4 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
+import { getInfo } from '../services/api';
+import type { CommitInfo } from '../types';
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
 
 interface HeaderProps {
   projectName: string | null;
@@ -23,7 +32,14 @@ export default function Header({
 }: HeaderProps) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const [commitInfo, setCommitInfo] = useState<CommitInfo | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    getInfo().then(setCommitInfo).catch((err) => {
+      console.debug('Could not fetch commit info:', err);
+    });
+  }, []);
 
   const startEdit = () => {
     if (!onRename || !projectName) return;
@@ -139,24 +155,34 @@ export default function Header({
           )}
         </div>
 
-        {/* Dark mode toggle */}
-        <button
-          onClick={onToggleDark}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
-        >
-          {isDark ? (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z" />
-            </svg>
-          ) : (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z" />
-            </svg>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {commitInfo?.commit_short && (
+            <span
+              title={`${commitInfo.commit_hash}\n${formatDate(commitInfo.commit_date)}`}
+              className="hidden sm:block text-xs font-mono text-gray-400 dark:text-gray-500 select-all"
+            >
+              {commitInfo.commit_short} · {formatDate(commitInfo.commit_date)}
+            </span>
           )}
-        </button>
+          {/* Dark mode toggle */}
+          <button
+            onClick={onToggleDark}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            {isDark ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
     </header>
   );

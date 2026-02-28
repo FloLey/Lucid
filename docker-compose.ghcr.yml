@@ -1,5 +1,5 @@
 services:
   backend:
-    image: ghcr.io/FloLey/lucid-backend:${IMAGE_TAG:-latest}
+    image: ghcr.io/floley/lucid-backend:${IMAGE_TAG:-latest}
   frontend:
-    image: ghcr.io/FloLey/lucid-frontend:${IMAGE_TAG:-latest}
+    image: ghcr.io/floley/lucid-frontend:${IMAGE_TAG:-latest}

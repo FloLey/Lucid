@@ -226,3 +226,11 @@ export type MatrixSSEEvent =
   | { type: 'error'; project_id: string; message: string }
   | { type: 'heartbeat'; project_id: string }
   | { type: 'snapshot'; project_id: string; matrix: MatrixProject };
+
+
+export interface CommitInfo {
+  version: string;
+  commit_hash: string | null;
+  commit_short: string | null;
+  commit_date: string | null;
+}

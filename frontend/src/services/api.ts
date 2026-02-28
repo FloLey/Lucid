@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Project, ProjectCard, AppConfig, TemplateData, ProjectConfig, TextStyle, MatrixProject, MatrixProjectCard, MatrixSettings } from '../types';
+import type { Project, ProjectCard, AppConfig, TemplateData, ProjectConfig, TextStyle, MatrixProject, MatrixProjectCard, MatrixSettings, CommitInfo } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -445,3 +445,8 @@ export const resetMatrixSettings = async (): Promise<MatrixSettings> => {
 
 export const getMatrixStreamUrl = (projectId: string): string =>
   `/api/matrix/${projectId}/stream`;
+
+export const getInfo = async (): Promise<CommitInfo> => {
+  const response = await api.get('/info');
+  return response.data;
+};

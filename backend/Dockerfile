@@ -6,9 +6,16 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libfribidi-dev \
     libharfbuzz-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Optional build-time git commit info (set by CI to avoid needing .git at runtime)
+ARG COMMIT_HASH=""
+ARG COMMIT_DATE=""
+ENV COMMIT_HASH=${COMMIT_HASH}
+ENV COMMIT_DATE=${COMMIT_DATE}
 
 # Install Python dependencies first (better caching)
 COPY requirements.txt .
