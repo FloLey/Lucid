@@ -1,0 +1,29 @@
+# Production overlay — bind ports to Tailscale IP only.
+#
+# Usage (via script):
+#   ./scripts/prod_up.sh
+#
+# Manual usage:
+#   LUCID_BIND_IP=100.x.y.z \
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# LUCID_BIND_IP must be set explicitly — there is intentionally no fallback to
+# 0.0.0.0. If the variable is missing, Docker will bind to the empty string,
+# which causes compose to error out rather than accidentally expose the service.
+
+services:
+  backend:
+    ports:
+      - mode: ingress
+        host_ip: "${LUCID_BIND_IP}"
+        target: 8000
+        published: 8000
+        protocol: tcp
+
+  frontend:
+    ports:
+      - mode: ingress
+        host_ip: "${LUCID_BIND_IP}"
+        target: 5173
+        published: 5173
+        protocol: tcp
