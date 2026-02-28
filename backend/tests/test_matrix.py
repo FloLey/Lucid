@@ -19,6 +19,7 @@ from app.models.matrix import (
     RegenerateCellRequest,
 )
 from app.services.async_utils import bounded_gather
+from app.services.matrix_service import _build_grid
 from app.services.matrix_settings_manager import MatrixSettingsManager
 from tests.conftest import run_async
 
@@ -549,3 +550,251 @@ class TestMatrixRoutes:
         s = resp.json()["settings"]
         assert s["max_concurrency"] == 4
         assert s["max_retries"] == 3
+
+
+# ── 5. MatrixService ──────────────────────────────────────────────────────
+
+
+class TestMatrixService:
+    """Tests for MatrixService project lifecycle — real DB, patched pipeline.
+
+    These tests exercise the REAL create_and_start / cancel_generation /
+    subscribe methods (not the mock_create fixture, which bypasses them).
+    The background _run_pipeline is patched to avoid network calls and the
+    2-second asyncio.sleep in its finally block.
+    """
+
+    def setup_method(self):
+        _clear()
+
+    @staticmethod
+    def _patch_pipeline(monkeypatch, pipeline_fn=None):
+        """Replace _run_pipeline with a fast no-op (or a custom fn)."""
+        if pipeline_fn is None:
+            async def _noop(project_id, req):
+                pass
+            pipeline_fn = _noop
+        monkeypatch.setattr(container.matrix_service, "_run_pipeline", pipeline_fn)
+
+    # ── create_and_start ──────────────────────────────────────────────────
+
+    def test_create_and_start_returns_generating_status(self, monkeypatch):
+        """Regression: create_and_start must return status='generating', not 'pending'.
+
+        Before the fix, create_project returned a stale object with status='pending'
+        after update_project_status had already set it to 'generating' in the DB.
+        The frontend only auto-starts the SSE stream when status=='generating', so
+        the stream never connected and the user saw no progress or error feedback.
+        """
+        self._patch_pipeline(monkeypatch)
+        req = CreateMatrixRequest(theme="AI Ethics", n=2)
+        project = run_async(container.matrix_service.create_and_start(req))
+        assert project.status == "generating"
+
+    def test_create_and_start_db_has_generating_status(self, monkeypatch):
+        """DB must also show 'generating' immediately after create_and_start."""
+        self._patch_pipeline(monkeypatch)
+        req = CreateMatrixRequest(theme="AI Ethics", n=2)
+        project = run_async(container.matrix_service.create_and_start(req))
+        refreshed = run_async(matrix_db.get_project(project.id))
+        assert refreshed.status == "generating"
+
+    def test_create_and_start_returns_correct_fields(self, monkeypatch):
+        """Returned project must carry the fields from the creation request."""
+        self._patch_pipeline(monkeypatch)
+        req = CreateMatrixRequest(theme="Philosophy of Mind", n=3, language="French")
+        project = run_async(container.matrix_service.create_and_start(req))
+        assert project.theme == "Philosophy of Mind"
+        assert project.n == 3
+        assert project.language == "French"
+        assert len(project.cells) == 9  # 3×3 stubs created
+
+    # ── is_generating ─────────────────────────────────────────────────────
+
+    def test_is_generating_true_while_pipeline_active(self, monkeypatch):
+        """is_generating returns True while the background task is running."""
+
+        async def _run():
+            pause = asyncio.Event()
+
+            async def _blocking(project_id, req):
+                await pause.wait()
+
+            monkeypatch.setattr(
+                container.matrix_service, "_run_pipeline", _blocking
+            )
+            req = CreateMatrixRequest(theme="AI Ethics", n=2)
+            project = await container.matrix_service.create_and_start(req)
+            await asyncio.sleep(0)  # Yield so the task can be scheduled
+            is_gen = container.matrix_service.is_generating(project.id)
+            pause.set()  # Unblock task so cleanup is fast
+            return is_gen
+
+        assert run_async(_run()) is True
+
+    # ── cancel_generation ─────────────────────────────────────────────────
+
+    def test_cancel_generation_sets_failed_status(self, monkeypatch):
+        """cancel_generation marks the project 'failed' with 'Cancelled by user'."""
+
+        async def _run():
+            async def _blocking(project_id, req):
+                await asyncio.sleep(999)
+
+            monkeypatch.setattr(
+                container.matrix_service, "_run_pipeline", _blocking
+            )
+            req = CreateMatrixRequest(theme="AI Ethics", n=2)
+            project = await container.matrix_service.create_and_start(req)
+            await asyncio.sleep(0)  # Let the task start
+            await container.matrix_service.cancel_generation(project.id)
+            return project.id
+
+        project_id = run_async(_run())
+        refreshed = run_async(matrix_db.get_project(project_id))
+        assert refreshed.status == "failed"
+        assert refreshed.error_message == "Cancelled by user"
+
+    def test_cancel_generation_removes_task(self, monkeypatch):
+        """After cancel_generation, is_generating returns False."""
+
+        async def _run():
+            async def _blocking(project_id, req):
+                await asyncio.sleep(999)
+
+            monkeypatch.setattr(
+                container.matrix_service, "_run_pipeline", _blocking
+            )
+            req = CreateMatrixRequest(theme="AI Ethics", n=2)
+            project = await container.matrix_service.create_and_start(req)
+            await asyncio.sleep(0)
+            await container.matrix_service.cancel_generation(project.id)
+            return container.matrix_service.is_generating(project.id)
+
+        assert run_async(_run()) is False
+
+    # ── subscribe (late-subscriber path) ──────────────────────────────────
+
+    def test_subscribe_complete_project_yields_snapshot_then_done(self):
+        """Late subscriber on a complete project gets [snapshot, done] and exits."""
+        p = run_async(
+            matrix_db.create_project(
+                theme="Test", n=2, language="English",
+                style_mode="neutral", include_images=False,
+            )
+        )
+        run_async(matrix_db.update_project_status(p.id, "complete"))
+
+        async def _collect():
+            return [e async for e in container.matrix_service.subscribe(p.id)]
+
+        events = run_async(_collect())
+        types = [e["type"] for e in events]
+        assert types == ["snapshot", "done"]
+
+    def test_subscribe_failed_project_yields_snapshot_then_error(self):
+        """Late subscriber on a failed project gets [snapshot, error] and exits."""
+        p = run_async(
+            matrix_db.create_project(
+                theme="Test", n=2, language="English",
+                style_mode="neutral", include_images=False,
+            )
+        )
+        run_async(matrix_db.update_project_status(p.id, "failed", "LLM error"))
+
+        async def _collect():
+            return [e async for e in container.matrix_service.subscribe(p.id)]
+
+        events = run_async(_collect())
+        types = [e["type"] for e in events]
+        assert types == ["snapshot", "error"]
+
+    def test_subscribe_nonexistent_project_yields_single_error(self):
+        """Subscribing to a missing project yields exactly one error event."""
+
+        async def _collect():
+            return [e async for e in container.matrix_service.subscribe("no-such-id")]
+
+        events = run_async(_collect())
+        assert len(events) == 1
+        assert events[0]["type"] == "error"
+        assert "Not found" in events[0]["message"]
+
+    def test_subscribe_snapshot_contains_matrix_data(self):
+        """The snapshot event embeds the full matrix (id, theme, cells)."""
+        p = run_async(
+            matrix_db.create_project(
+                theme="Snapshot Test", n=2, language="English",
+                style_mode="neutral", include_images=False,
+            )
+        )
+        run_async(matrix_db.update_project_status(p.id, "complete"))
+
+        async def _collect():
+            return [e async for e in container.matrix_service.subscribe(p.id)]
+
+        events = run_async(_collect())
+        snapshot = next(e for e in events if e["type"] == "snapshot")
+        assert snapshot["matrix"]["id"] == p.id
+        assert snapshot["matrix"]["theme"] == "Snapshot Test"
+        assert len(snapshot["matrix"]["cells"]) == 4  # 2×2
+
+
+# ── 6. _build_grid helper ─────────────────────────────────────────────────
+
+
+class TestBuildGrid:
+    """Unit tests for the module-level _build_grid helper in matrix_service."""
+
+    def test_correct_shape(self):
+        cells = [
+            MatrixCell(id=f"c{r}{c}", project_id="p", row=r, col=c)
+            for r in range(3)
+            for c in range(3)
+        ]
+        grid = _build_grid(cells, 3)
+        assert len(grid) == 3
+        assert all(len(row) == 3 for row in grid)
+
+    def test_off_diagonal_uses_concept_and_explanation(self):
+        cell = MatrixCell(
+            id="c01", project_id="p", row=0, col=1,
+            concept="Synergy", explanation="They reinforce each other",
+        )
+        grid = _build_grid([cell], 2)
+        assert grid[0][1]["concept"] == "Synergy"
+        assert grid[0][1]["explanation"] == "They reinforce each other"
+
+    def test_diagonal_falls_back_to_label_and_definition(self):
+        """Diagonal cells have label/definition instead of concept/explanation."""
+        cell = MatrixCell(
+            id="c00", project_id="p", row=0, col=0,
+            label="Alpha", definition="The first element",
+        )
+        grid = _build_grid([cell], 2)
+        assert grid[0][0]["concept"] == "Alpha"
+        assert grid[0][0]["explanation"] == "The first element"
+
+    def test_concept_takes_priority_over_label(self):
+        """If both concept and label are set, concept wins."""
+        cell = MatrixCell(
+            id="c00", project_id="p", row=0, col=0,
+            concept="Concept Value", label="Label Value",
+        )
+        grid = _build_grid([cell], 2)
+        assert grid[0][0]["concept"] == "Concept Value"
+
+    def test_missing_positions_yield_empty_dicts(self):
+        """Positions with no matching cell produce empty dicts."""
+        grid = _build_grid([], 2)
+        for r in range(2):
+            for c in range(2):
+                assert grid[r][c] == {}
+
+    def test_out_of_bounds_cells_are_ignored(self):
+        """Cells with row/col outside [0, n) are silently skipped."""
+        cell = MatrixCell(id="cx", project_id="p", row=5, col=5, concept="OOB")
+        grid = _build_grid([cell], 2)
+        for r in range(2):
+            for c in range(2):
+                assert grid[r][c] == {}
