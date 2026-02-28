@@ -9,14 +9,15 @@ git pull
 # Determine Tailscale bind IP
 LUCID_BIND_IP="$(tailscale ip -4 | head -n1)"
 if [[ -z "${LUCID_BIND_IP}" ]]; then
-  echo "ERROR: Could not determine Tailscale IPv4. Is tailscale up?"
+  echo "ERROR: Could not determine Tailscale IPv4. Is tailscale up?" >&2
   exit 1
 fi
 export LUCID_BIND_IP
 
 # Pull images and restart
-docker compose -f docker-compose.yml -f docker-compose.ghcr.yml -f docker-compose.tailscale.yml pull
-docker compose -f docker-compose.yml -f docker-compose.ghcr.yml -f docker-compose.tailscale.yml up -d
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.ghcr.yml -f docker-compose.tailscale.yml"
+docker compose ${COMPOSE_FILES} pull
+docker compose ${COMPOSE_FILES} up -d
 
 docker image prune -f
 
