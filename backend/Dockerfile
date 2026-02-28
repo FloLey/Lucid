@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libfribidi-dev \
     libharfbuzz-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
