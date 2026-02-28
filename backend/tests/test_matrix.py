@@ -834,3 +834,85 @@ class TestBuildGrid:
         for r in range(2):
             for c in range(2):
                 assert grid[r][c] == {}
+
+
+# ── 7. Prompt template formatting ─────────────────────────────────────────
+
+
+class TestMatrixPromptFormatting:
+    """Verify that every matrix prompt template can be formatted with its
+    expected keyword arguments without raising a KeyError.
+
+    Prompt files contain JSON examples with curly braces.  If those braces are
+    not escaped (``{{`` / ``}}``) Python's str.format() treats them as
+    placeholder fields, producing a KeyError that surfaces in the frontend as
+    the raw key name (e.g. ``'"concepts"'``).
+    """
+
+    @pytest.fixture
+    def loader(self):
+        from app.services.prompt_loader import PromptLoader
+        return PromptLoader()
+
+    @pytest.mark.parametrize("name,kwargs,sentinel", [
+        (
+            "matrix_diagonal",
+            {"theme": "Cooking Techniques", "n": 4, "language": "English", "style_mode": "neutral"},
+            "Cooking Techniques",
+        ),
+        (
+            "matrix_axes",
+            {
+                "index": 0,
+                "concept_label": "Fermentation",
+                "concept_definition": "Microbial transformation of ingredients.",
+                "all_concepts_json": '["Fermentation", "Emulsification"]',
+            },
+            "Fermentation",
+        ),
+        (
+            "matrix_cell",
+            {
+                "theme": "Cooking Techniques",
+                "style_mode": "neutral",
+                "row_label": "Fermentation",
+                "col_label": "Emulsification",
+                "row_descriptor": "microbial transformation quality",
+                "col_descriptor": "fat-water binding quality",
+                "already_used_labels": "none",
+                "extra_instructions": "",
+            },
+            "Fermentation",
+        ),
+        (
+            "matrix_validator",
+            {"theme": "Cooking Techniques", "matrix_json": '[{"row": 0, "col": 1, "concept": "Kimchi"}]'},
+            "Cooking Techniques",
+        ),
+    ])
+    def test_prompt_formats_without_error(self, loader, name, kwargs, sentinel):
+        """Each prompt must format cleanly and include a known sentinel value."""
+        template = loader.get_cached(name)
+        assert template, f"{name} prompt must not be empty"
+        result = template.format(**kwargs)
+        assert sentinel in result
+
+    @pytest.mark.parametrize("name,kwargs,expected_keys", [
+        (
+            "matrix_diagonal",
+            {"theme": "T", "n": 3, "language": "English", "style_mode": "fun"},
+            ['"concepts"'],
+        ),
+        (
+            "matrix_axes",
+            {"index": 1, "concept_label": "X", "concept_definition": "Y", "all_concepts_json": "[]"},
+            ['"row_descriptor"', '"col_descriptor"'],
+        ),
+    ])
+    def test_prompt_output_contains_literal_json_keys(self, loader, name, kwargs, expected_keys):
+        """After formatting, JSON example keys must appear as literal strings
+        (not silently consumed as format fields)."""
+        template = loader.get_cached(name)
+        result = template.format(**kwargs)
+        for key in expected_keys:
+            assert key in result
