@@ -1,7 +1,9 @@
 """Main FastAPI application for Lucid."""
 
+import datetime
 import logging
 import os
+import subprocess
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -54,6 +56,8 @@ class _RateLimiter:
 
 _limiter = _RateLimiter(max_calls=120, window_seconds=60.0)
 
+_commit_info: dict[str, str | None] = {}
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -69,6 +73,24 @@ async def lifespan(app: FastAPI):
         logger.info("Database initialised successfully")
     except Exception as e:
         logger.error(f"Database initialisation failed: {e}", exc_info=True)
+
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%H|%ct"],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            parts = result.stdout.strip().split("|")
+            if len(parts) == 2:
+                _commit_info["hash"] = parts[0]
+                _commit_info["short"] = parts[0][:7]
+                ts = int(parts[1])
+                _commit_info["date"] = datetime.datetime.fromtimestamp(
+                    ts, tz=datetime.timezone.utc
+                ).isoformat()
+                logger.info(f"Git commit: {_commit_info['short']} at {_commit_info['date']}")
+    except Exception as e:
+        logger.warning(f"Could not read git commit info: {e}")
 
     yield
 
@@ -157,3 +179,14 @@ async def root():
 async def health():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+@app.get("/api/info")
+async def info():
+    """Returns application version and last git commit info."""
+    return {
+        "version": "0.2.0",
+        "commit_hash": _commit_info.get("hash"),
+        "commit_short": _commit_info.get("short"),
+        "commit_date": _commit_info.get("date"),
+    }

@@ -13,6 +13,7 @@ services:
       - ./config.json:/app/config.json
       - ./backend/matrix_settings.json:/app/matrix_settings.json
       - ./backend/logs:/app/logs
+      - ./.git:/app/.git:ro
     env_file:
       - path: .env
         required: false
