@@ -709,6 +709,42 @@ class TestMatrixService:
         types = [e["type"] for e in events]
         assert types == ["snapshot", "error"]
 
+    def test_subscribe_failed_project_error_event_includes_message(self):
+        """The error SSE event for a late subscriber must include the stored error_message."""
+        p = run_async(
+            matrix_db.create_project(
+                theme="Test", n=2, language="English",
+                style_mode="neutral", include_images=False,
+            )
+        )
+        run_async(matrix_db.update_project_status(p.id, "failed", "Diagonal generation failed"))
+
+        async def _collect():
+            return [e async for e in container.matrix_service.subscribe(p.id)]
+
+        events = run_async(_collect())
+        error_event = next(e for e in events if e["type"] == "error")
+        assert "message" in error_event
+        assert error_event["message"] == "Diagonal generation failed"
+
+    def test_subscribe_failed_project_error_event_fallback_when_no_message(self):
+        """When error_message is None on a failed project, the error event still has a non-empty message."""
+        p = run_async(
+            matrix_db.create_project(
+                theme="Test", n=2, language="English",
+                style_mode="neutral", include_images=False,
+            )
+        )
+        run_async(matrix_db.update_project_status(p.id, "failed"))
+
+        async def _collect():
+            return [e async for e in container.matrix_service.subscribe(p.id)]
+
+        events = run_async(_collect())
+        error_event = next(e for e in events if e["type"] == "error")
+        assert "message" in error_event
+        assert error_event["message"]  # non-empty fallback
+
     def test_subscribe_nonexistent_project_yields_single_error(self):
         """Subscribing to a missing project yields exactly one error event."""
 

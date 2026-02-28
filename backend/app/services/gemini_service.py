@@ -79,7 +79,12 @@ class GeminiService:
             contents=[prompt],
             config=config,
         )
-        return response.text
+        text = response.text
+        if text is None:
+            raise GeminiError(
+                "Gemini returned an empty response (response may have been blocked by safety filters)"
+            )
+        return text
 
     async def generate_with_tools(
         self,
