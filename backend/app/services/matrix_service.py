@@ -63,7 +63,10 @@ class MatrixService:
         )
         _tasks[project.id] = task
         task.add_done_callback(lambda _t: _tasks.pop(project.id, None))
-        return project
+        # Re-fetch so the returned project reflects status="generating", not "pending".
+        # The frontend only auto-starts the SSE stream when status=="generating".
+        updated = await self._db.get_project(project.id)
+        return updated or project
 
     def is_generating(self, project_id: str) -> bool:
         return project_id in _tasks
