@@ -56,6 +56,7 @@ class _RateLimiter:
 
 _limiter = _RateLimiter(max_calls=120, window_seconds=60.0)
 
+_APP_VERSION = "0.2.0"
 _commit_info: dict[str, str | None] = {}
 
 
@@ -74,23 +75,37 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Database initialisation failed: {e}", exc_info=True)
 
-    try:
-        result = subprocess.run(
-            ["git", "log", "-1", "--format=%H|%ct"],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            parts = result.stdout.strip().split("|")
-            if len(parts) == 2:
-                _commit_info["hash"] = parts[0]
-                _commit_info["short"] = parts[0][:7]
-                ts = int(parts[1])
-                _commit_info["date"] = datetime.datetime.fromtimestamp(
-                    ts, tz=datetime.timezone.utc
-                ).isoformat()
-                logger.info(f"Git commit: {_commit_info['short']} at {_commit_info['date']}")
-    except Exception as e:
-        logger.warning(f"Could not read git commit info: {e}")
+    # Prefer build-time env vars (set by CI) to avoid mounting .git at runtime.
+    # Fall back to git subprocess for local dev where .git is mounted.
+    commit_hash = os.getenv("COMMIT_HASH", "").strip()
+    commit_date = os.getenv("COMMIT_DATE", "").strip()
+    if commit_hash:
+        _commit_info["hash"] = commit_hash
+        _commit_info["short"] = commit_hash[:7]
+        _commit_info["date"] = commit_date or None
+        logger.info(f"Git commit (env): {_commit_info['short']} at {_commit_info['date']}")
+    else:
+        try:
+            result = subprocess.run(
+                ["git", "log", "-1", "--format=%H|%ct"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                parts = result.stdout.strip().split("|")
+                if len(parts) == 2:
+                    _commit_info["hash"] = parts[0]
+                    _commit_info["short"] = parts[0][:7]
+                    ts = int(parts[1])
+                    _commit_info["date"] = datetime.datetime.fromtimestamp(
+                        ts, tz=datetime.timezone.utc
+                    ).isoformat()
+                    logger.info(f"Git commit (git log): {_commit_info['short']} at {_commit_info['date']}")
+                else:
+                    logger.warning(f"Unexpected git log output format: {result.stdout!r}")
+            else:
+                logger.warning(f"git log returned non-zero exit code {result.returncode}: {result.stderr.strip()}")
+        except Exception as e:
+            logger.warning(f"Could not read git commit info: {e}")
 
     yield
 
@@ -98,7 +113,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Lucid API",
     description="Transform rough drafts into polished social-media carousels",
-    version="0.2.0",
+    version=_APP_VERSION,
     lifespan=lifespan,
 )
 
@@ -185,7 +200,7 @@ async def health():
 async def info():
     """Returns application version and last git commit info."""
     return {
-        "version": "0.2.0",
+        "version": _APP_VERSION,
         "commit_hash": _commit_info.get("hash"),
         "commit_short": _commit_info.get("short"),
         "commit_date": _commit_info.get("date"),

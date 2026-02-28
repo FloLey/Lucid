@@ -34,6 +34,9 @@ jobs:
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/lucid-backend:latest
             ghcr.io/${{ env.OWNER_LC }}/lucid-backend:${{ github.sha }}
+          build-args: |
+            COMMIT_HASH=${{ github.sha }}
+            COMMIT_DATE=${{ github.event.head_commit.timestamp }}
 
       - name: Build & push frontend
         uses: docker/build-push-action@v6

@@ -2,6 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { getInfo } from '../services/api';
 import type { CommitInfo } from '../types';
 
+function formatDate(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
 interface HeaderProps {
   projectName: string | null;
   onBack: (() => void) | null;
@@ -29,7 +36,9 @@ export default function Header({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getInfo().then(setCommitInfo).catch(() => {});
+    getInfo().then(setCommitInfo).catch((err) => {
+      console.debug('Could not fetch commit info:', err);
+    });
   }, []);
 
   const startEdit = () => {
@@ -60,13 +69,6 @@ export default function Header({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') commitEdit();
     if (e.key === 'Escape') cancelEdit();
-  };
-
-  const formatDate = (iso: string | null): string => {
-    if (!iso) return '';
-    const d = new Date(iso);
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-      + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
