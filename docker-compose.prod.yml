@@ -7,23 +7,12 @@
 #   LUCID_BIND_IP=100.x.y.z \
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 #
-# LUCID_BIND_IP must be set explicitly — there is intentionally no fallback to
-# 0.0.0.0. If the variable is missing, Docker will bind to the empty string,
-# which causes compose to error out rather than accidentally expose the service.
+# LUCID_BIND_IP is read by docker-compose.yml (defaults to 0.0.0.0 for dev).
+# This overlay has no additional port directives — Docker Compose appends port
+# entries rather than replacing them, so a duplicate entry here would produce
+# two conflicting bindings (0.0.0.0:PORT and TAILSCALE_IP:PORT simultaneously).
+#
+# The IP restriction is achieved purely via the LUCID_BIND_IP env var that
+# prod_up.sh exports before calling docker compose.
 
-services:
-  backend:
-    ports:
-      - mode: ingress
-        host_ip: "${LUCID_BIND_IP}"
-        target: 8000
-        published: 8000
-        protocol: tcp
-
-  frontend:
-    ports:
-      - mode: ingress
-        host_ip: "${LUCID_BIND_IP}"
-        target: 5173
-        published: 5173
-        protocol: tcp
+services: {}
