@@ -1,0 +1,7 @@
+services:
+  frontend:
+    ports:
+      - "${LUCID_BIND_IP}:5173:5173"
+  backend:
+    ports:
+      - "${LUCID_BIND_IP}:8000:8000"

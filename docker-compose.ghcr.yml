@@ -1,0 +1,5 @@
+services:
+  backend:
+    image: ghcr.io/FloLey/lucid-backend:latest
+  frontend:
+    image: ghcr.io/FloLey/lucid-frontend:latest
