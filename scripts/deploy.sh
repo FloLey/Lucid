@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # scripts/deploy.sh — Pull latest code and restart Lucid in production mode.
 #
-# Called by the webhook server on every push to main.
+# Use for manual deploys. Automated deploys run via GitHub Actions
+# (.github/workflows/deploy.yml) which SSHs into this VPS and calls
+# prod_up.sh directly (with output captured in the Actions log).
+#
+# Manual usage:
+#   ./scripts/deploy.sh
+#
 # Output is appended to deploy.log in the repo root.
 
 set -euo pipefail
