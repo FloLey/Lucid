@@ -56,4 +56,5 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
           script: |
+            git -C /opt/lucid pull
             /opt/lucid/scripts/deploy_prod.sh
