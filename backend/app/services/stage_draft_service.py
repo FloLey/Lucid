@@ -157,7 +157,7 @@ class StageDraftService(BaseStageService):
         slides_data = result.get("slides", [])
         project.slides = []
 
-        max_slides = num_slides if num_slides is not None else 10
+        max_slides = num_slides if num_slides is not None else 20
 
         default_style = self._style_from_config(project)
 
