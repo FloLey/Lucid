@@ -1,0 +1,7 @@
+services:
+  frontend:
+    ports:
+      - "${LUCID_BIND_IP:?Error: LUCID_BIND_IP environment variable is not set}:5173:5173"
+  backend:
+    ports:
+      - "${LUCID_BIND_IP:?Error: LUCID_BIND_IP environment variable is not set}:8000:8000"
