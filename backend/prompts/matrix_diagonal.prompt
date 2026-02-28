@@ -18,7 +18,7 @@ Style guidance:
 - academic: scholarly, theoretical, precise terminology
 
 Respond with JSON only, no prose:
-{"concepts": [{"label": "short concept name", "definition": "1-2 sentence definition of this concept within the theme"}, ...]}
+{{"concepts": [{{"label": "short concept name", "definition": "1-2 sentence definition of this concept within the theme"}}, ...]}}
 
 Requirements:
 - Exactly {n} items in the array

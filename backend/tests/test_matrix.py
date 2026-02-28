@@ -834,3 +834,89 @@ class TestBuildGrid:
         for r in range(2):
             for c in range(2):
                 assert grid[r][c] == {}
+
+
+# ── 7. Prompt template formatting ─────────────────────────────────────────
+
+
+class TestMatrixPromptFormatting:
+    """Verify that every matrix prompt template can be formatted with its
+    expected keyword arguments without raising a KeyError.
+
+    Prompt files contain JSON examples with curly braces.  If those braces are
+    not escaped (``{{`` / ``}}``) Python's str.format() treats them as
+    placeholder fields, producing a KeyError that surfaces in the frontend as
+    the raw key name (e.g. ``'"concepts"'``).
+    """
+
+    @pytest.fixture
+    def loader(self):
+        from app.services.prompt_loader import PromptLoader
+        return PromptLoader()
+
+    def test_diagonal_prompt_formats_without_error(self, loader):
+        template = loader.get_cached("matrix_diagonal")
+        assert template, "matrix_diagonal prompt must not be empty"
+        result = template.format(
+            theme="Cooking Techniques",
+            n=4,
+            language="English",
+            style_mode="neutral",
+        )
+        assert "Cooking Techniques" in result
+
+    def test_axes_prompt_formats_without_error(self, loader):
+        template = loader.get_cached("matrix_axes")
+        assert template, "matrix_axes prompt must not be empty"
+        result = template.format(
+            index=0,
+            concept_label="Fermentation",
+            concept_definition="Microbial transformation of ingredients.",
+            all_concepts_json='["Fermentation", "Emulsification"]',
+        )
+        assert "Fermentation" in result
+
+    def test_cell_prompt_formats_without_error(self, loader):
+        template = loader.get_cached("matrix_cell")
+        assert template, "matrix_cell prompt must not be empty"
+        result = template.format(
+            theme="Cooking Techniques",
+            style_mode="neutral",
+            row_label="Fermentation",
+            col_label="Emulsification",
+            row_descriptor="microbial transformation quality",
+            col_descriptor="fat-water binding quality",
+            already_used_labels="none",
+            extra_instructions="",
+        )
+        assert "Fermentation" in result
+
+    def test_validator_prompt_formats_without_error(self, loader):
+        template = loader.get_cached("matrix_validator")
+        assert template, "matrix_validator prompt must not be empty"
+        result = template.format(
+            theme="Cooking Techniques",
+            matrix_json='[{"row": 0, "col": 1, "concept": "Kimchi"}]',
+        )
+        assert "Cooking Techniques" in result
+
+    def test_diagonal_prompt_output_contains_escaped_json_shape(self, loader):
+        """After formatting, the JSON example in the diagonal prompt must
+        contain literal braces (not be swallowed as format fields)."""
+        template = loader.get_cached("matrix_diagonal")
+        result = template.format(theme="T", n=3, language="English", style_mode="fun")
+        # The JSON example key must appear as a literal string
+        assert '"concepts"' in result
+
+    def test_axes_prompt_output_contains_escaped_json_shape(self, loader):
+        """After formatting, the JSON example in the axes prompt must contain
+        literal braces (not be swallowed as format fields)."""
+        template = loader.get_cached("matrix_axes")
+        result = template.format(
+            index=1,
+            concept_label="X",
+            concept_definition="Y",
+            all_concepts_json="[]",
+        )
+        assert '"row_descriptor"' in result
+        assert '"col_descriptor"' in result

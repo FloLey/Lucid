@@ -15,7 +15,7 @@ Generate two SHORT axis descriptors (3–7 words each) for this concept:
 The two descriptors should together create a rich coordinate system. When another concept's row_descriptor meets this concept's col_descriptor (or vice versa), an interesting bridging concept should emerge.
 
 Respond with JSON only:
-{"row_descriptor": "3-7 word descriptor", "col_descriptor": "3-7 word descriptor"}
+{{"row_descriptor": "3-7 word descriptor", "col_descriptor": "3-7 word descriptor"}}
 
 Requirements:
 - Both descriptors must be distinct from each other
