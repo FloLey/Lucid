@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 
 from app.models.project import ProjectResponse
 from app.dependencies import get_stage_draft_service
-from app.services.gemini_service import GeminiError
 from app.services.stage_draft_service import StageDraftService
 from app.routes.utils import execute_service_action
 
@@ -71,8 +70,6 @@ async def generate_slide_texts(
             language=request.language,
             words_per_slide=request.words_per_slide,
         )
-    except GeminiError:
-        raise
     except Exception as e:
         logger.error(f"Failed to generate slide texts: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to generate slide texts")

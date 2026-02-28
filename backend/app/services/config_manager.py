@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ConfigManager:
     """Manages application configuration with JSON persistence."""
 
-    def __init__(self, config_file: str = "config.json"):
+    def __init__(self, config_file: str = "config.json") -> None:
         """Initialize config manager and load configuration.
 
         Args:

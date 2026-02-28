@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ImageService:
     """Service for generating images using Gemini's native image generation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._client = None
         self._configured = False
 

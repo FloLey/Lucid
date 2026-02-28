@@ -111,7 +111,8 @@ def _serialize_part(part: Any) -> dict:
                 if hasattr(data, "data") and data.data
                 else 0,
             }
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to serialize LLM part: %s", e)
         result["_serialize_error"] = True
     return result
 
@@ -171,7 +172,8 @@ def _serialize_response(response: Any) -> Optional[dict]:
                 "candidates_tokens": getattr(um, "candidates_token_count", None),
                 "total_tokens": getattr(um, "total_token_count", None),
             }
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to serialize LLM response: %s", e)
         result["_serialize_error"] = True
     return result
 
