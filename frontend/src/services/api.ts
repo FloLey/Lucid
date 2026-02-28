@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Project, ProjectCard, AppConfig, TemplateData, ProjectConfig, TextStyle } from '../types';
+import type { Project, ProjectCard, AppConfig, TemplateData, ProjectConfig, TextStyle, MatrixProject, MatrixProjectCard, MatrixSettings } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -375,3 +375,73 @@ export const updateTemplate = async (
 export const deleteTemplate = async (templateId: string): Promise<void> => {
   await api.delete(`/templates/${templateId}`);
 };
+
+// ─── Matrix API ───────────────────────────────────────────────────────────
+
+export interface CreateMatrixParams {
+  theme: string;
+  n: number;
+  language?: string;
+  style_mode?: string;
+  include_images?: boolean;
+  name?: string;
+}
+
+export const listMatrices = async (): Promise<MatrixProjectCard[]> => {
+  const response = await api.get('/matrix/');
+  return response.data.matrices;
+};
+
+export const createMatrix = async (params: CreateMatrixParams): Promise<MatrixProject> => {
+  const response = await api.post('/matrix/', params);
+  return response.data.matrix;
+};
+
+export const getMatrix = async (projectId: string): Promise<MatrixProject> => {
+  const response = await api.get(`/matrix/${projectId}`);
+  return response.data.matrix;
+};
+
+export const deleteMatrix = async (projectId: string): Promise<void> => {
+  await api.delete(`/matrix/${projectId}`);
+};
+
+export const cancelMatrix = async (projectId: string): Promise<void> => {
+  await api.post(`/matrix/${projectId}/cancel`);
+};
+
+export const generateMatrixImages = async (projectId: string): Promise<void> => {
+  await api.post(`/matrix/${projectId}/generate-images`);
+};
+
+export const regenerateMatrixCell = async (
+  projectId: string,
+  row: number,
+  col: number,
+  extraInstructions?: string,
+  imageOnly?: boolean,
+): Promise<MatrixProject> => {
+  const response = await api.post(`/matrix/${projectId}/cells/${row}/${col}/regenerate`, {
+    extra_instructions: extraInstructions,
+    image_only: imageOnly ?? false,
+  });
+  return response.data.matrix;
+};
+
+export const getMatrixSettings = async (): Promise<MatrixSettings> => {
+  const response = await api.get('/matrix-settings/');
+  return response.data.settings;
+};
+
+export const updateMatrixSettings = async (settings: MatrixSettings): Promise<MatrixSettings> => {
+  const response = await api.put('/matrix-settings/', { settings });
+  return response.data.settings;
+};
+
+export const resetMatrixSettings = async (): Promise<MatrixSettings> => {
+  const response = await api.post('/matrix-settings/reset');
+  return response.data.settings;
+};
+
+export const getMatrixStreamUrl = (projectId: string): string =>
+  `/api/matrix/${projectId}/stream`;

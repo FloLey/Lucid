@@ -152,3 +152,77 @@ export interface TemplateData {
   config: ProjectConfig;
   created_at: string;
 }
+
+// ─── Concept Matrix Types ────────────────────────────────────────────────
+
+export interface MatrixCell {
+  id: string;
+  project_id: string;
+  row: number;
+  col: number;
+  // Diagonal cell fields (row === col)
+  label: string | null;
+  definition: string | null;
+  row_descriptor: string | null;
+  col_descriptor: string | null;
+  // Off-diagonal cell fields
+  concept: string | null;
+  explanation: string | null;
+  // Optional image
+  image_url: string | null;
+  // Status
+  cell_status: 'pending' | 'generating' | 'complete' | 'failed';
+  cell_error: string | null;
+  attempts: number;
+}
+
+export interface MatrixProject {
+  id: string;
+  name: string;
+  theme: string;
+  n: number;
+  language: string;
+  style_mode: string;
+  include_images: boolean;
+  status: 'pending' | 'generating' | 'complete' | 'failed';
+  error_message: string | null;
+  cells: MatrixCell[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MatrixProjectCard {
+  id: string;
+  name: string;
+  theme: string;
+  n: number;
+  status: 'pending' | 'generating' | 'complete' | 'failed';
+  include_images: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MatrixSettings {
+  text_model: string;
+  image_model: string;
+  diagonal_temperature: number;
+  axes_temperature: number;
+  cell_temperature: number;
+  validation_temperature: number;
+  max_concurrency: number;
+  max_retries: number;
+}
+
+// SSE event union
+export type MatrixSSEEvent =
+  | { type: 'diagonal'; project_id: string; index: number; label: string; definition: string }
+  | { type: 'axes'; project_id: string; row: number; col: number; row_descriptor: string; col_descriptor: string }
+  | { type: 'cell'; project_id: string; row: number; col: number; concept: string; explanation: string }
+  | { type: 'cell_failed'; project_id: string; row: number; col: number; error: string }
+  | { type: 'validation'; project_id: string; failures: Array<{ row: number; col: number }> }
+  | { type: 'image'; project_id: string; row: number; col: number; image_url: string }
+  | { type: 'progress'; project_id: string; generated: number; total: number }
+  | { type: 'done'; project_id: string }
+  | { type: 'error'; project_id: string; message: string }
+  | { type: 'heartbeat'; project_id: string }
+  | { type: 'snapshot'; project_id: string; matrix: MatrixProject };

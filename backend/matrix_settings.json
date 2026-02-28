@@ -1,0 +1,10 @@
+{
+  "text_model": "gemini-2.5-flash",
+  "image_model": "gemini-2.5-flash-image",
+  "diagonal_temperature": 0.9,
+  "axes_temperature": 0.8,
+  "cell_temperature": 0.7,
+  "validation_temperature": 0.3,
+  "max_concurrency": 4,
+  "max_retries": 3
+}

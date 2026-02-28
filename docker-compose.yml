@@ -13,6 +13,7 @@ services:
       - ./backend/fonts:/app/fonts
       - lucid-data:/app/data
       - ./config.json:/app/config.json
+      - ./backend/matrix_settings.json:/app/matrix_settings.json
       - ./backend/logs:/app/logs
     env_file:
       - path: .env

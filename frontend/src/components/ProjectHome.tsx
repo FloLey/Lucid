@@ -27,9 +27,10 @@ interface ProjectHomeProps {
   onNewProject: () => void;
   onDelete: (projectId: string) => void;
   onTemplates: () => void;
+  onMatrix: () => void;
 }
 
-export default function ProjectHome({ projects, loading, onOpen, onNewProject, onDelete, onTemplates }: ProjectHomeProps) {
+export default function ProjectHome({ projects, loading, onOpen, onNewProject, onDelete, onTemplates, onMatrix }: ProjectHomeProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (e: React.MouseEvent, projectId: string) => {
@@ -52,6 +53,15 @@ export default function ProjectHome({ projects, loading, onOpen, onNewProject, o
           <p className="text-gray-500 dark:text-gray-400 mt-1">Pick up where you left off, or start something new.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={onMatrix}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+            </svg>
+            Matrix Generator
+          </button>
           <button
             onClick={onTemplates}
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"

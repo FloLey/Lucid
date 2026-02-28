@@ -20,6 +20,12 @@ PROMPT_FILES: Dict[str, str] = {
     "style_proposal": "style_proposal.prompt",
     "generate_single_image_prompt": "generate_single_image_prompt.prompt",
     "regenerate_single_slide": "regenerate_single_slide.prompt",
+    # Concept Matrix prompts
+    "matrix_diagonal": "matrix_diagonal.prompt",
+    "matrix_axes": "matrix_axes.prompt",
+    "matrix_cell": "matrix_cell.prompt",
+    "matrix_validator": "matrix_validator.prompt",
+    "matrix_image_builder": "matrix_image_builder.prompt",
 }
 
 
@@ -112,6 +118,10 @@ class PromptLoader:
             Prompt string — project-specific override if set, else cached content.
         """
         return project.project_config.get_prompt(name) or self._cache.get(name, "")
+
+    def get_cached(self, name: str) -> str:
+        """Return cached prompt content by name, or empty string if not found."""
+        return self._cache.get(name, "")
 
     def is_known(self, prompt_name: str) -> bool:
         """Check if a prompt name is registered."""

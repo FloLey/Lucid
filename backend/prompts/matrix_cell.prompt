@@ -1,0 +1,24 @@
+You are finding the conceptual intersection point of two axis descriptors within a theme.
+
+Theme: "{theme}"
+Style mode: {style_mode}
+
+ROW axis: "{row_label}" → specifically its quality: "{row_descriptor}"
+COLUMN axis: "{col_label}" → specifically its quality: "{col_descriptor}"
+
+Find the concept that lives at the intersection of these two axes. It must:
+1. Genuinely embody BOTH "{row_descriptor}" AND "{col_descriptor}" simultaneously
+2. Belong to the theme "{theme}"
+3. Be a real, nameable concept — not just "{row_label} + {col_label}"
+4. Be surprising yet logical — the "aha!" moment when two ideas cross
+
+Already used labels (do not repeat any of these): {already_used_labels}
+{extra_instructions}
+
+Respond with JSON only, no prose:
+{{"concept": "2–5 word concept name", "explanation": "1–2 sentences explaining why this concept sits at the intersection of these two axes"}}
+
+Requirements:
+- The concept must be distinct from all already-used labels
+- The explanation must explicitly reference BOTH axis qualities
+- Prefer specificity over generality
