@@ -29,7 +29,7 @@ class StageDraftService(BaseStageService):
         project_manager: Optional[ProjectManager] = None,
         gemini_service: Optional[GeminiService] = None,
         prompt_loader: Optional[PromptLoader] = None,
-    ):
+    ) -> None:
         self.project_manager = self._require(project_manager, "project_manager")
         self.gemini_service = self._require(gemini_service, "gemini_service")
         self.prompt_loader = prompt_loader or PromptLoader()
@@ -122,7 +122,7 @@ class StageDraftService(BaseStageService):
         else:
             num_slides_instruction = (
                 "Choose the optimal number of slides based on the content "
-                "(maximum 10 slides)."
+                "(maximum 20 slides)."
             )
 
         language_instruction = f"Write ALL slide content in {language}."
@@ -157,7 +157,7 @@ class StageDraftService(BaseStageService):
         slides_data = result.get("slides", [])
         project.slides = []
 
-        max_slides = num_slides if num_slides is not None else 10
+        max_slides = num_slides if num_slides is not None else 20
 
         default_style = self._style_from_config(project)
 

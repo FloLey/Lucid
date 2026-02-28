@@ -4,9 +4,13 @@ Font Download Script for Lucid
 Downloads TTF fonts from Google Fonts GitHub repository during Docker build.
 """
 
-import urllib.request
+import logging
 import ssl
+import urllib.request
 from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # Font definitions: family name -> (repo_path, list of (filename, weight))
 FONTS = {
@@ -91,7 +95,7 @@ def download_file(url: str, dest: Path, timeout: int = 30) -> bool:
             dest.write_bytes(data)
             return True
     except Exception as e:
-        print(f"  Failed to download {url}: {e}")
+        logger.warning("  Failed to download %s: %s", url, e)
         return False
 
 
@@ -100,14 +104,14 @@ def download_fonts():
     fonts_dir = Path(__file__).parent / "fonts"
     fonts_dir.mkdir(exist_ok=True)
 
-    print("Lucid Font Downloader")
-    print("=" * 50)
+    logger.info("Lucid Font Downloader")
+    logger.info("=" * 50)
 
     downloaded = 0
     failed = 0
 
     for family, config in FONTS.items():
-        print(f"\n[{family}]")
+        logger.info("\n[%s]", family)
 
         # Handle variable fonts: download one source file, save as multiple
         if "source_file" in config and "save_as" in config:
@@ -118,7 +122,7 @@ def download_fonts():
             )
             if all_cached:
                 for fn, _ in save_targets:
-                    print(f"  ✓ {fn} (cached)")
+                    logger.info("  \u2713 %s (cached)", fn)
                     downloaded += 1
                 continue
 
@@ -128,15 +132,15 @@ def download_fonts():
                 f"{config['branch']}/{config['path']}/{source}"
             )
             tmp_dest = fonts_dir / source
-            print(f"  Downloading {source}...")
+            logger.info("  Downloading %s...", source)
             ok = download_file(github_url, tmp_dest)
 
             if ok:
-                print(f"  ✓ {source}")
+                logger.info("  \u2713 %s", source)
                 data = tmp_dest.read_bytes()
                 for fn, _ in save_targets:
                     (fonts_dir / fn).write_bytes(data)
-                    print(f"  ✓ {fn} (from {source})")
+                    logger.info("  \u2713 %s (from %s)", fn, source)
                     downloaded += 1
                 tmp_dest.unlink()
                 continue
@@ -144,15 +148,15 @@ def download_fonts():
             # Variable font download failed, try individual fallbacks
             for fn, _ in save_targets:
                 if fn in FALLBACK_URLS:
-                    print(f"  Trying fallback for {fn}...")
+                    logger.info("  Trying fallback for %s...", fn)
                     if download_file(FALLBACK_URLS[fn], fonts_dir / fn):
-                        print(f"  ✓ {fn} (fallback)")
+                        logger.info("  \u2713 %s (fallback)", fn)
                         downloaded += 1
                     else:
-                        print(f"  ✗ {fn} - FAILED")
+                        logger.warning("  \u2717 %s - FAILED", fn)
                         failed += 1
                 else:
-                    print(f"  ✗ {fn} - FAILED")
+                    logger.warning("  \u2717 %s - FAILED", fn)
                     failed += 1
             continue
 
@@ -161,7 +165,7 @@ def download_fonts():
 
             # Skip if already exists
             if dest.exists() and dest.stat().st_size > 1000:
-                print(f"  ✓ {filename} (cached)")
+                logger.info("  \u2713 %s (cached)", filename)
                 downloaded += 1
                 continue
 
@@ -171,30 +175,30 @@ def download_fonts():
                 f"{config['branch']}/{config['path']}/{filename}"
             )
 
-            print(f"  Downloading {filename}...")
+            logger.info("  Downloading %s...", filename)
 
             if download_file(github_url, dest):
-                print(f"  ✓ {filename}")
+                logger.info("  \u2713 %s", filename)
                 downloaded += 1
                 continue
 
             # Try fallback URL
             if filename in FALLBACK_URLS:
-                print("  Trying fallback URL...")
+                logger.info("  Trying fallback URL...")
                 if download_file(FALLBACK_URLS[filename], dest):
-                    print(f"  ✓ {filename} (fallback)")
+                    logger.info("  \u2713 %s (fallback)", filename)
                     downloaded += 1
                     continue
 
-            print(f"  ✗ {filename} - FAILED")
+            logger.warning("  \u2717 %s - FAILED", filename)
             failed += 1
 
-    print("\n" + "=" * 50)
-    print(f"Downloaded: {downloaded} | Failed: {failed}")
+    logger.info("\n" + "=" * 50)
+    logger.info("Downloaded: %d | Failed: %d", downloaded, failed)
 
     if failed > 0:
-        print("\nWARNING: Some fonts failed to download.")
-        print("The app will use system fallback fonts for missing files.")
+        logger.warning("Some fonts failed to download.")
+        logger.warning("The app will use system fallback fonts for missing files.")
 
     return failed == 0
 

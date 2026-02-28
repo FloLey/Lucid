@@ -41,9 +41,9 @@ class GlobalDefaultsConfig(BaseModel):
     @field_validator("num_slides")
     @classmethod
     def validate_num_slides(cls, v):
-        """Validate that the slide count is within the supported range (1-10)."""
-        if v is not None and (v < 1 or v > 10):
-            raise ValueError("num_slides must be between 1 and 10 when specified")
+        """Validate that the slide count is within the supported range (1-20)."""
+        if v is not None and (v < 1 or v > 20):
+            raise ValueError("num_slides must be between 1 and 20 when specified")
         return v
 
 

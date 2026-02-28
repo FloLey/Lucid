@@ -242,8 +242,8 @@ class FontManager:
             if fallback_path:
                 try:
                     return ImageFont.truetype(fallback_path, size)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("Failed to load system fallback font %s: %s", fallback_path, e)
 
         # Ultimate fallback: PIL's default font
         default_font: Union[ImageFont.FreeTypeFont, ImageFont.ImageFont] = (

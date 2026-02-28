@@ -32,7 +32,7 @@ from app.services.matrix_settings_manager import MatrixSettingsManager
 class ServiceContainer:
     """Container for managing service instances."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Core services
         self.project_manager = _project_manager
         self.template_manager = _template_manager

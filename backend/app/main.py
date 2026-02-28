@@ -54,7 +54,9 @@ class _RateLimiter:
         return True
 
 
-_limiter = _RateLimiter(max_calls=120, window_seconds=60.0)
+_RATE_LIMIT_MAX_CALLS = int(os.getenv("RATE_LIMIT_MAX_CALLS", "120"))
+_RATE_LIMIT_WINDOW_SECONDS = float(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60.0"))
+_limiter = _RateLimiter(max_calls=_RATE_LIMIT_MAX_CALLS, window_seconds=_RATE_LIMIT_WINDOW_SECONDS)
 
 _APP_VERSION = "0.2.0"
 _commit_info: dict[str, str | None] = {}

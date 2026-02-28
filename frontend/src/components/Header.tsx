@@ -36,8 +36,8 @@ export default function Header({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getInfo().then(setCommitInfo).catch((err) => {
-      console.debug('Could not fetch commit info:', err);
+    getInfo().then(setCommitInfo).catch(() => {
+      // Commit info is non-critical; silently ignore fetch failures
     });
   }, []);
 
