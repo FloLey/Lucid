@@ -4,7 +4,7 @@
 # What this script does:
 #   1. Verifies that Tailscale is installed and connected.
 #   2. Resolves LUCID_BIND_IP from `tailscale ip -4`.
-#   3. Launches: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#   3. Launches: docker compose -f docker-compose.yml -f docker-compose.tailscale.yml up -d --build
 #   4. Prints the URLs where the app is reachable (Tailscale network only).
 #
 # The ports are bound exclusively to the Tailscale IP — they are NOT reachable
@@ -53,7 +53,7 @@ export LUCID_BIND_IP
 
 docker compose \
   -f "${REPO_ROOT}/docker-compose.yml" \
-  -f "${REPO_ROOT}/docker-compose.prod.yml" \
+  -f "${REPO_ROOT}/docker-compose.tailscale.yml" \
   up -d --build
 
 # ── 4. Print access URLs ─────────────────────────────────────────────────────

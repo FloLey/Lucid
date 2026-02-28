@@ -13,7 +13,7 @@ echo "Stopping Lucid (production mode) ..."
 
 docker compose \
   -f "${REPO_ROOT}/docker-compose.yml" \
-  -f "${REPO_ROOT}/docker-compose.prod.yml" \
+  -f "${REPO_ROOT}/docker-compose.tailscale.yml" \
   down
 
 echo "Lucid stopped. Data volume (lucid-data) is preserved."
