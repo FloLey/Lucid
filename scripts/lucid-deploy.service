@@ -1,0 +1,35 @@
+# systemd unit for the Lucid webhook receiver.
+#
+# Install:
+#   sudo cp scripts/lucid-deploy.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now lucid-deploy
+#
+# Logs:
+#   journalctl -u lucid-deploy -f      # webhook server logs
+#   tail -f /opt/lucid/deploy.log      # deploy script output
+
+[Unit]
+Description=Lucid deployment webhook receiver
+After=network.target
+
+[Service]
+Type=simple
+User=florent
+WorkingDirectory=/opt/lucid
+
+# Store the secret in this file (create it manually, chmod 600):
+#   sudo mkdir -p /etc/lucid
+#   echo "WEBHOOK_SECRET=your_secret_here" | sudo tee /etc/lucid/deploy.env
+#   sudo chmod 600 /etc/lucid/deploy.env
+#   sudo chown root:root /etc/lucid/deploy.env
+EnvironmentFile=/etc/lucid/deploy.env
+
+Environment=WEBHOOK_PORT=9000
+ExecStart=/usr/bin/python3 /opt/lucid/scripts/webhook_server.py
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
