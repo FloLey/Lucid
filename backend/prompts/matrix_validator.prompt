@@ -1,4 +1,4 @@
-You are validating the off-diagonal cells of a concept matrix for coherence and quality.
+You are validating the off-diagonal cells of an alignment chart for coherence and quality.
 
 Theme: "{theme}"
 
@@ -6,10 +6,10 @@ Matrix data (JSON):
 {matrix_json}
 
 Review each off-diagonal cell (where row != col). Flag a cell as FAILING if ANY of these apply:
-1. The concept does not genuinely reflect BOTH axis qualities (row_descriptor AND col_descriptor)
-2. The concept is too vague or generic — could appear in many different cells
-3. The explanation does not justify the placement with specific reference to both axes
-4. The concept is thematically off — does not belong to "{theme}"
+1. The concept is not a specific, named real thing — it is a vague description, abstract concept, or category
+2. The concept does not genuinely have BOTH the row quality (row_descriptor) AND the column quality (col_descriptor)
+3. The explanation does not justify the placement with explicit reference to both qualities
+4. The concept does not belong to the theme "{theme}"
 5. The concept duplicates another cell's concept
 
 Return ONLY cells that need regeneration. If all cells are valid, return an empty failures list.

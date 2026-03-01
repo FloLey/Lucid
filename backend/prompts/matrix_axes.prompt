@@ -1,24 +1,25 @@
-You are designing axis descriptors for a concept matrix.
+You are defining the axis qualities for a specific label in an alignment chart.
 
-The concept occupying diagonal position {index} is:
+The label at diagonal position {index} is:
   Label: "{concept_label}"
   Definition: "{concept_definition}"
 
-Other concepts in the matrix (for context, to avoid repetition):
+Other labels in the chart (for context, to avoid repetition):
 {all_concepts_json}
 
-Generate two SHORT axis descriptors (3–7 words each) for this concept:
+Generate two SHORT, concrete qualities (3–7 words each) that "{concept_label}" contributes when used as an axis:
 
-- row_descriptor: Describes what this concept contributes as a ROW axis. Think: "the [aspect] of {concept_label}" or "{concept_label}'s [quality]". This will label a row that intersects with ALL column concepts.
-- col_descriptor: Describes what this concept contributes as a COLUMN axis. It should be meaningfully DIFFERENT from the row_descriptor — ideally a complementary or contrasting dimension.
+- row_descriptor: A concrete, observable quality or trait of "{concept_label}" that can be used to evaluate or position other specific examples. Think: a measurable or clearly recognisable characteristic (e.g. "stores water in thick stems", "sheds leaves in winter", "produces venom", "builds nests").
+- col_descriptor: A different concrete quality of "{concept_label}" that creates a complementary or contrasting dimension. Must be meaningfully different from row_descriptor.
 
-The two descriptors should together create a rich coordinate system. When another concept's row_descriptor meets this concept's col_descriptor (or vice versa), an interesting bridging concept should emerge.
+These qualities will be used to find specific real examples that have BOTH a row quality AND a column quality simultaneously.
 
 Respond with JSON only:
-{{"row_descriptor": "3-7 word descriptor", "col_descriptor": "3-7 word descriptor"}}
+{{"row_descriptor": "3-7 word concrete quality", "col_descriptor": "3-7 word concrete quality"}}
 
 Requirements:
-- Both descriptors must be distinct from each other
-- Both must be clearly derivable from the concept label and definition
-- Avoid abstract filler like "the nature of" or "aspects of" — be specific
-- Do NOT repeat descriptors already used by other concepts in the matrix
+- Both qualities must be concrete and observable — not abstract or philosophical
+- Both must be clearly derivable from the label "{concept_label}"
+- The two qualities must be distinct from each other
+- Avoid vague filler like "the nature of" or "aspects of" — be specific
+- Do NOT repeat qualities already used by other labels in the chart

@@ -1,24 +1,29 @@
-You are finding the conceptual intersection point of two axis descriptors within a theme.
+You are filling a cell in an alignment chart about a specific theme.
 
 Theme: "{theme}"
 Style mode: {style_mode}
 
-ROW axis: "{row_label}" → specifically its quality: "{row_descriptor}"
-COLUMN axis: "{col_label}" → specifically its quality: "{col_descriptor}"
+ROW axis label: "{row_label}" — specifically its quality: "{row_descriptor}"
+COLUMN axis label: "{col_label}" — specifically its quality: "{col_descriptor}"
 
-Find the concept that lives at the intersection of these two axes. It must:
-1. Genuinely embody BOTH "{row_descriptor}" AND "{col_descriptor}" simultaneously
-2. Belong to the theme "{theme}"
-3. Be a real, nameable concept — not just "{row_label} + {col_label}"
-4. Be surprising yet logical — the "aha!" moment when two ideas cross
+Name a specific, real example from the theme "{theme}" that genuinely has BOTH:
+1. The quality "{row_descriptor}" (associated with the row axis)
+2. The quality "{col_descriptor}" (associated with the column axis)
+
+The example must:
+- Be a specific, named real thing — not a description, category, or abstraction
+- Genuinely and clearly embody BOTH qualities simultaneously
+- Belong to the theme "{theme}"
+- Be surprising yet logical — the satisfying "of course!" moment when two axes meet
 
 Already used labels (do not repeat any of these): {already_used_labels}
 {extra_instructions}
 
 Respond with JSON only, no prose:
-{{"concept": "2–5 word concept name", "explanation": "1–2 sentences explaining why this concept sits at the intersection of these two axes"}}
+{{"concept": "specific named example", "explanation": "1-2 sentences explaining exactly why this example has both qualities"}}
 
 Requirements:
+- The concept must be a specific, named real thing (not a general category or abstract description)
+- The explanation must explicitly reference BOTH qualities by name
 - The concept must be distinct from all already-used labels
-- The explanation must explicitly reference BOTH axis qualities
-- Prefer specificity over generality
+- Prefer well-known examples over obscure ones
