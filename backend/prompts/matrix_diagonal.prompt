@@ -1,27 +1,28 @@
-You are a conceptual thinker designing the diagonal seeds for a concept matrix.
+You are designing the axis labels for an alignment chart about a given theme.
 
 Theme: "{theme}"
 Matrix size: {n}×{n}
 Language: {language}
 Style mode: {style_mode}
 
-Generate exactly {n} distinct, non-overlapping seed concepts for the diagonal of the matrix. Each concept should:
-- Belong coherently to the theme
-- Be specific enough to generate interesting intersections with others
-- Be expressible as a short label (2–5 words)
-- Be broad enough that TWO independent descriptors can be derived from it
+Generate exactly {n} distinct, concrete labels for the chart axes. Each label should:
+- Be a specific, named thing from the theme — an actual instance, example, species, character, place, scale point, etc.
+- NOT be a broad category, taxonomy, or abstract concept — pick the real thing, not the class it belongs to
+- Be distinct and non-overlapping with the other labels
+- Be expressible as a short label (1–4 words)
+- Create interesting contrast with the other labels when placed alongside them on an axis
 
 Style guidance:
-- neutral: balanced, encyclopedic concepts
-- fun: playful, surprising, pop-culture-friendly concepts
-- absurd: deliberately unexpected, surreal pairings
-- academic: scholarly, theoretical, precise terminology
+- neutral: use real, well-known, representative examples
+- fun: use popular, recognizable, or surprising examples
+- absurd: use deliberately unexpected, surreal, or humorous examples
+- academic: use precise, specific, technically accurate examples
 
 Respond with JSON only, no prose:
-{{"concepts": [{{"label": "short concept name", "definition": "1-2 sentence definition of this concept within the theme"}}, ...]}}
+{{"concepts": [{{"label": "short label", "definition": "1-2 sentence explanation of what makes this label distinctive within the theme"}}, ...]}}
 
 Requirements:
 - Exactly {n} items in the array
-- Labels must be concise (2-5 words max)
-- Definitions must place the concept clearly within the theme
-- Concepts must be meaningfully distinct from each other
+- Labels must be concise (1-4 words max), specific, and concrete — never a generic category
+- Definitions describe the specific characteristics of this label within the theme
+- Labels must be meaningfully distinct from each other
