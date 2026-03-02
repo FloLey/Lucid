@@ -7,7 +7,7 @@ import pytest
 from datetime import datetime
 from pathlib import Path
 from pydantic import ValidationError
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.dependencies import container
 from app.models.matrix import (
@@ -19,6 +19,8 @@ from app.models.matrix import (
     RegenerateCellRequest,
 )
 from app.services.async_utils import bounded_gather
+from app.services.gemini_service import GeminiError, GeminiService
+from app.services.matrix_generator import MatrixGenerator
 from app.services.matrix_service import _build_grid
 from app.services.matrix_settings_manager import MatrixSettingsManager
 from tests.conftest import run_async
@@ -916,3 +918,165 @@ class TestMatrixPromptFormatting:
         result = template.format(**kwargs)
         for key in expected_keys:
             assert key in result
+
+
+# ── 8. GeminiService.generate_json type validation ────────────────────────
+
+
+class TestGenerateJsonTypeValidation:
+    """generate_json must raise GeminiError when the LLM returns a non-dict type.
+
+    Root cause: json.loads() can return a list, number, or string — not just a
+    dict.  Any caller that does raw.get(...) on such a value crashes with:
+        AttributeError: 'list' object has no attribute 'get'
+    The fix validates the parsed type inside generate_json itself so every
+    call site gets the protection automatically.
+    """
+
+    @pytest.fixture
+    def gemini_svc(self):
+        return GeminiService()
+
+    def test_raises_gemini_error_when_response_is_list(self, gemini_svc):
+        """A bare JSON array from the LLM raises GeminiError, not AttributeError."""
+        with patch.object(
+            gemini_svc, "generate_text", new=AsyncMock(return_value='[{"label": "A"}]')
+        ):
+            with pytest.raises(GeminiError, match="Expected JSON object"):
+                run_async(gemini_svc.generate_json("test prompt"))
+
+    def test_raises_gemini_error_when_response_is_number(self, gemini_svc):
+        """A bare JSON number from the LLM raises GeminiError."""
+        with patch.object(
+            gemini_svc, "generate_text", new=AsyncMock(return_value="42")
+        ):
+            with pytest.raises(GeminiError, match="Expected JSON object"):
+                run_async(gemini_svc.generate_json("test prompt"))
+
+    def test_succeeds_when_response_is_dict(self, gemini_svc):
+        """A proper JSON object is returned as a dict without error."""
+        with patch.object(
+            gemini_svc, "generate_text", new=AsyncMock(return_value='{"concepts": []}')
+        ):
+            result = run_async(gemini_svc.generate_json("test prompt"))
+            assert result == {"concepts": []}
+
+
+# ── 9. MatrixGenerator LLM response robustness ────────────────────────────
+
+
+class TestMatrixGeneratorLLMRobustness:
+    """MatrixGenerator methods must not raise AttributeError when the LLM
+    returns a non-dict JSON value.
+
+    After the fix in GeminiService.generate_json, such responses raise
+    GeminiError instead.  Each generator method should either propagate that
+    error (so MatrixService can retry) or fall back gracefully (validate_matrix).
+    """
+
+    @pytest.fixture
+    def generator(self):
+        """MatrixGenerator wired with fully-mocked dependencies."""
+        gemini = AsyncMock()
+        prompt_loader = MagicMock()
+        # Return a plain string with no format fields so .format(**kwargs) is safe
+        prompt_loader.get_cached.return_value = "static test prompt"
+        return MatrixGenerator(
+            gemini_service=gemini,
+            image_service=AsyncMock(),
+            storage_service=MagicMock(),
+            prompt_loader=prompt_loader,
+        )
+
+    @staticmethod
+    async def _noop_emit(event: dict) -> None:
+        pass
+
+    def test_generate_diagonal_propagates_gemini_error_from_list_response(self, generator):
+        """generate_diagonal must raise GeminiError (not AttributeError) when
+        generate_json raises because the LLM returned a list."""
+        generator._gemini.generate_json.side_effect = GeminiError(
+            "Expected JSON object from AI, got list"
+        )
+        settings = MatrixSettings()
+        with pytest.raises(GeminiError, match="Expected JSON object"):
+            run_async(
+                generator.generate_diagonal(
+                    project_id="test",
+                    theme="AI Ethics",
+                    n=3,
+                    language="English",
+                    style_mode="neutral",
+                    settings=settings,
+                    emit=self._noop_emit,
+                )
+            )
+
+    def test_generate_axes_propagates_gemini_error_from_list_response(self, generator):
+        """generate_axes_for_concept must raise GeminiError when generate_json does."""
+        generator._gemini.generate_json.side_effect = GeminiError(
+            "Expected JSON object from AI, got list"
+        )
+        settings = MatrixSettings()
+        concept = {"label": "Alpha", "definition": "The first"}
+        with pytest.raises(GeminiError):
+            run_async(
+                generator.generate_axes_for_concept(
+                    project_id="test",
+                    diagonal_index=0,
+                    concept=concept,
+                    all_concepts=[concept],
+                    settings=settings,
+                    emit=self._noop_emit,
+                )
+            )
+
+    def test_generate_cell_propagates_gemini_error_from_list_response(self, generator):
+        """generate_cell must raise GeminiError when generate_json does."""
+        generator._gemini.generate_json.side_effect = GeminiError(
+            "Expected JSON object from AI, got list"
+        )
+        settings = MatrixSettings()
+        row_c = {"label": "Alpha", "definition": "The first"}
+        col_c = {"label": "Beta", "definition": "The second"}
+        with pytest.raises(GeminiError):
+            run_async(
+                generator.generate_cell(
+                    project_id="test",
+                    row=0,
+                    col=1,
+                    row_concept=row_c,
+                    col_concept=col_c,
+                    row_descriptor="quality A",
+                    col_descriptor="quality B",
+                    already_used_labels=[],
+                    theme="AI Ethics",
+                    style_mode="neutral",
+                    settings=settings,
+                    emit=self._noop_emit,
+                )
+            )
+
+    def test_validate_matrix_falls_back_to_empty_on_list_response(self, generator):
+        """validate_matrix catches GeminiError and treats all cells as valid,
+        returning an empty failures list."""
+        generator._gemini.generate_json.side_effect = GeminiError(
+            "Expected JSON object from AI, got list"
+        )
+        settings = MatrixSettings()
+        cells_grid = [
+            [{"concept": "A", "explanation": "a"}, {"concept": "B", "explanation": "b"}],
+            [{"concept": "C", "explanation": "c"}, {"concept": "D", "explanation": "d"}],
+        ]
+        axes = [("row_desc_0", "col_desc_0"), ("row_desc_1", "col_desc_1")]
+        failures = run_async(
+            generator.validate_matrix(
+                project_id="test",
+                theme="AI Ethics",
+                cells_grid=cells_grid,
+                axes=axes,
+                settings=settings,
+                emit=self._noop_emit,
+            )
+        )
+        assert failures == []
