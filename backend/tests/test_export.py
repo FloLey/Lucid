@@ -130,6 +130,41 @@ class TestExportService:
         zip_buffer = run_async(export_service.export_project("nonexistent"))
         assert zip_buffer is None
 
+    def test_export_metadata_slide_count_matches_slides(self, project_with_final_images):
+        """Metadata slide_count equals the number of slide entries in metadata."""
+        zip_buffer = run_async(
+            export_service.export_project(project_with_final_images.project_id)
+        )
+        assert zip_buffer is not None
+        with zipfile.ZipFile(zip_buffer, "r") as zf:
+            metadata = json.loads(zf.read("metadata.json"))
+        assert metadata["num_slides"] == len(metadata["slides"]), (
+            "metadata num_slides must match length of slides array"
+        )
+
+    def test_export_project_no_images(self):
+        """Export of a project with no generated images produces a valid ZIP."""
+        run_async(project_manager.clear_all())
+        project = run_async(project_manager.create_project())
+        # Slides have text but no images
+        project.slides = [
+            Slide(index=0, text=SlideText(title="Slide 1", body="Body 1")),
+            Slide(index=1, text=SlideText(title="Slide 2", body="Body 2")),
+        ]
+        run_async(project_manager.update_project(project))
+
+        zip_buffer = run_async(export_service.export_project(project.project_id))
+        assert zip_buffer is not None, "Export should succeed even with no images"
+
+        with zipfile.ZipFile(zip_buffer, "r") as zf:
+            names = zf.namelist()
+        # metadata.json and slide_texts.txt should always be present
+        assert "metadata.json" in names
+        assert "slide_texts.txt" in names
+        # No slide images since no final_image_url or background_image_url set
+        slide_files = [n for n in names if n.startswith("slides/")]
+        assert len(slide_files) == 0
+
     def test_export_single_slide(self, project_with_final_images):
         """Test exporting a single slide."""
         image_buffer = run_async(

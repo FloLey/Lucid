@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -145,8 +146,12 @@ class ProjectManager:
             project = await self.get_project(project_id)
             if project:
                 for slide in project.slides:
-                    storage_service.delete_image(slide.background_image_url)
-                    storage_service.delete_image(slide.final_image_url)
+                    await asyncio.to_thread(
+                        storage_service.delete_image, slide.background_image_url
+                    )
+                    await asyncio.to_thread(
+                        storage_service.delete_image, slide.final_image_url
+                    )
 
         async with self._session_factory() as session:
             async with session.begin():

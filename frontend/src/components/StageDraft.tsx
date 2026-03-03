@@ -32,6 +32,16 @@ export default function Stage1() {
   const projectIdRef = useRef(projectId);
   useEffect(() => { projectIdRef.current = projectId; }, [projectId]);
 
+  // Track the title polling timer so it can be cleared on unmount
+  const titlePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (titlePollTimerRef.current !== null) {
+        clearTimeout(titlePollTimerRef.current);
+      }
+    };
+  }, []);
+
   // Apply project-scoped config defaults or existing session values
   useEffect(() => {
     if (!project) return;
@@ -98,13 +108,16 @@ export default function Stage1() {
             if (projectIdRef.current !== pollingForId) return;
             updateProject(refreshed);
             if (refreshed.name.startsWith('Untitled') && retries-- > 0) {
-              setTimeout(pollTitle, 3000);
+              titlePollTimerRef.current = setTimeout(pollTitle, 3000);
+            } else {
+              titlePollTimerRef.current = null;
             }
           } catch (err) {
             console.error('Failed to re-fetch project for title update:', err);
+            titlePollTimerRef.current = null;
           }
         };
-        setTimeout(pollTitle, 3000);
+        titlePollTimerRef.current = setTimeout(pollTitle, 3000);
       }
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to generate slide texts'));

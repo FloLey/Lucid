@@ -21,6 +21,7 @@ export default function Stage3() {
   const [styleInstructions, setStyleInstructions] = useState('');
   const [regenInstructionSlide, setRegenInstructionSlide] = useState<number | null>(null);
   const [regenInstruction, setRegenInstruction] = useState('');
+  const [loadingSlides, setLoadingSlides] = useState<Set<number>>(new Set());
 
   // Sync style instructions when project changes
   useEffect(() => {
@@ -58,14 +59,18 @@ export default function Stage3() {
   const handleRegeneratePrompt = async (index: number, instruction?: string) => {
     setRegenInstructionSlide(null);
     setRegenInstruction('');
-    setLoading(true);
+    setLoadingSlides((prev) => new Set(prev).add(index));
     try {
       const sess = await api.regeneratePrompt(projectId, index, instruction || undefined);
       updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to regenerate prompt'));
     } finally {
-      setLoading(false);
+      setLoadingSlides((prev) => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
     }
   };
 
@@ -195,15 +200,15 @@ export default function Stage3() {
                             setRegenInstruction('');
                           }
                         }}
-                        disabled={loading}
-                        className="text-xs text-lucid-600 hover:text-lucid-700"
+                        disabled={loading || loadingSlides.has(index)}
+                        className="text-xs text-lucid-600 hover:text-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Regenerate
+                        {loadingSlides.has(index) ? 'Regenerating...' : 'Regenerate'}
                       </button>
                     </div>
                   </div>
 
-                  {regenInstructionSlide === index && !loading && (
+                  {regenInstructionSlide === index && !loading && !loadingSlides.has(index) && (
                     <RegenerateInput
                       value={regenInstruction}
                       onChange={setRegenInstruction}

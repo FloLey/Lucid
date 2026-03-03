@@ -68,10 +68,19 @@ class StageImagesService(BaseStageService):
         results = await bounded_gather(
             [self.image_service.generate_image(p) for p in full_prompts],
             concurrency_limit,
+            return_exceptions=True,
         )
-        for slide, image_data in zip(project.slides, results):
+        for slide, result in zip(project.slides, results):
+            if isinstance(result, BaseException):
+                logger.warning(
+                    "Image generation failed for slide %d: %s",
+                    slide.index,
+                    result,
+                )
+                # Preserve existing image on failure rather than losing it
+                continue
             slide.background_image_url = await asyncio.to_thread(
-                self.storage_service.save_image_to_disk, image_data
+                self.storage_service.save_image_to_disk, result
             )
 
         # Update thumbnail to the first slide's background image

@@ -93,7 +93,13 @@ class ConfigManager:
         if stage not in valid_stages:
             raise ValueError(f"Invalid stage: {stage}. Must be one of {valid_stages}")
 
-        setattr(self.config.stage_instructions, stage, instructions)
+        self.config = self.config.model_copy(
+            update={
+                "stage_instructions": self.config.stage_instructions.model_copy(
+                    update={stage: instructions}
+                )
+            }
+        )
         self._save_to_file()
         return self.config
 
@@ -106,9 +112,15 @@ class ConfigManager:
         Returns:
             AppConfig: Updated configuration
         """
-        for key, value in kwargs.items():
-            if hasattr(self.config.global_defaults, key):
-                setattr(self.config.global_defaults, key, value)
+        valid_fields = self.config.global_defaults.model_fields.keys()
+        updates = {k: v for k, v in kwargs.items() if k in valid_fields}
+        self.config = self.config.model_copy(
+            update={
+                "global_defaults": self.config.global_defaults.model_copy(
+                    update=updates
+                )
+            }
+        )
         self._save_to_file()
         return self.config
 
@@ -121,9 +133,13 @@ class ConfigManager:
         Returns:
             AppConfig: Updated configuration
         """
-        for key, value in kwargs.items():
-            if hasattr(self.config.image, key):
-                setattr(self.config.image, key, value)
+        valid_fields = self.config.image.model_fields.keys()
+        updates = {k: v for k, v in kwargs.items() if k in valid_fields}
+        self.config = self.config.model_copy(
+            update={
+                "image": self.config.image.model_copy(update=updates)
+            }
+        )
         self._save_to_file()
         return self.config
 
@@ -136,9 +152,13 @@ class ConfigManager:
         Returns:
             AppConfig: Updated configuration
         """
-        for key, value in kwargs.items():
-            if hasattr(self.config.style, key):
-                setattr(self.config.style, key, value)
+        valid_fields = self.config.style.model_fields.keys()
+        updates = {k: v for k, v in kwargs.items() if k in valid_fields}
+        self.config = self.config.model_copy(
+            update={
+                "style": self.config.style.model_copy(update=updates)
+            }
+        )
         self._save_to_file()
         return self.config
 

@@ -50,7 +50,9 @@ class StageTypographyService(BaseStageService):
 
             # Delete existing final_image file if it is a distinct stored file
             if slide.final_image_url and slide.final_image_url != slide.background_image_url:
-                self.storage_service.delete_image(slide.final_image_url)
+                await asyncio.to_thread(
+                    self.storage_service.delete_image, slide.final_image_url
+                )
 
             if slide.text.title or slide.text.body.strip():
                 # Offload CPU-bound PIL rendering to a thread so the event loop
@@ -62,8 +64,8 @@ class StageTypographyService(BaseStageService):
                     title=slide.text.title,
                     body=slide.text.body,
                 )
-                slide.final_image_url = self.storage_service.save_image_to_disk(
-                    rendered_b64
+                slide.final_image_url = await asyncio.to_thread(
+                    self.storage_service.save_image_to_disk, rendered_b64
                 )
             else:
                 slide.final_image_url = slide.background_image_url
@@ -93,7 +95,9 @@ class StageTypographyService(BaseStageService):
 
         # Delete existing final_image file if it is a distinct stored file
         if slide.final_image_url and slide.final_image_url != slide.background_image_url:
-            self.storage_service.delete_image(slide.final_image_url)
+            await asyncio.to_thread(
+                self.storage_service.delete_image, slide.final_image_url
+            )
 
         if slide.text.title or slide.text.body.strip():
             rendered_b64 = await asyncio.to_thread(
@@ -103,8 +107,8 @@ class StageTypographyService(BaseStageService):
                 title=slide.text.title,
                 body=slide.text.body,
             )
-            slide.final_image_url = self.storage_service.save_image_to_disk(
-                rendered_b64
+            slide.final_image_url = await asyncio.to_thread(
+                self.storage_service.save_image_to_disk, rendered_b64
             )
         else:
             slide.final_image_url = slide.background_image_url

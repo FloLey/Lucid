@@ -269,6 +269,7 @@ class GeminiService:
         queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
 
         def _worker() -> None:
+            error: Optional[Exception] = None
             try:
                 for chunk in self._client.models.generate_content_stream(  # type: ignore[union-attr]
                     model=GEMINI_TEXT_MODEL,
@@ -280,13 +281,20 @@ class GeminiService:
                         loop.call_soon_threadsafe(queue.put_nowait, text)
             except Exception as exc:
                 logger.error("Streaming generation error: %s", exc, exc_info=True)
+                error = exc
             finally:
-                loop.call_soon_threadsafe(queue.put_nowait, None)
+                # Signal end-of-stream; send the exception if one occurred so
+                # the async consumer can propagate it rather than silently
+                # treating a failed stream as successfully empty.
+                loop.call_soon_threadsafe(queue.put_nowait, error)
 
         threading.Thread(target=_worker, daemon=True).start()
 
         while True:
-            chunk = await queue.get()
-            if chunk is None:
+            item = await queue.get()
+            if item is None:
+                # Clean end of stream
                 break
-            yield chunk
+            if isinstance(item, Exception):
+                raise GeminiError(f"Streaming generation failed: {item}") from item
+            yield item
