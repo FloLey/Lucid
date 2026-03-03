@@ -232,7 +232,12 @@ class GeminiService:
         text = text.strip()
 
         try:
-            return json.loads(text)
+            result = json.loads(text)
+            if not isinstance(result, dict):
+                raise GeminiError(
+                    f"Expected JSON object from AI, got {type(result).__name__}"
+                )
+            return result
         except json.JSONDecodeError as e:
             raise GeminiError(f"Failed to parse AI response as JSON: {e}")
 
