@@ -1019,7 +1019,7 @@ class TestMatrixGeneratorLLMRobustness:
         )
         settings = MatrixSettings()
         concept = {"label": "Alpha", "definition": "The first"}
-        with pytest.raises(GeminiError):
+        with pytest.raises(GeminiError, match="Expected JSON object"):
             run_async(
                 generator.generate_axes_for_concept(
                     project_id="test",
@@ -1039,7 +1039,7 @@ class TestMatrixGeneratorLLMRobustness:
         settings = MatrixSettings()
         row_c = {"label": "Alpha", "definition": "The first"}
         col_c = {"label": "Beta", "definition": "The second"}
-        with pytest.raises(GeminiError):
+        with pytest.raises(GeminiError, match="Expected JSON object"):
             run_async(
                 generator.generate_cell(
                     project_id="test",
