@@ -1,5 +1,11 @@
 """Tests for main application setup."""
 
+from unittest.mock import patch
+
+from app.dependencies import container
+from app.services.gemini_service import GeminiError
+from tests.conftest import run_async
+
 
 def test_root_endpoint(client):
     """Test the root health check endpoint."""
@@ -37,3 +43,44 @@ def test_projects_list(client):
     assert response.status_code == 200
     data = response.json()
     assert "projects" in data
+
+
+def test_gemini_error_returns_503(client):
+    """GeminiError raised inside a route handler must be caught globally → HTTP 503."""
+    create_resp = client.post("/api/projects/", json={})
+    project_id = create_resp.json()["project"]["project_id"]
+
+    with patch.object(
+        container.stage_draft,
+        "generate_slide_texts",
+        side_effect=GeminiError("Gemini is unavailable"),
+    ):
+        response = client.post(
+            "/api/stage-draft/generate",
+            json={
+                "project_id": project_id,
+                "draft_text": "Some draft text",
+            },
+        )
+
+    assert response.status_code == 503
+    assert "Gemini is unavailable" in response.json()["detail"]
+
+
+def test_rate_limiter_returns_429(client):
+    """Exceeding the per-IP rate limit returns HTTP 429."""
+    from app.main import _limiter
+
+    # Fill the hit list to the maximum in the current window
+    _limiter._hits.clear()
+    import time
+    now = time.monotonic()
+    ip = "testclient"
+    _limiter._hits[ip] = [now] * _limiter._max
+
+    response = client.get("/api/projects/")
+    assert response.status_code == 429
+    assert "Too many requests" in response.json()["detail"]
+
+    # Clean up so other tests are not affected
+    _limiter._hits.clear()

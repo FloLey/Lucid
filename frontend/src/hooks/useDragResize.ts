@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { TextStyle } from '../types';
 
+const MIN_BOX_WIDTH = 0.1;
+const MIN_BOX_HEIGHT = 0.05;
+
 type SelectedBox = 'title' | 'body';
 
 interface UseDragResizeOptions {
@@ -98,19 +101,19 @@ export function useDragResize({
         let newH = s.boxH;
 
         if (s.corner.includes('r')) {
-          newW = Math.max(0.1, Math.min(1 - s.boxX, s.boxW + dx));
+          newW = Math.max(MIN_BOX_WIDTH, Math.min(1 - s.boxX, s.boxW + dx));
         }
         if (s.corner.includes('l')) {
-          const maxDx = s.boxW - 0.1;
+          const maxDx = s.boxW - MIN_BOX_WIDTH;
           const clampedDx = Math.max(-s.boxX, Math.min(maxDx, dx));
           newX = s.boxX + clampedDx;
           newW = s.boxW - clampedDx;
         }
         if (s.corner.includes('b')) {
-          newH = Math.max(0.05, Math.min(1 - s.boxY, s.boxH + dy));
+          newH = Math.max(MIN_BOX_HEIGHT, Math.min(1 - s.boxY, s.boxH + dy));
         }
         if (s.corner.includes('t')) {
-          const maxDy = s.boxH - 0.05;
+          const maxDy = s.boxH - MIN_BOX_HEIGHT;
           const clampedDy = Math.max(-s.boxY, Math.min(maxDy, dy));
           newY = s.boxY + clampedDy;
           newH = s.boxH - clampedDy;

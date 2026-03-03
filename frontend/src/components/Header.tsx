@@ -1,13 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { getInfo } from '../services/api';
 import type { CommitInfo } from '../types';
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
+import { formatDatetime } from '../utils/date';
 
 interface HeaderProps {
   projectName: string | null;
@@ -158,10 +152,10 @@ export default function Header({
         <div className="flex items-center gap-3 flex-shrink-0">
           {commitInfo?.commit_short && (
             <span
-              title={`${commitInfo.commit_hash}\n${formatDate(commitInfo.commit_date)}`}
+              title={`${commitInfo.commit_hash}\n${formatDatetime(commitInfo.commit_date)}`}
               className="hidden sm:block text-xs font-mono text-gray-400 dark:text-gray-500 select-all"
             >
-              {commitInfo.commit_short} · {formatDate(commitInfo.commit_date)}
+              {commitInfo.commit_short} · {formatDatetime(commitInfo.commit_date)}
             </span>
           )}
           {/* Dark mode toggle */}

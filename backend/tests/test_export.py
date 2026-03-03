@@ -252,3 +252,54 @@ class TestExportRoutes:
         )
         assert response.status_code == 404
 
+
+class TestExportEdgeCases:
+    """Edge-case tests for sanitization and partial-image scenarios."""
+
+    def test_sanitize_filename_all_special_chars(self):
+        """A title of only special chars sanitizes to '' → _generate_filename falls back to 'slide'."""
+        sanitized = export_service._sanitize_filename("!@#$%^&*()")
+        assert sanitized == ""
+        filename = export_service._generate_filename(0, "!@#$%^&*()")
+        assert filename == "01_slide.png"
+
+    def test_sanitize_filename_unicode_preserved(self):
+        """Unicode word characters (e.g. accented letters) are preserved by the regex."""
+        sanitized = export_service._sanitize_filename("café latte")
+        assert len(sanitized) > 0
+
+    def test_generate_filename_empty_sanitized_title(self):
+        """When the sanitized title is empty, fall back to the generic 'slide' name."""
+        filename = export_service._generate_filename(2, "@@@")
+        assert filename == "03_slide.png"
+
+    def test_export_project_partial_images_still_returns_zip(self, sample_image_base64):
+        """If some slides lack images, the ZIP is still produced with only the slides that have images."""
+        run_async(project_manager.clear_all())
+        from app.models.slide import Slide, SlideText
+
+        project = run_async(project_manager.create_project())
+        project.slides = [
+            Slide(
+                index=0,
+                text=SlideText(title="Has Image", body="body"),
+                final_image_url=sample_image_base64,
+            ),
+            Slide(
+                index=1,
+                text=SlideText(title="No Image", body="body"),
+                final_image_url=None,
+            ),
+        ]
+        run_async(project_manager.update_project(project))
+
+        zip_buffer = run_async(export_service.export_project(project.project_id))
+        assert zip_buffer is not None
+
+        with zipfile.ZipFile(zip_buffer, "r") as zf:
+            names = zf.namelist()
+        assert "metadata.json" in names
+        assert "slide_texts.txt" in names
+        slide_files = [n for n in names if n.startswith("slides/")]
+        assert len(slide_files) == 1
+

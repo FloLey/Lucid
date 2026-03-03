@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_SHORT_ID_LENGTH = 6
+
 
 def _state_to_db_row(project: ProjectState) -> dict:
     """Serialise a ProjectState into DB column values."""
@@ -103,7 +105,7 @@ class ProjectManager:
     ) -> ProjectState:
         """Create a new project and persist it to the DB."""
         project_id = str(uuid.uuid4())
-        short_id = project_id[:6]
+        short_id = project_id[:_SHORT_ID_LENGTH]
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         auto_name = name or f"Untitled • {today} • {short_id}"
 

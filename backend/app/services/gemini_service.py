@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 from typing import AsyncGenerator, List, Optional, Dict, Any
 
 from app.config import GOOGLE_API_KEY, GEMINI_TEXT_MODEL
@@ -221,15 +222,8 @@ class GeminiService:
             json_prompt, system_instruction, temperature, caller=caller
         )
 
-        # Clean up response
-        text = text.strip()
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
+        # Strip any markdown code fences (e.g. ```json ... ``` or ``` ... ```)
+        text = re.sub(r"^\s*```(?:json)?\s*|\s*```\s*$", "", text.strip(), flags=re.MULTILINE).strip()
 
         try:
             result = json.loads(text)

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Slide, TextStyle } from '../types';
 import Spinner from './Spinner';
 import TextBoxOverlay from './TextBoxOverlay';
@@ -18,7 +19,7 @@ interface CarouselCanvasProps {
   handleTextChange: (which: 'title' | 'body', text: string) => void;
 }
 
-export default function CarouselCanvas({
+function CarouselCanvas({
   containerRef,
   currentSlide,
   selectedSlide,
@@ -103,3 +104,5 @@ export default function CarouselCanvas({
     </div>
   );
 }
+
+export default memo(CarouselCanvas);
