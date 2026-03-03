@@ -45,14 +45,24 @@ def test_update_prompt_known_name_saves(client):
         "{num_proposals} {slides_text} {additional_instructions} {response_format}"
     )
 
-    response = client.put(
-        f"/api/prompts/{prompt_name}",
-        json={"prompt_name": prompt_name, "content": valid_content},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "message" in data
-    assert prompt_name in data["message"]
+    # Save original content so we can restore it after the test
+    original_content = client.get("/api/prompts").json()["prompts"][prompt_name]
+
+    try:
+        response = client.put(
+            f"/api/prompts/{prompt_name}",
+            json={"prompt_name": prompt_name, "content": valid_content},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data
+        assert prompt_name in data["message"]
+    finally:
+        # Restore original prompt content to avoid corrupting the file for other tests
+        client.put(
+            f"/api/prompts/{prompt_name}",
+            json={"prompt_name": prompt_name, "content": original_content},
+        )
 
 
 def test_update_prompts_patch_unknown_name_returns_400(client):
