@@ -231,6 +231,40 @@ class TestStage1Routes:
         )
         assert response.status_code == 422
 
+    def test_generate_slide_texts_num_slides_zero(self, client):
+        """Test that num_slides=0 returns 422 (must be >= 1)."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        response = client.post(
+            "/api/stage-draft/generate",
+            json={
+                "project_id": project_id,
+                "draft_text": "Test draft",
+                "num_slides": 0,
+            },
+        )
+        assert response.status_code == 422
+
+    def test_generate_slide_texts_whitespace_only_draft(self, client):
+        """Whitespace-only draft_text is not rejected at the route level (min_length only
+        checks raw length) and is forwarded to the service. The service will attempt a
+        Gemini call; without a mocked API key it returns 503 (GeminiError). Accepted
+        statuses cover both the no-API-key (503) and any future validation (422/400)."""
+        create_resp = client.post("/api/projects/", json={})
+        project_id = create_resp.json()["project"]["project_id"]
+
+        response = client.post(
+            "/api/stage-draft/generate",
+            json={
+                "project_id": project_id,
+                "draft_text": "   ",
+            },
+        )
+        # Without a mocked Gemini service, a whitespace draft causes a GeminiError (503).
+        # If server-side validation is added later, 422/400 are also acceptable.
+        assert response.status_code in (422, 400, 404, 503)
+
     def test_regenerate_all_route(self, client, mock_gemini):
         """Test regenerate all endpoint."""
         create_resp = client.post("/api/projects/", json={})

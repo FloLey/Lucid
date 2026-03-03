@@ -12,6 +12,7 @@ from io import BytesIO
 from PIL import Image
 
 from app.config import GOOGLE_API_KEY, IMAGE_WIDTH, IMAGE_HEIGHT, GEMINI_IMAGE_MODEL
+from app.services.gemini_service import GeminiError
 from app.services.llm_logger import log_llm_method
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,11 @@ class ImageService:
             ),
         )
 
+        if not response.candidates:
+            raise GeminiError(
+                "Gemini returned no image candidates (response may have been blocked by safety filters)"
+            )
+
         for part in response.candidates[0].content.parts:
             if part.inline_data is not None:
                 # Decode the image bytes
@@ -84,7 +90,7 @@ class ImageService:
                 image.save(buffer, format="PNG")
                 return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-        raise Exception("No image returned in response")
+        raise GeminiError("No image returned in Gemini response")
 
     def _generate_placeholder(self, prompt: str) -> str:
         """Generate a placeholder gradient image."""

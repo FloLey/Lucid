@@ -3,13 +3,12 @@
 import json
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.models.project import ProjectResponse
 from app.dependencies import get_stage_draft_service
-from app.services.gemini_service import GeminiError
 from app.services.stage_draft_service import StageDraftService
 from app.routes.utils import execute_service_action
 
@@ -61,7 +60,8 @@ async def generate_slide_texts(
     stage_draft_service: StageDraftService = Depends(get_stage_draft_service),
 ):
     """Generate slide texts from a draft."""
-    try:
+
+    async def _action():
         project = await stage_draft_service.generate_slide_texts(
             project_id=request.project_id,
             draft_text=request.draft_text,
@@ -71,18 +71,13 @@ async def generate_slide_texts(
             language=request.language,
             words_per_slide=request.words_per_slide,
         )
-    except GeminiError:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to generate slide texts: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to generate slide texts")
-    if not project:
-        raise HTTPException(status_code=404, detail="Failed to generate slide texts")
-    if project.name.startswith("Untitled") and not project.name_manually_set:
-        updated = await stage_draft_service.generate_project_title(project.project_id)
-        if updated:
-            project = updated
-    return {"project": project.model_dump()}
+        if project and project.name.startswith("Untitled") and not project.name_manually_set:
+            updated = await stage_draft_service.generate_project_title(project.project_id)
+            if updated:
+                project = updated
+        return project
+
+    return await execute_service_action(_action, "Failed to generate slide texts")
 
 
 @router.post("/regenerate-all", response_model=ProjectResponse)
