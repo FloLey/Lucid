@@ -114,21 +114,21 @@ class ImageService:
                 # HSV to RGB (simplified)
                 c = v * s
                 hue_section = h / 60
-                x_val = c * (1 - abs(hue_section % 2 - 1))
+                x_component = c * (1 - abs(hue_section % 2 - 1))
                 m = v - c
 
                 if hue_section < 1:
-                    r, g, b = int((c + m) * 255), int((x_val + m) * 255), int(m * 255)
+                    r, g, b = int((c + m) * 255), int((x_component + m) * 255), int(m * 255)
                 elif hue_section < 2:
-                    r, g, b = int((x_val + m) * 255), int((c + m) * 255), int(m * 255)
+                    r, g, b = int((x_component + m) * 255), int((c + m) * 255), int(m * 255)
                 elif hue_section < 3:
-                    r, g, b = int(m * 255), int((c + m) * 255), int((x_val + m) * 255)
+                    r, g, b = int(m * 255), int((c + m) * 255), int((x_component + m) * 255)
                 elif hue_section < 4:
-                    r, g, b = int(m * 255), int((x_val + m) * 255), int((c + m) * 255)
+                    r, g, b = int(m * 255), int((x_component + m) * 255), int((c + m) * 255)
                 elif hue_section < 5:
-                    r, g, b = int((x_val + m) * 255), int(m * 255), int((c + m) * 255)
+                    r, g, b = int((x_component + m) * 255), int(m * 255), int((c + m) * 255)
                 else:
-                    r, g, b = int((c + m) * 255), int(m * 255), int((x_val + m) * 255)
+                    r, g, b = int((c + m) * 255), int(m * 255), int((x_component + m) * 255)
 
                 pixels[x, y] = (r, g, b)
 

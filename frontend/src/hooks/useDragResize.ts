@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { TextStyle } from '../types';
+import type { TextStyle, Corner } from '../types';
 
 const MIN_BOX_WIDTH = 0.1;
 const MIN_BOX_HEIGHT = 0.05;
@@ -18,7 +18,7 @@ interface UseDragResizeResult {
   dragging: boolean;
   resizing: boolean;
   handleBoxMouseDown: (box: SelectedBox, e: React.MouseEvent) => void;
-  handleResizeMouseDown: (corner: string, e: React.MouseEvent) => void;
+  handleResizeMouseDown: (corner: Corner, e: React.MouseEvent) => void;
 }
 
 export function useDragResize({
@@ -31,7 +31,7 @@ export function useDragResize({
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; boxX: number; boxY: number } | null>(null);
-  const resizeStartRef = useRef<{ mouseX: number; mouseY: number; boxW: number; boxH: number; boxX: number; boxY: number; corner: string } | null>(null);
+  const resizeStartRef = useRef<{ mouseX: number; mouseY: number; boxW: number; boxH: number; boxX: number; boxY: number; corner: Corner } | null>(null);
 
   const getContainerRect = useCallback(() => containerRef.current?.getBoundingClientRect(), [containerRef]);
 
@@ -45,30 +45,30 @@ export function useDragResize({
     const rect = getContainerRect();
     if (!rect || !style) return;
 
-    const bx = box === 'title' ? style.title_box : style.body_box;
+    const activeBox = box === 'title' ? style.title_box : style.body_box;
     dragStartRef.current = {
       mouseX: e.clientX,
       mouseY: e.clientY,
-      boxX: bx.x_pct,
-      boxY: bx.y_pct,
+      boxX: activeBox.x_pct,
+      boxY: activeBox.y_pct,
     };
     setDragging(true);
   };
 
-  const handleResizeMouseDown = (corner: string, e: React.MouseEvent) => {
+  const handleResizeMouseDown = (corner: Corner, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const rect = getContainerRect();
     if (!rect || !style) return;
 
-    const bx = selectedBox === 'title' ? style.title_box : style.body_box;
+    const activeBox = selectedBox === 'title' ? style.title_box : style.body_box;
     resizeStartRef.current = {
       mouseX: e.clientX,
       mouseY: e.clientY,
-      boxW: bx.w_pct,
-      boxH: bx.h_pct,
-      boxX: bx.x_pct,
-      boxY: bx.y_pct,
+      boxW: activeBox.w_pct,
+      boxH: activeBox.h_pct,
+      boxX: activeBox.x_pct,
+      boxY: activeBox.y_pct,
       corner,
     };
     setResizing(true);
@@ -91,32 +91,32 @@ export function useDragResize({
       }
 
       if (resizing && resizeStartRef.current) {
-        const s = resizeStartRef.current;
-        const dx = (e.clientX - s.mouseX) / rect.width;
-        const dy = (e.clientY - s.mouseY) / rect.height;
+        const start = resizeStartRef.current;
+        const dx = (e.clientX - start.mouseX) / rect.width;
+        const dy = (e.clientY - start.mouseY) / rect.height;
 
-        let newX = s.boxX;
-        let newY = s.boxY;
-        let newW = s.boxW;
-        let newH = s.boxH;
+        let newX = start.boxX;
+        let newY = start.boxY;
+        let newW = start.boxW;
+        let newH = start.boxH;
 
-        if (s.corner.includes('r')) {
-          newW = Math.max(MIN_BOX_WIDTH, Math.min(1 - s.boxX, s.boxW + dx));
+        if (start.corner.includes('r')) {
+          newW = Math.max(MIN_BOX_WIDTH, Math.min(1 - start.boxX, start.boxW + dx));
         }
-        if (s.corner.includes('l')) {
-          const maxDx = s.boxW - MIN_BOX_WIDTH;
-          const clampedDx = Math.max(-s.boxX, Math.min(maxDx, dx));
-          newX = s.boxX + clampedDx;
-          newW = s.boxW - clampedDx;
+        if (start.corner.includes('l')) {
+          const maxDx = start.boxW - MIN_BOX_WIDTH;
+          const clampedDx = Math.max(-start.boxX, Math.min(maxDx, dx));
+          newX = start.boxX + clampedDx;
+          newW = start.boxW - clampedDx;
         }
-        if (s.corner.includes('b')) {
-          newH = Math.max(MIN_BOX_HEIGHT, Math.min(1 - s.boxY, s.boxH + dy));
+        if (start.corner.includes('b')) {
+          newH = Math.max(MIN_BOX_HEIGHT, Math.min(1 - start.boxY, start.boxH + dy));
         }
-        if (s.corner.includes('t')) {
-          const maxDy = s.boxH - MIN_BOX_HEIGHT;
-          const clampedDy = Math.max(-s.boxY, Math.min(maxDy, dy));
-          newY = s.boxY + clampedDy;
-          newH = s.boxH - clampedDy;
+        if (start.corner.includes('t')) {
+          const maxDy = start.boxH - MIN_BOX_HEIGHT;
+          const clampedDy = Math.max(-start.boxY, Math.min(maxDy, dy));
+          newY = start.boxY + clampedDy;
+          newH = start.boxH - clampedDy;
         }
 
         const key = selectedBox === 'title' ? 'title_box' : 'body_box';

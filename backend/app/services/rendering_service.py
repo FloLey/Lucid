@@ -93,7 +93,7 @@ class RenderingService(BaseStageService):
         line_height: float,
         start_y: float,
         box_x: int,
-        box_w: int,
+        box_width: int,
         padding: int,
         text_color: Tuple[int, int, int, int],
         stroke_color: Optional[Tuple[int, int, int, int]],
@@ -108,9 +108,9 @@ class RenderingService(BaseStageService):
             if style.alignment == "left":
                 line_x = int(box_x + padding)
             elif style.alignment == "right":
-                line_x = int(box_x + box_w - padding - line_width)
+                line_x = int(box_x + box_width - padding - line_width)
             else:  # center
-                line_x = int(box_x + (box_w - line_width) / 2)
+                line_x = int(box_x + (box_width - line_width) / 2)
 
             # Draw shadow
             if style.shadow.enabled:
@@ -195,11 +195,11 @@ class RenderingService(BaseStageService):
         padding = int(IMAGE_WIDTH * box.padding_pct)
         box_x = int(IMAGE_WIDTH * box.x_pct)
         box_y = int(IMAGE_HEIGHT * box.y_pct)
-        box_w = int(IMAGE_WIDTH * box.w_pct)
-        box_h = int(IMAGE_HEIGHT * box.h_pct)
+        box_width = int(IMAGE_WIDTH * box.w_pct)
+        box_height = int(IMAGE_HEIGHT * box.h_pct)
 
-        text_width = box_w - (2 * padding)
-        text_height = box_h - (2 * padding)
+        text_width = box_width - (2 * padding)
+        text_height = box_height - (2 * padding)
 
         if text_width <= 0 or text_height <= 0:
             return
@@ -228,7 +228,7 @@ class RenderingService(BaseStageService):
             line_height,
             start_y,
             box_x,
-            box_w,
+            box_width,
             padding,
             text_color,
             stroke_color,

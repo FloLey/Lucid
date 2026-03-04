@@ -36,15 +36,15 @@ class MatrixGenerator:
         storage_service: StorageService,
         prompt_loader: PromptLoader,
     ) -> None:
-        self._gemini = gemini_service
-        self._image = image_service
-        self._storage = storage_service
-        self._prompts = prompt_loader
+        self._gemini_service = gemini_service
+        self._image_service = image_service
+        self._storage_service = storage_service
+        self._prompt_loader = prompt_loader
 
     # ── Prompt helpers ────────────────────────────────────────────────────
 
     def _get_prompt(self, name: str) -> str:
-        template = self._prompts.get_cached(name)
+        template = self._prompt_loader.get_cached(name)
         if not template:
             raise RuntimeError(f"Matrix prompt '{name}' not found")
         return template
@@ -72,7 +72,7 @@ class MatrixGenerator:
             language=language,
             style_mode=style_mode,
         )
-        raw = await self._gemini.generate_json(
+        raw = await self._gemini_service.generate_json(
             prompt=prompt,
             temperature=settings.diagonal_temperature,
             caller="matrix_diagonal",
@@ -118,7 +118,7 @@ class MatrixGenerator:
                 [c.get("label", "") for c in all_concepts]
             ),
         )
-        raw = await self._gemini.generate_json(
+        raw = await self._gemini_service.generate_json(
             prompt=prompt,
             temperature=settings.axes_temperature,
             caller="matrix_axes",
@@ -170,7 +170,7 @@ class MatrixGenerator:
             already_used_labels=", ".join(already_used_labels) or "none",
             extra_instructions=extra_instructions,
         )
-        raw = await self._gemini.generate_json(
+        raw = await self._gemini_service.generate_json(
             prompt=prompt,
             temperature=settings.cell_temperature,
             caller="matrix_cell",
@@ -227,7 +227,7 @@ class MatrixGenerator:
             matrix_json=json.dumps(matrix_data, ensure_ascii=False),
         )
         try:
-            raw = await self._gemini.generate_json(
+            raw = await self._gemini_service.generate_json(
                 prompt=prompt,
                 temperature=settings.validation_temperature,
                 caller="matrix_validator",
@@ -269,9 +269,9 @@ class MatrixGenerator:
             concept=concept,
             context=context,
         )
-        b64 = await self._image.generate_image(image_prompt)
+        b64 = await self._image_service.generate_image(image_prompt)
         image_url = await asyncio.to_thread(
-            self._storage.save_image_to_disk, b64
+            self._storage_service.save_image_to_disk, b64
         )
         await emit(
             {

@@ -93,11 +93,11 @@ async def lifespan(app: FastAPI):
                 capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0:
-                parts = result.stdout.strip().split("|")
-                if len(parts) == 2:
-                    _commit_info["hash"] = parts[0]
-                    _commit_info["short"] = parts[0][:7]
-                    ts = int(parts[1])
+                commit_parts = result.stdout.strip().split("|")
+                if len(commit_parts) == 2:
+                    _commit_info["hash"] = commit_parts[0]
+                    _commit_info["short"] = commit_parts[0][:7]
+                    ts = int(commit_parts[1])
                     _commit_info["date"] = datetime.datetime.fromtimestamp(
                         ts, tz=datetime.timezone.utc
                     ).isoformat()

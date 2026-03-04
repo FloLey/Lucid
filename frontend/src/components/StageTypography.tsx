@@ -15,7 +15,7 @@ type SelectedBox = 'title' | 'body';
 type ExportFormat = 'png' | 'jpeg' | 'webp';
 
 
-export default function Stage5() {
+export default function StageTypography() {
   const {
     projectId,
     currentProject: project,

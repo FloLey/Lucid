@@ -1,5 +1,7 @@
 export type Alignment = 'left' | 'center' | 'right';
 export type CellStatus = 'pending' | 'generating' | 'complete' | 'failed';
+/** Two-character corner identifier used by the drag-resize handle system. */
+export type Corner = 'tl' | 'tr' | 'bl' | 'br';
 
 export interface BoxStyle {
   x_pct: number;
