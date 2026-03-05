@@ -1255,7 +1255,12 @@ class TestGenerateFromDescription:
         assert axes[0] == ("Is actually Gen-Z", "Feels like Gen-Z")
         assert axes[1] == ("Is actually Millennial", "Feels like Millennial")
 
-    def test_emits_diagonal_and_axes_events(self, generator):
+    def test_emits_axes_events_only_no_diagonal(self, generator):
+        """generate_from_description must emit axes events but NOT diagonal events.
+
+        In description mode all cells (including diagonal) are generated equally
+        via the cell generation step, so no cells should be pre-populated here.
+        """
         generator._gemini_service.generate_json.return_value = {
             "row_axis_label": "Was intended for",
             "col_axis_label": "Is enjoyed by",
@@ -1277,10 +1282,10 @@ class TestGenerateFromDescription:
         )
         diagonal_events = [e for e in events if e["type"] == "diagonal"]
         axes_events = [e for e in events if e["type"] == "axes"]
-        assert len(diagonal_events) == 2
+        # No diagonal events — cells are not pre-populated in description mode
+        assert len(diagonal_events) == 0
+        # Axes events provide header descriptors for the frontend
         assert len(axes_events) == 2
-        assert diagonal_events[0]["label"] == "Nerds"
-        assert diagonal_events[1]["label"] == "Jocks"
         assert axes_events[0]["row_descriptor"] == "Was intended for Nerds"
         assert axes_events[0]["col_descriptor"] == "Is enjoyed by Nerds"
 
@@ -1349,3 +1354,96 @@ class TestGenerateFromDescription:
         assert concepts[0]["definition"] == "Born 1997-2012"
         assert concepts[1]["definition"] == ""
         assert concepts[2]["definition"] == ""
+
+
+# ── 10. Description mode pipeline: all cells generated equally ────────────
+
+
+class TestDescriptionModePipeline:
+    """Verify that _run_pipeline in description mode generates all n² cells,
+    including diagonal cells, via the cell generation step.
+    """
+
+    def setup_method(self):
+        _clear()
+
+    def test_description_mode_generates_all_n_squared_cells(self, monkeypatch):
+        """In description mode, diagonal cells must NOT be pre-populated.
+
+        All n² positions (including diagonal) should go through generate_cell,
+        so the final DB state has complete cells everywhere.
+        """
+        n = 2
+        generated_positions: list[tuple[int, int]] = []
+
+        async def _run():
+            # Stub generate_from_description: return labels + axes, no diagonal events
+            async def _fake_from_description(project_id, description, n, language,
+                                             style_mode, settings, emit):
+                concepts = [
+                    {"label": "Alpha", "definition": "def-alpha"},
+                    {"label": "Beta", "definition": "def-beta"},
+                ]
+                axes = [("Row Alpha", "Col Alpha"), ("Row Beta", "Col Beta")]
+                # Emit only axes events (no diagonal events — mirrors new behaviour)
+                for i, (rd, cd) in enumerate(axes):
+                    await emit({
+                        "type": "axes", "project_id": project_id,
+                        "row": i, "col": i,
+                        "row_descriptor": rd, "col_descriptor": cd,
+                    })
+                return concepts, axes
+
+            # Stub generate_cell: record which positions were requested
+            async def _fake_generate_cell(project_id, row, col, row_concept,
+                                          col_concept, row_descriptor, col_descriptor,
+                                          already_used_labels, theme, style_mode,
+                                          settings, emit, extra_instructions=""):
+                generated_positions.append((row, col))
+                await emit({
+                    "type": "cell", "project_id": project_id,
+                    "row": row, "col": col,
+                    "concept": f"Concept-{row}-{col}",
+                    "explanation": f"Exp-{row}-{col}",
+                })
+                return {"concept": f"Concept-{row}-{col}", "explanation": f"Exp-{row}-{col}"}
+
+            # Stub validate_matrix: no failures
+            async def _fake_validate(project_id, theme, cells_grid, axes, settings, emit):
+                return []
+
+            monkeypatch.setattr(container.matrix_service._gen, "generate_from_description",
+                                _fake_from_description)
+            monkeypatch.setattr(container.matrix_service._gen, "generate_cell",
+                                _fake_generate_cell)
+            monkeypatch.setattr(container.matrix_service._gen, "validate_matrix",
+                                _fake_validate)
+
+            req = CreateMatrixRequest(
+                input_mode="description",
+                description="feels like one era but is actually another",
+                n=n,
+                include_images=False,
+            )
+            project = await container.matrix_service.create_and_start(req)
+            # Wait for background pipeline to finish (it patches sleep away)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+            return project.id
+
+        project_id = run_async(_run())
+
+        # All 4 positions (0,0), (0,1), (1,0), (1,1) must have been generated
+        assert len(generated_positions) == n * n
+        expected = {(r, c) for r in range(n) for c in range(n)}
+        assert set(generated_positions) == expected
+
+        # Diagonal cells must have concept/label set (not just axis descriptors)
+        final = run_async(matrix_db.get_project(project_id))
+        for r in range(n):
+            diag_cell = next(c for c in final.cells if c.row == r and c.col == r)
+            assert diag_cell.concept == f"Concept-{r}-{r}"
+            assert diag_cell.label == f"Concept-{r}-{r}"  # copied from concept
