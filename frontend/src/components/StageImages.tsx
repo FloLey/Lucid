@@ -10,13 +10,13 @@ export default function Stage4() {
   const {
     projectId,
     currentProject: project,
-    stageLoading: loading,
-    setStageLoading: setLoading,
     setError,
     updateProject,
     advanceStage: onNext,
     previousStage: onBack,
   } = useProject();
+
+  const [loading, setLoading] = useState(false);
 
   const [regeneratingImages, setRegeneratingImages] = useState<Set<number>>(new Set());
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
