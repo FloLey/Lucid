@@ -74,7 +74,15 @@ pytest -v              # Run all tests
 pytest tests/test_stage_draft.py -v   # Run a specific test file
 ```
 
-Tests use FastAPI's `TestClient` (via `conftest.py` fixture). There are no frontend tests.
+Tests use FastAPI's `TestClient` (via `conftest.py` fixture).
+
+### Frontend Tests
+
+```bash
+cd frontend
+npm run test           # Run vitest test suite (once)
+npm run test:watch     # Run in watch mode
+```
 
 ### Frontend Lint & Build
 
@@ -186,8 +194,8 @@ npm run build          # tsc type-check + vite production build
 - Test files are in `backend/tests/`, named `test_*.py`
 - `conftest.py` provides a `client` fixture using FastAPI's `TestClient`
 - Tests cover all stages, models, sessions, chat, fonts, export, health endpoints, rendering service, and async utilities
-- No frontend tests exist
-- Run `pytest -v` from the `backend/` directory
+- Frontend tests use Vitest + React Testing Library; test files are in `frontend/src/components/__tests__/`
+- Run `pytest -v` from the `backend/` directory; run `npm run test` from the `frontend/` directory
 
 ### Testing Policy — **mandatory**
 
