@@ -71,6 +71,9 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         await container.template_manager.seed_defaults()
+        # Run incremental schema migrations (idempotent)
+        from app.services.matrix_db import MatrixDB
+        await MatrixDB.run_migrations()
         # Ensure the image storage directory exists on disk
         IMAGE_DIR.mkdir(parents=True, exist_ok=True)
         logger.info("Database initialised successfully")

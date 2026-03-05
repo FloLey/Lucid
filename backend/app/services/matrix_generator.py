@@ -284,6 +284,83 @@ class MatrixGenerator:
         )
         return image_url
 
+    # ── Description mode: axes + labels in one call ───────────────────────
+
+    async def generate_from_description(
+        self,
+        project_id: str,
+        description: str,
+        n: int,
+        language: str,
+        style_mode: str,
+        settings: MatrixSettings,
+        emit: EventEmitter,
+    ) -> Tuple[List[Dict[str, str]], List[Tuple[str, str]]]:
+        """
+        Single LLM call: derive axes and labels from a description.
+        Returns (concepts, axes_results) in the same shape expected by _run_pipeline.
+        Emits diagonal + axes events.
+        """
+        prompt = self._get_prompt("matrix_description_axes").format(
+            description=description,
+            n=n,
+            language=language,
+            style_mode=style_mode,
+        )
+        raw = await self._gemini_service.generate_json(
+            prompt=prompt,
+            temperature=settings.diagonal_temperature,
+            caller="matrix_description_axes",
+        )
+        row_axis_label = raw.get("row_axis_label", "Row")
+        col_axis_label = raw.get("col_axis_label", "Col")
+        labels: List[str] = raw.get("labels", [])[:n]
+        definitions: List[str] = raw.get("definitions", [])[:n]
+
+        if len(labels) < n:
+            raise GeminiError(
+                f"Description axes returned {len(labels)} labels, expected {n}"
+            )
+
+        # Pad definitions if the model returned fewer than expected
+        while len(definitions) < n:
+            definitions.append("")
+
+        concepts: List[Dict[str, str]] = [
+            {"label": labels[i], "definition": definitions[i]} for i in range(n)
+        ]
+        axes_results: List[Tuple[str, str]] = [
+            (f"{row_axis_label} {labels[i]}", f"{col_axis_label} {labels[i]}")
+            for i in range(n)
+        ]
+
+        # Emit diagonal events (reuse existing event structure)
+        for i, concept in enumerate(concepts):
+            await emit(
+                {
+                    "type": "diagonal",
+                    "project_id": project_id,
+                    "index": i,
+                    "label": concept["label"],
+                    "definition": concept["definition"],
+                }
+            )
+
+        # Emit axes events (reuse existing event structure)
+        for i, (row_desc, col_desc) in enumerate(axes_results):
+            await emit(
+                {
+                    "type": "axes",
+                    "project_id": project_id,
+                    "row": i,
+                    "col": i,
+                    "row_descriptor": row_desc,
+                    "col_descriptor": col_desc,
+                }
+            )
+
+        return concepts, axes_results
+
     # ── Retry helper ──────────────────────────────────────────────────────
 
     @staticmethod

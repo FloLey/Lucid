@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ── Settings ──────────────────────────────────────────────────────────────
@@ -63,6 +63,8 @@ class MatrixProject(BaseModel):
     language: str = "English"
     style_mode: str = "neutral"
     include_images: bool = False
+    input_mode: str = "theme"
+    description: Optional[str] = None
     status: Literal["pending", "generating", "complete", "failed"] = "pending"
     error_message: Optional[str] = None
     cells: List[MatrixCell] = Field(default_factory=list)
@@ -87,12 +89,22 @@ class MatrixProjectCard(BaseModel):
 
 
 class CreateMatrixRequest(BaseModel):
-    theme: str = Field(min_length=3, max_length=1000)
+    input_mode: Literal["theme", "description"] = Field(default="theme")
+    theme: str = Field(default="", max_length=1000)
+    description: Optional[str] = Field(default=None, max_length=2000)
     n: int = Field(default=4, ge=2, le=8)
     language: str = Field(default="English", max_length=50)
     style_mode: str = Field(default="neutral", max_length=50)
     include_images: bool = Field(default=False)
     name: Optional[str] = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def validate_input(self) -> "CreateMatrixRequest":
+        if self.input_mode == "theme" and len(self.theme.strip()) < 3:
+            raise ValueError("theme must be at least 3 characters for theme mode")
+        if self.input_mode == "description" and not (self.description or "").strip():
+            raise ValueError("description is required for description mode")
+        return self
 
 
 class RegenerateCellRequest(BaseModel):

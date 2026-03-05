@@ -57,6 +57,8 @@ class MatrixProjectDB(Base):
     include_images: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    input_mode: Mapped[str] = mapped_column(String, nullable=False, default="theme")
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 

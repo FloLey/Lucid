@@ -189,6 +189,8 @@ export interface MatrixProject {
   language: string;
   style_mode: string;
   include_images: boolean;
+  input_mode: 'theme' | 'description';
+  description: string | null;
   status: CellStatus;
   error_message: string | null;
   cells: MatrixCell[];
