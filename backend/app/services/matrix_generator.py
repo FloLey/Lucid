@@ -302,8 +302,10 @@ class MatrixGenerator:
         Emits axes events only (no diagonal events — all cells are generated equally
         in description mode, diagonal cells are not pre-populated).
         """
+        # Sanitize user input to prevent breaking out of the XML delimiter in the prompt template.
+        safe_description = description.replace("</user_description>", "&lt;/user_description&gt;")
         prompt = self._get_prompt("matrix_description_axes").format(
-            description=description,
+            description=safe_description,
             n=n,
             language=language,
             style_mode=style_mode,

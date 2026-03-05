@@ -319,13 +319,9 @@ class MatrixService:
             # In description mode all n² cells (including diagonal) are generated
             # equally. In theme mode only off-diagonal cells are generated here
             # (diagonal cells were already populated in steps 1+2).
-            cell_filter = (
-                [(r, c) for r in range(n) for c in range(n)]
-                if req.input_mode == "description"
-                else [(r, c) for r in range(n) for c in range(n) if r != c]
-            )
-            off_diag = sorted(
-                cell_filter,
+            all_coords = [(r, c) for r in range(n) for c in range(n)]
+            cells_to_generate = sorted(
+                all_coords if req.input_mode == "description" else [rc for rc in all_coords if rc[0] != rc[1]],
                 key=lambda rc: (abs(rc[0] - rc[1]), rc[0], rc[1]),
             )
 
@@ -381,7 +377,7 @@ class MatrixService:
                             "type": "progress",
                             "project_id": project_id,
                             "generated": len(used_labels) - n,
-                            "total": len(off_diag),
+                            "total": len(cells_to_generate),
                         }
                     )
                 except Exception as exc:
@@ -402,7 +398,7 @@ class MatrixService:
                     )
 
             await bounded_gather(
-                [_gen_one_cell(r, c) for r, c in off_diag],
+                [_gen_one_cell(r, c) for r, c in cells_to_generate],
                 limit=settings.max_concurrency,
             )
 
