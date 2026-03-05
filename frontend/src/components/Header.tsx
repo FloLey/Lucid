@@ -153,7 +153,7 @@ export default function Header({
           {commitInfo?.commit_short && (
             <span
               title={`${commitInfo.commit_hash}\n${formatDatetime(commitInfo.commit_date)}`}
-              className="hidden sm:block text-xs font-mono text-gray-400 dark:text-gray-500 select-all"
+              className="text-xs font-mono text-gray-400 dark:text-gray-500 select-all"
             >
               {commitInfo.commit_short} · {formatDatetime(commitInfo.commit_date)}
             </span>

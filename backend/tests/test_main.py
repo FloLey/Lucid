@@ -84,3 +84,24 @@ def test_rate_limiter_returns_429(client):
 
     # Clean up so other tests are not affected
     _limiter._hits.clear()
+
+
+def test_info_endpoint_returns_200(client):
+    """GET /api/info returns HTTP 200."""
+    response = client.get("/api/info")
+    assert response.status_code == 200
+
+
+def test_info_endpoint_has_version(client):
+    """GET /api/info includes the app version."""
+    response = client.get("/api/info")
+    assert response.json()["version"] == "0.2.0"
+
+
+def test_info_endpoint_commit_fields_present(client):
+    """GET /api/info always returns all commit fields (may be None when git unavailable)."""
+    response = client.get("/api/info")
+    data = response.json()
+    for field in ("commit_hash", "commit_short", "commit_date"):
+        assert field in data
+        assert data[field] is None or isinstance(data[field], str)
