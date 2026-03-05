@@ -1,10 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { MatrixProject, MatrixCell as MatrixCellType } from '../../types';
 import MatrixCell from './MatrixCell';
+import MatrixRevealView from './MatrixRevealView';
+import MatrixPosterView from './MatrixPosterView';
 import { useMatrixStream } from '../../hooks/useMatrixStream';
 import { useMatrix } from '../../contexts/MatrixContext';
 import * as api from '../../services/api';
 import { getErrorMessage } from '../../utils/error';
+
+type ViewMode = 'edit' | 'reveal' | 'poster';
 
 interface MatrixViewProps {
   matrix: MatrixProject;
@@ -21,6 +25,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
   );
   const [regenInstructions, setRegenInstructions] = useState('');
   const [regenLoading, setRegenLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('edit');
 
   const handleUpdate = useCallback(
     (updater: (prev: MatrixProject) => MatrixProject) => {
@@ -138,6 +143,23 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
               Generating…
             </div>
           )}
+          {matrix.status === 'complete' && (
+            <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden text-xs font-medium">
+              {(['edit', 'reveal', 'poster'] as ViewMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`px-3 py-1.5 capitalize transition-colors ${
+                    viewMode === mode
+                      ? 'bg-lucid-600 text-white'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             onClick={closeMatrix}
             className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -170,8 +192,12 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
         </div>
       )}
 
-      {/* Grid + detail panel */}
-      <div className="flex gap-4 min-h-0 flex-1">
+      {/* Alternate views */}
+      {viewMode === 'reveal' && <MatrixRevealView matrix={matrix} />}
+      {viewMode === 'poster' && <MatrixPosterView matrix={matrix} />}
+
+      {/* Grid + detail panel (edit view) */}
+      <div className={`flex gap-4 min-h-0 flex-1 ${viewMode !== 'edit' ? 'hidden' : ''}`}>
         {/* Grid */}
         <div className="flex-1 min-w-0 overflow-auto">
           <div
