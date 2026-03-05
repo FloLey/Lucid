@@ -1,11 +1,11 @@
 """Stage Prompts service - Slide texts to Image prompts transformation."""
 
 from __future__ import annotations
-import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
 from app.models.project import ProjectState
+from app.services.async_utils import bounded_gather
 from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
 from app.services.llm_logger import set_project_context
@@ -87,21 +87,19 @@ class StagePromptsService(BaseStageService):
         if image_style_instructions:
             project.image_style_instructions = image_style_instructions
 
-        sem = asyncio.Semaphore(concurrency_limit)
-
         async def generate_single_prompt(slide_index: int) -> str:
-            async with sem:
-                prompt = self._build_slide_prompt(project, slide_index)
-                result = await self.gemini_service.generate_json(
-                    prompt, caller="stage_prompts_service.generate_single_prompt"
-                )
-                return result.get(
-                    "prompt",
-                    f"Abstract professional background for: {project.slides[slide_index].text.body[:50]}",
-                )
+            prompt = self._build_slide_prompt(project, slide_index)
+            result = await self.gemini_service.generate_json(
+                prompt, caller="stage_prompts_service.generate_single_prompt"
+            )
+            return result.get(
+                "prompt",
+                f"Abstract professional background for: {project.slides[slide_index].text.body[:50]}",
+            )
 
-        prompts = await asyncio.gather(
-            *(generate_single_prompt(i) for i in range(len(project.slides)))
+        prompts = await bounded_gather(
+            [generate_single_prompt(i) for i in range(len(project.slides))],
+            limit=concurrency_limit,
         )
 
         for i, prompt in enumerate(prompts):

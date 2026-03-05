@@ -5,7 +5,7 @@ from typing import Awaitable, Callable, Optional
 
 from fastapi import HTTPException
 
-from app.models.project import ProjectState
+from app.models.project import ProjectResponse, ProjectState
 from app.services.gemini_service import GeminiError
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 async def execute_service_action(
     action: Callable[[], Awaitable[Optional[ProjectState]]],
     error_message: str,
-) -> dict:
+) -> ProjectResponse:
     """Execute an async service action with standard error handling.
 
     This utility wraps the repetitive pattern of:
@@ -37,4 +37,4 @@ async def execute_service_action(
         raise HTTPException(status_code=500, detail=error_message)
     if not project:
         raise HTTPException(status_code=404, detail=error_message)
-    return {"project": project.model_dump()}
+    return ProjectResponse(project=project)

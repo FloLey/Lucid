@@ -8,7 +8,7 @@ import Spinner from './Spinner';
 import StageLayout from './StageLayout';
 import RegenerateInput from './RegenerateInput';
 
-export default function Stage1() {
+export default function StageDraft() {
   const {
     projectId,
     currentProject: project,

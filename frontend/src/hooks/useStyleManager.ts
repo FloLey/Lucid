@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { TextStyle } from '../types';
 import * as api from '../services/api';
 
+const HISTORY_LIMIT = 20;
+
 interface UseStyleManagerOptions {
   projectId: string;
   slideIndex: number;
@@ -61,7 +63,7 @@ export function useStyleManager({
         }
       }
 
-      historyRef.current = [...historyRef.current.slice(-19), current];
+      historyRef.current = [...historyRef.current.slice(-(HISTORY_LIMIT - 1)), current];
       futureRef.current = [];
       await _commitStyle(newStyle, current);
     },
@@ -72,7 +74,7 @@ export function useStyleManager({
     async (newStyle: TextStyle) => {
       const current = styleRef.current;
       if (current) {
-        historyRef.current = [...historyRef.current.slice(-19), current];
+        historyRef.current = [...historyRef.current.slice(-(HISTORY_LIMIT - 1)), current];
       }
       futureRef.current = [];
       await _commitStyle(newStyle, current);
@@ -85,7 +87,7 @@ export function useStyleManager({
     if (historyRef.current.length === 0 || !current) return;
     const prev = historyRef.current[historyRef.current.length - 1];
     historyRef.current = historyRef.current.slice(0, -1);
-    futureRef.current = [current, ...futureRef.current.slice(0, 19)];
+    futureRef.current = [current, ...futureRef.current.slice(0, HISTORY_LIMIT - 1)];
     await _commitStyle(prev, current);
   }, [_commitStyle]);
 
@@ -94,7 +96,7 @@ export function useStyleManager({
     if (futureRef.current.length === 0 || !current) return;
     const [next, ...rest] = futureRef.current;
     futureRef.current = rest;
-    historyRef.current = [...historyRef.current.slice(-19), current];
+    historyRef.current = [...historyRef.current.slice(-(HISTORY_LIMIT - 1)), current];
     await _commitStyle(next, current);
   }, [_commitStyle]);
 

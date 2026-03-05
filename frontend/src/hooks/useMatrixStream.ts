@@ -3,6 +3,8 @@ import type { MatrixProject, MatrixCell, MatrixSSEEvent } from '../types';
 import { getMatrixStreamUrl } from '../services/api';
 import { getErrorMessage } from '../utils/error';
 
+const SSE_DATA_PREFIX = 'data: ';
+
 interface UseMatrixStreamOptions {
   onUpdate: (updater: (prev: MatrixProject) => MatrixProject) => void;
   onComplete: () => void;
@@ -78,9 +80,9 @@ export function useMatrixStream({
 
           for (const chunk of chunks) {
             const line = chunk.trim();
-            if (!line.startsWith('data: ')) continue;
+            if (!line.startsWith(SSE_DATA_PREFIX)) continue;
             try {
-              const event = JSON.parse(line.slice(6)) as MatrixSSEEvent;
+              const event = JSON.parse(line.slice(SSE_DATA_PREFIX.length)) as MatrixSSEEvent;
               handleEvent(event);
               if (event.type === 'done') {
                 setIsStreaming(false);
@@ -92,8 +94,8 @@ export function useMatrixStream({
                 onErrorRef.current(event.message);
                 return;
               }
-            } catch {
-              // ignore malformed lines
+            } catch (e) {
+              console.warn('Failed to parse SSE message:', line, e);
             }
           }
         }

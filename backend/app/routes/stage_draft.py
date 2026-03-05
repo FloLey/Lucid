@@ -20,7 +20,7 @@ class GenerateSlideTextsRequest(BaseModel):
     """Request to generate slide texts from a draft."""
 
     project_id: str
-    draft_text: str = Field(min_length=1, description="The draft text to transform")
+    draft_text: str = Field(min_length=1, max_length=500_000, description="The draft text to transform")
     num_slides: Optional[int] = Field(default=None, ge=1, le=20)
     include_titles: bool = Field(default=True)
     additional_instructions: Optional[str] = None

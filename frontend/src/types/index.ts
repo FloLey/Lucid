@@ -1,3 +1,8 @@
+export type Alignment = 'left' | 'center' | 'right';
+export type CellStatus = 'pending' | 'generating' | 'complete' | 'failed';
+/** Two-character corner identifier used by the drag-resize handle system. */
+export type Corner = 'tl' | 'tr' | 'bl' | 'br';
+
 export interface BoxStyle {
   x_pct: number;
   y_pct: number;
@@ -26,7 +31,7 @@ export interface TextStyle {
   font_size_px: number;
   body_font_size_px: number;
   text_color: string;
-  alignment: 'left' | 'center' | 'right';
+  alignment: Alignment;
   title_box: BoxStyle;
   body_box: BoxStyle;
   line_spacing: number;
@@ -171,7 +176,7 @@ export interface MatrixCell {
   // Optional image
   image_url: string | null;
   // Status
-  cell_status: 'pending' | 'generating' | 'complete' | 'failed';
+  cell_status: CellStatus;
   cell_error: string | null;
   attempts: number;
 }
@@ -184,7 +189,7 @@ export interface MatrixProject {
   language: string;
   style_mode: string;
   include_images: boolean;
-  status: 'pending' | 'generating' | 'complete' | 'failed';
+  status: CellStatus;
   error_message: string | null;
   cells: MatrixCell[];
   created_at: string;
@@ -196,7 +201,7 @@ export interface MatrixProjectCard {
   name: string;
   theme: string;
   n: number;
-  status: 'pending' | 'generating' | 'complete' | 'failed';
+  status: CellStatus;
   include_images: boolean;
   created_at: string;
   updated_at: string;

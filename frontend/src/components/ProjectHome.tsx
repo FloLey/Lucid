@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ProjectCard } from '../types';
+import { formatRelativeDate } from '../utils/date';
 
 const STAGE_LABELS: Record<number, string> = {
   1: 'Draft',
@@ -8,17 +9,6 @@ const STAGE_LABELS: Record<number, string> = {
   4: 'Images',
   5: 'Typography',
 };
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  return date.toLocaleDateString();
-}
 
 interface ProjectHomeProps {
   projects: ProjectCard[];
@@ -172,7 +162,7 @@ export default function ProjectHome({ projects, loading, onOpen, onNewProject, o
                 <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate text-sm">{project.name}</h3>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-xs text-gray-500 dark:text-gray-400">{project.slide_count} slides</span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(project.updated_at)}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{formatRelativeDate(project.updated_at)}</span>
                 </div>
               </div>
             </div>

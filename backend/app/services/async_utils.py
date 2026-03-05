@@ -25,6 +25,8 @@ async def bounded_gather(
             than propagated. Allows partial success — callers should check each
             result with ``isinstance(result, BaseException)``.
     """
+    if limit < 1:
+        raise ValueError(f"limit must be >= 1, got {limit}")
     sem = asyncio.Semaphore(limit)
 
     async def _run(coro: Coroutine[Any, Any, T]) -> T:

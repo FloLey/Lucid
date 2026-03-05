@@ -995,7 +995,7 @@ class TestMatrixGeneratorLLMRobustness:
     def test_generate_diagonal_propagates_gemini_error_from_list_response(self, generator):
         """generate_diagonal must raise GeminiError (not AttributeError) when
         generate_json raises because the LLM returned a list."""
-        generator._gemini.generate_json.side_effect = GeminiError(
+        generator._gemini_service.generate_json.side_effect = GeminiError(
             "Expected JSON object from AI, got list"
         )
         settings = MatrixSettings()
@@ -1014,7 +1014,7 @@ class TestMatrixGeneratorLLMRobustness:
 
     def test_generate_axes_propagates_gemini_error_from_list_response(self, generator):
         """generate_axes_for_concept must raise GeminiError when generate_json does."""
-        generator._gemini.generate_json.side_effect = GeminiError(
+        generator._gemini_service.generate_json.side_effect = GeminiError(
             "Expected JSON object from AI, got list"
         )
         settings = MatrixSettings()
@@ -1033,7 +1033,7 @@ class TestMatrixGeneratorLLMRobustness:
 
     def test_generate_cell_propagates_gemini_error_from_list_response(self, generator):
         """generate_cell must raise GeminiError when generate_json does."""
-        generator._gemini.generate_json.side_effect = GeminiError(
+        generator._gemini_service.generate_json.side_effect = GeminiError(
             "Expected JSON object from AI, got list"
         )
         settings = MatrixSettings()
@@ -1060,7 +1060,7 @@ class TestMatrixGeneratorLLMRobustness:
     def test_validate_matrix_falls_back_to_empty_on_list_response(self, generator):
         """validate_matrix catches GeminiError and treats all cells as valid,
         returning an empty failures list."""
-        generator._gemini.generate_json.side_effect = GeminiError(
+        generator._gemini_service.generate_json.side_effect = GeminiError(
             "Expected JSON object from AI, got list"
         )
         settings = MatrixSettings()

@@ -1,4 +1,5 @@
-import { Slide, TextStyle } from '../types';
+import { memo } from 'react';
+import { Slide, TextStyle, Corner } from '../types';
 import Spinner from './Spinner';
 import TextBoxOverlay from './TextBoxOverlay';
 
@@ -14,11 +15,11 @@ interface CarouselCanvasProps {
   selectedBox: SelectedBox;
   rendering: boolean;
   handleBoxMouseDown: (box: SelectedBox, e: React.MouseEvent) => void;
-  handleResizeMouseDown: (corner: string, e: React.MouseEvent) => void;
+  handleResizeMouseDown: (corner: Corner, e: React.MouseEvent) => void;
   handleTextChange: (which: 'title' | 'body', text: string) => void;
 }
 
-export default function CarouselCanvas({
+function CarouselCanvas({
   containerRef,
   currentSlide,
   selectedSlide,
@@ -103,3 +104,5 @@ export default function CarouselCanvas({
     </div>
   );
 }
+
+export default memo(CarouselCanvas);

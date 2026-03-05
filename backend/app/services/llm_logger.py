@@ -93,22 +93,22 @@ def _serialize_part(part: Any) -> dict:
         if hasattr(part, "text") and part.text:
             result["text"] = part.text
         if hasattr(part, "function_call") and part.function_call:
-            fc = part.function_call
+            fn_call = part.function_call
             result["function_call"] = {
-                "name": getattr(fc, "name", None),
-                "args": dict(fc.args) if hasattr(fc, "args") and fc.args else {},
+                "name": getattr(fn_call, "name", None),
+                "args": dict(fn_call.args) if hasattr(fn_call, "args") and fn_call.args else {},
             }
         if hasattr(part, "function_response") and part.function_response:
-            fr = part.function_response
+            fn_response = part.function_response
             result["function_response"] = {
-                "name": getattr(fr, "name", None),
+                "name": getattr(fn_response, "name", None),
             }
         if hasattr(part, "inline_data") and part.inline_data:
-            data = part.inline_data
+            inline_data = part.inline_data
             result["inline_data"] = {
-                "mime_type": getattr(data, "mime_type", None),
-                "size_bytes": len(data.data)
-                if hasattr(data, "data") and data.data
+                "mime_type": getattr(inline_data, "mime_type", None),
+                "size_bytes": len(inline_data.data)
+                if hasattr(inline_data, "data") and inline_data.data
                 else 0,
             }
     except Exception as e:

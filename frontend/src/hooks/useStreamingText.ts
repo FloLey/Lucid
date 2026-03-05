@@ -3,6 +3,8 @@ import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import type { Project } from '../types';
 
+const SSE_DATA_PREFIX = 'data: ';
+
 interface UseStreamingTextOptions {
   projectId: string;
   onProjectUpdate: (project: Project) => void;
@@ -64,9 +66,9 @@ export function useStreamingText({
           buffer = lines.pop() ?? '';
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
+            if (line.startsWith(SSE_DATA_PREFIX)) {
               try {
-                const data = JSON.parse(line.slice(6)) as { text?: string; done?: boolean };
+                const data = JSON.parse(line.slice(SSE_DATA_PREFIX.length)) as { text?: string; done?: boolean };
                 if (typeof data.text === 'string') {
                   setStreamingTexts((prev) => new Map(prev).set(index, data.text!));
                 }
@@ -79,8 +81,8 @@ export function useStreamingText({
                     return next;
                   });
                 }
-              } catch {
-                // ignore malformed SSE lines
+              } catch (e) {
+                console.warn('Failed to parse SSE message:', line, e);
               }
             }
           }

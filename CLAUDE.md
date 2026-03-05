@@ -28,7 +28,7 @@ Lucid/
 │   │   └── services/            # 20+ service modules (business logic)
 │   ├── prompts/                 # LLM prompt templates (.prompt files)
 │   ├── fonts/                   # Downloaded TTF font files (gitignored)
-│   └── tests/                   # pytest test suite (12 test files)
+│   └── tests/                   # pytest test suite (14 test files)
 └── frontend/                    # React + TypeScript + Vite
     ├── Dockerfile               # Node 22 Alpine
     ├── package.json             # Scripts: dev, build, lint, preview
@@ -39,10 +39,10 @@ Lucid/
         ├── App.tsx              # Root component
         ├── main.tsx             # React entry point
         ├── components/          # Stage components + shared UI
-        ├── hooks/               # Custom hooks: useStyleManager, useApiAction, useDebouncedRender, useDragResize, useDarkMode
+        ├── hooks/               # Custom hooks: useStyleManager, useApiAction, useDebouncedRender, useDragResize, useDarkMode, useMatrixStream, useStreamingText
         ├── services/            # Axios API client (api.ts)
-        ├── types/               # TypeScript interfaces (index.ts)
-        └── utils/               # Error handling utilities
+        ├── types/               # TypeScript interfaces (index.ts) — exports Alignment, CellStatus, Corner named types
+        └── utils/               # Shared utilities: error handling (errors.ts), date formatting (date.ts)
 ```
 
 ## Quick Reference — Commands
@@ -165,6 +165,7 @@ npm run build          # tsc type-check + vite production build
 ### General
 - **No CI/CD pipelines** configured — tests and lint run manually
 - **Docker-first development** — `docker-compose up --build` is the standard workflow
+- **Docker health check** — the backend service has a health check at `/api/health`; `docker ps` shows `(healthy)` when ready
 - **Config over code**: App behavior is configurable via `config.json` and `.prompt` files without code changes
 - **Session persistence**: `sessions_db.json` stores sessions to survive Docker hot-reloads (file is gitignored)
 
@@ -180,7 +181,7 @@ npm run build          # tsc type-check + vite production build
 
 - Test files are in `backend/tests/`, named `test_*.py`
 - `conftest.py` provides a `client` fixture using FastAPI's `TestClient`
-- Tests cover all stages, models, sessions, chat, fonts, export, and health endpoints
+- Tests cover all stages, models, sessions, chat, fonts, export, health endpoints, rendering service, and async utilities
 - No frontend tests exist
 - Run `pytest -v` from the `backend/` directory
 

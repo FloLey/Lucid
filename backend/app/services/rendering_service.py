@@ -14,6 +14,9 @@ from app.config import IMAGE_WIDTH, IMAGE_HEIGHT
 
 logger = logging.getLogger(__name__)
 
+_MIN_FONT_SIZE = 12
+_BRIGHTNESS_THRESHOLD = 128
+
 
 class RenderingService(BaseStageService):
     """Service for rendering text onto images with typography and layout."""
@@ -63,18 +66,21 @@ class RenderingService(BaseStageService):
 
     def _get_text_color(self, color: str) -> Tuple[int, int, int, int]:
         """Parse hex color to RGBA tuple."""
-        color = color.lstrip("#")
-        if len(color) == 6:
-            r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
-            return (r, g, b, 255)
-        elif len(color) == 8:
-            r, g, b, a = (
-                int(color[0:2], 16),
-                int(color[2:4], 16),
-                int(color[4:6], 16),
-                int(color[6:8], 16),
-            )
-            return (r, g, b, a)
+        try:
+            stripped = color.lstrip("#")
+            if len(stripped) == 6:
+                r, g, b = int(stripped[0:2], 16), int(stripped[2:4], 16), int(stripped[4:6], 16)
+                return (r, g, b, 255)
+            elif len(stripped) == 8:
+                r, g, b, a = (
+                    int(stripped[0:2], 16),
+                    int(stripped[2:4], 16),
+                    int(stripped[4:6], 16),
+                    int(stripped[6:8], 16),
+                )
+                return (r, g, b, a)
+        except ValueError:
+            pass
         logger.warning("Invalid hex color %r — defaulting to white", color)
         return (255, 255, 255, 255)
 
@@ -87,7 +93,7 @@ class RenderingService(BaseStageService):
         line_height: float,
         start_y: float,
         box_x: int,
-        box_w: int,
+        box_width: int,
         padding: int,
         text_color: Tuple[int, int, int, int],
         stroke_color: Optional[Tuple[int, int, int, int]],
@@ -102,9 +108,9 @@ class RenderingService(BaseStageService):
             if style.alignment == "left":
                 line_x = int(box_x + padding)
             elif style.alignment == "right":
-                line_x = int(box_x + box_w - padding - line_width)
+                line_x = int(box_x + box_width - padding - line_width)
             else:  # center
-                line_x = int(box_x + (box_w - line_width) / 2)
+                line_x = int(box_x + (box_width - line_width) / 2)
 
             # Draw shadow
             if style.shadow.enabled:
@@ -146,7 +152,7 @@ class RenderingService(BaseStageService):
         draw: ImageDraw.ImageDraw,
     ) -> Tuple[int, List[str]]:
         """Find the largest font size (up to max_size) where all text fits."""
-        min_size = 12
+        min_size = _MIN_FONT_SIZE
         if max_size < min_size:
             max_size = min_size
 
@@ -189,11 +195,11 @@ class RenderingService(BaseStageService):
         padding = int(IMAGE_WIDTH * box.padding_pct)
         box_x = int(IMAGE_WIDTH * box.x_pct)
         box_y = int(IMAGE_HEIGHT * box.y_pct)
-        box_w = int(IMAGE_WIDTH * box.w_pct)
-        box_h = int(IMAGE_HEIGHT * box.h_pct)
+        box_width = int(IMAGE_WIDTH * box.w_pct)
+        box_height = int(IMAGE_HEIGHT * box.h_pct)
 
-        text_width = box_w - (2 * padding)
-        text_height = box_h - (2 * padding)
+        text_width = box_width - (2 * padding)
+        text_height = box_height - (2 * padding)
 
         if text_width <= 0 or text_height <= 0:
             return
@@ -222,7 +228,7 @@ class RenderingService(BaseStageService):
             line_height,
             start_y,
             box_x,
-            box_w,
+            box_width,
             padding,
             text_color,
             stroke_color,
@@ -320,7 +326,7 @@ class RenderingService(BaseStageService):
             0.299 * s[0] + 0.587 * s[1] + 0.114 * s[2] for s in samples
         ) / len(samples)
 
-        if avg_brightness > 128:
+        if avg_brightness > _BRIGHTNESS_THRESHOLD:
             text_color = "#000000"
             stroke_enabled = True
             stroke_color = "#FFFFFF"

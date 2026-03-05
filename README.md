@@ -35,7 +35,7 @@ Lucid packs several advanced technical implementations to make the pipeline robu
 *   **Fuzzy Font Matching:** The `FontManager` builds an indexed registry of your TTF/OTF files on startup. If the UI requests "Inter 600" but only "Inter 700" is available, it gracefully degrades to the nearest available mathematical weight.
 *   **Debounced Sync & Render Loop:** The frontend `useDebouncedRender` hook eliminates React state race conditions. It ensures rapid keystrokes trigger a single, synchronous database save followed by a PIL background render, using monotonic request IDs to silently drop stale in-flight responses.
 *   **Hot-Swappable, Validated Prompts:** LLM system instructions live in version-controlled `.prompt` files (e.g., `slide_generation.prompt`), editable directly via the UI. The backend runs AST-style validation to ensure required `{variables}` aren't accidentally deleted by the user.
-*   **Concurrency & Rate Limiting:** Outbound AI calls utilize `asyncio.Semaphore` implementations to strictly limit concurrent LLM text and image requests, preventing `429 Too Many Requests` API limits.
+*   **Concurrency & Rate Limiting:** Outbound AI calls use `bounded_gather()` — a thin wrapper around `asyncio.Semaphore` — to strictly limit concurrent LLM text and image requests, preventing `429 Too Many Requests` API limits.
 ---
 ## Configuration & Customization
 Lucid behavior is highly customizable via the **Templates** editor (Templates button on the home screen) or the `config.json` file.
@@ -207,6 +207,8 @@ The FastAPI backend exposes a clean REST API. Here are the core architectural ro
 | `/api/stage-prompts/generate` | `POST` | Generate individual image prompts in parallel. |
 | `/api/stage-images/generate` | `POST` | Render image prompts $\rightarrow$ Base64/Disk PNGs using Gemini 2.5 Image. |
 | `/api/stage-typography/apply-all` | `POST` | Run PIL typography engine to composite text over backgrounds. |
+| `/api/projects/{id}/reorder` | `POST` | Reorder slides within a project. |
+| `/api/stage-draft/regenerate-stream` | `POST` | Regenerate a single slide's text via SSE streaming. |
 | `/api/export/zip` | `POST` | Archive project metadata and final composited images. |
 | `/api/prompts/validate` | `POST` | Dry-run validation of `.prompt` template edits. |
 *Local Dev Note: If running without Docker, utilize the provided `install-deps.sh` script to install Node/Python requirements and trigger the `download_fonts.py` hook.*

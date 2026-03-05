@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import type { BoxStyle } from '../types';
+import type { BoxStyle, Corner } from '../types';
 import { IMAGE_SCALE_FACTOR } from '../constants';
 
 interface TextBoxOverlayProps {
@@ -13,7 +13,7 @@ interface TextBoxOverlayProps {
   stroke: { enabled: boolean; width_px: number; color: string };
   isSelected: boolean;
   onMouseDown: (e: React.MouseEvent) => void;
-  onResizeMouseDown?: (corner: string, e: React.MouseEvent) => void;
+  onResizeMouseDown?: (corner: Corner, e: React.MouseEvent) => void;
   onTextChange: (text: string) => void;
 }
 
@@ -119,12 +119,12 @@ export default function TextBoxOverlay({
 }
 
 interface ResizeHandleProps {
-  corner: string;
-  onMouseDown: (corner: string, e: React.MouseEvent) => void;
+  corner: Corner;
+  onMouseDown: (corner: Corner, e: React.MouseEvent) => void;
 }
 
 function ResizeHandle({ corner, onMouseDown }: ResizeHandleProps) {
-  const positionClasses: Record<string, string> = {
+  const positionClasses: Record<Corner, string> = {
     tl: '-top-1 -left-1 cursor-nw-resize',
     tr: '-top-1 -right-1 cursor-ne-resize',
     bl: '-bottom-1 -left-1 cursor-sw-resize',
