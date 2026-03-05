@@ -306,7 +306,7 @@ export default function StageTypography() {
           style={style}
           selectedBox={selectedBox}
           hasTitle={hasTitle}
-          loading={applyingToAll}
+          loading={applyingToAll || styleUpdating || rendering}
           setSelectedBox={setSelectedBox}
           updateLocalStyle={updateStyle}
           onApplyToAll={applyToAll}
