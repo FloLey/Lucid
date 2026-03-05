@@ -93,9 +93,10 @@ def test_info_endpoint_returns_200(client):
 
 
 def test_info_endpoint_has_version(client):
-    """GET /api/info includes the app version."""
+    """GET /api/info includes the app version matching the hardcoded constant."""
+    from app.main import _APP_VERSION
     response = client.get("/api/info")
-    assert response.json()["version"] == "0.2.0"
+    assert response.json()["version"] == _APP_VERSION
 
 
 def test_info_endpoint_commit_fields_present(client):
