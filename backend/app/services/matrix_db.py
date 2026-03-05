@@ -7,10 +7,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_upsert
 
-from app.db.database import async_session_factory
+from app.db.database import async_session_factory, engine
 from app.db.models import MatrixCellDB, MatrixProjectDB
 from app.models.matrix import MatrixCell, MatrixProject, MatrixProjectCard
 
@@ -48,6 +48,8 @@ def _row_to_project(row: MatrixProjectDB, cells: List[MatrixCell]) -> MatrixProj
         language=row.language,
         style_mode=row.style_mode,
         include_images=bool(row.include_images),
+        input_mode=row.input_mode,
+        description=row.description,
         status=row.status,
         error_message=row.error_message,
         cells=cells,
@@ -62,6 +64,25 @@ def _row_to_project(row: MatrixProjectDB, cells: List[MatrixCell]) -> MatrixProj
 class MatrixDB:
     """CRUD operations for matrix_projects and matrix_cells tables."""
 
+    # ── Schema migration ──────────────────────────────────────────────────
+
+    @staticmethod
+    async def run_migrations() -> None:
+        """Add new columns to existing tables (idempotent, SQLite ALTER TABLE)."""
+        new_columns = [
+            "ALTER TABLE matrix_projects ADD COLUMN input_mode TEXT DEFAULT 'theme'",
+            "ALTER TABLE matrix_projects ADD COLUMN description TEXT",
+        ]
+        for col_sql in new_columns:
+            try:
+                async with engine.begin() as conn:
+                    await conn.execute(text(col_sql))
+            except Exception as exc:
+                if "duplicate column" in str(exc).lower():
+                    logger.debug("Migration: column already exists, skipping (%s)", exc)
+                else:
+                    logger.warning("Unexpected error during DB migration: %s — %s", col_sql, exc)
+
     # ── Projects ──────────────────────────────────────────────────────────
 
     async def create_project(
@@ -72,6 +93,8 @@ class MatrixDB:
         style_mode: str,
         include_images: bool,
         name: Optional[str] = None,
+        input_mode: str = "theme",
+        description: Optional[str] = None,
     ) -> MatrixProject:
         project_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
@@ -88,6 +111,8 @@ class MatrixDB:
                     language=language,
                     style_mode=style_mode,
                     include_images=int(include_images),
+                    input_mode=input_mode,
+                    description=description,
                     status="pending",
                     error_message=None,
                     created_at=now,

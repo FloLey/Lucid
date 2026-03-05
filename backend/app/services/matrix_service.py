@@ -46,13 +46,18 @@ class MatrixService:
 
     async def create_and_start(self, req: CreateMatrixRequest) -> MatrixProject:
         """Create DB row + cell stubs, start background generation, return immediately."""
+        effective_theme = (
+            req.description if req.input_mode == "description" else req.theme
+        )
         project = await self._db.create_project(
-            theme=req.theme,
+            theme=effective_theme or "",
             n=req.n,
             language=req.language,
             style_mode=req.style_mode,
             include_images=req.include_images,
             name=req.name,
+            input_mode=req.input_mode,
+            description=req.description,
         )
         await self._db.update_project_status(project.id, "generating")
         _queues[project.id] = []
@@ -247,46 +252,71 @@ class MatrixService:
         style_mode = req.style_mode
 
         try:
-            # Step 1 — Diagonal concepts
-            concepts = await self._gen.generate_diagonal(
-                project_id=project_id,
-                theme=theme,
-                n=n,
-                language=req.language,
-                style_mode=style_mode,
-                settings=settings,
-                emit=self._emit,
-            )
-            # Persist diagonal cells
-            for i, c in enumerate(concepts):
-                await self._db.upsert_cell(
-                    project_id, i, i,
-                    label=c["label"],
-                    definition=c["definition"],
-                    cell_status="complete",
+            # Steps 1 + 2 — Fork based on input mode
+            if req.input_mode == "description":
+                # Single LLM call derives both labels (diagonal) and axis descriptors
+                concepts, axes_results = await self._gen.generate_from_description(
+                    project_id=project_id,
+                    description=req.description or "",
+                    n=n,
+                    language=req.language,
+                    style_mode=style_mode,
+                    settings=settings,
+                    emit=self._emit,
                 )
-
-            # Step 2 — Axes (parallel)
-            axes_results: List[Tuple[str, str]] = await bounded_gather(
-                [
-                    self._gen.generate_axes_for_concept(
-                        project_id=project_id,
-                        diagonal_index=i,
-                        concept=concepts[i],
-                        all_concepts=concepts,
-                        settings=settings,
-                        emit=self._emit,
+                # Persist diagonal cells together with pre-computed axes
+                for i, (c, (row_desc, col_desc)) in enumerate(
+                    zip(concepts, axes_results)
+                ):
+                    await self._db.upsert_cell(
+                        project_id, i, i,
+                        label=c["label"],
+                        definition=c["definition"],
+                        row_descriptor=row_desc,
+                        col_descriptor=col_desc,
+                        cell_status="complete",
                     )
-                    for i in range(n)
-                ],
-                limit=settings.max_concurrency,
-            )
-            for i, (row_desc, col_desc) in enumerate(axes_results):
-                await self._db.upsert_cell(
-                    project_id, i, i,
-                    row_descriptor=row_desc,
-                    col_descriptor=col_desc,
+            else:
+                # Step 1 — Diagonal concepts
+                concepts = await self._gen.generate_diagonal(
+                    project_id=project_id,
+                    theme=theme,
+                    n=n,
+                    language=req.language,
+                    style_mode=style_mode,
+                    settings=settings,
+                    emit=self._emit,
                 )
+                # Persist diagonal cells
+                for i, c in enumerate(concepts):
+                    await self._db.upsert_cell(
+                        project_id, i, i,
+                        label=c["label"],
+                        definition=c["definition"],
+                        cell_status="complete",
+                    )
+
+                # Step 2 — Axes (parallel)
+                axes_results: List[Tuple[str, str]] = await bounded_gather(
+                    [
+                        self._gen.generate_axes_for_concept(
+                            project_id=project_id,
+                            diagonal_index=i,
+                            concept=concepts[i],
+                            all_concepts=concepts,
+                            settings=settings,
+                            emit=self._emit,
+                        )
+                        for i in range(n)
+                    ],
+                    limit=settings.max_concurrency,
+                )
+                for i, (row_desc, col_desc) in enumerate(axes_results):
+                    await self._db.upsert_cell(
+                        project_id, i, i,
+                        row_descriptor=row_desc,
+                        col_descriptor=col_desc,
+                    )
 
             # Step 3 — Off-diagonal cells, near-diagonal first
             off_diag = sorted(

@@ -6,8 +6,12 @@ interface NewMatrixModalProps {
   onCreate: (params: CreateMatrixParams) => Promise<void>;
 }
 
+type InputMode = 'theme' | 'description';
+
 export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProps) {
+  const [inputMode, setInputMode] = useState<InputMode>('theme');
   const [theme, setTheme] = useState('');
+  const [description, setDescription] = useState('');
   const [n, setN] = useState(4);
   const [language, setLanguage] = useState('English');
   const [styleMode, setStyleMode] = useState('neutral');
@@ -16,19 +20,26 @@ export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProp
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isValid =
+    inputMode === 'theme' ? theme.trim().length >= 3 : description.trim().length > 0;
+
   const handleCreate = async () => {
-    if (!theme.trim()) return;
+    if (!isValid) return;
     setCreating(true);
     setError(null);
     try {
-      await onCreate({
-        theme: theme.trim(),
+      const sharedParams = {
         n,
         language,
         style_mode: styleMode,
         include_images: includeImages,
         name: name.trim() || undefined,
-      });
+      };
+      const params: CreateMatrixParams =
+        inputMode === 'description'
+          ? { ...sharedParams, input_mode: 'description', description: description.trim() }
+          : { ...sharedParams, input_mode: 'theme', theme: theme.trim() };
+      await onCreate(params);
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create matrix');
@@ -61,18 +72,71 @@ export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProp
         )}
 
         <div className="space-y-4">
+          {/* Mode toggle */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Theme <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              placeholder="e.g. The philosophy of time and consciousness"
-              rows={3}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-lucid-500 resize-none"
-            />
+            <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+              <button
+                onClick={() => setInputMode('theme')}
+                className={[
+                  'flex-1 py-2 text-sm font-medium transition-colors',
+                  inputMode === 'theme'
+                    ? 'bg-lucid-600 text-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-650',
+                ].join(' ')}
+              >
+                Theme
+              </button>
+              <button
+                onClick={() => setInputMode('description')}
+                className={[
+                  'flex-1 py-2 text-sm font-medium transition-colors border-l border-gray-300 dark:border-gray-600',
+                  inputMode === 'description'
+                    ? 'bg-lucid-600 text-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-650',
+                ].join(' ')}
+              >
+                Description
+              </button>
+            </div>
           </div>
+
+          {/* Theme input */}
+          {inputMode === 'theme' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Theme <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                placeholder="e.g. The philosophy of time and consciousness"
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-lucid-500 resize-none"
+              />
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                The AI picks n distinct examples from this theme and invents axes for each.
+              </p>
+            </div>
+          )}
+
+          {/* Description input */}
+          {inputMode === 'description' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Description <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="e.g. feels like a certain generation but is actually from a certain generation"
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-lucid-500 resize-none"
+              />
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                Describe a cross-axis relationship. The AI derives both axes and all labels from it.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -160,7 +224,7 @@ export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProp
           </button>
           <button
             onClick={handleCreate}
-            disabled={!theme.trim() || creating}
+            disabled={!isValid || creating}
             className="px-5 py-2 bg-lucid-600 text-white text-sm font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {creating ? 'Creating…' : 'Generate Matrix'}

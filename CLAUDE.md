@@ -121,6 +121,10 @@ npm run build          # tsc type-check + vite production build
 
 **API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`). Notable endpoints added in recent sessions: `POST /api/projects/{id}/reorder` (slide reordering) and `POST /api/stage-draft/regenerate-stream` (SSE streaming text regeneration).
 
+**Matrix generator input modes:** `POST /api/matrix/` accepts two modes via `input_mode` field:
+- `"theme"` (default): user provides a theme string; LLM picks n diagonal concepts and invents per-concept axes
+- `"description"`: user describes a cross-axis relationship (e.g. "feels like a generation but is actually from one"); a single LLM call to `matrix_description_axes.prompt` derives both axis labels and n shared labels for both axes
+
 **Prompt templates:** Stored as `.prompt` files in `backend/prompts/`. These are the system/user prompts sent to Gemini. Edit these to change LLM behavior.
 
 ### Frontend (React + TypeScript + Vite)
@@ -184,6 +188,27 @@ npm run build          # tsc type-check + vite production build
 - Tests cover all stages, models, sessions, chat, fonts, export, health endpoints, rendering service, and async utilities
 - No frontend tests exist
 - Run `pytest -v` from the `backend/` directory
+
+### Testing Policy — **mandatory**
+
+**Every code change must be accompanied by tests.** This is not optional:
+
+1. **New features**: add tests covering the happy path, edge cases, and error paths
+2. **Bug fixes**: add a regression test that would have caught the bug
+3. **Prompt files**: add a parametrised case to `TestMatrixPromptFormatting` (or equivalent) verifying the prompt formats without error and that JSON example keys are properly escaped
+4. **DB schema changes**: add tests verifying the new fields round-trip through create → get
+5. **Model changes**: add validation tests for both valid and invalid inputs
+6. Tests must pass (`pytest -v`) before any commit is made
+
+### Documentation Policy — **mandatory**
+
+**CLAUDE.md and any relevant README sections must be kept up to date** when you:
+
+- Add a new feature, API endpoint, or service — document it in the relevant section of CLAUDE.md
+- Add or rename prompt files — update the prompts table or service description
+- Change environment variables — update the Environment Variables table
+- Change the repository structure — update the Repository Structure section
+- Change a command or workflow — update Quick Reference
 
 ## Key Gotchas
 

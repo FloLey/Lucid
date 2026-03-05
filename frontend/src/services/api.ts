@@ -379,8 +379,10 @@ export const deleteTemplate = async (templateId: string): Promise<void> => {
 // ─── Matrix API ───────────────────────────────────────────────────────────
 
 export interface CreateMatrixParams {
-  theme: string;
-  n: number;
+  input_mode?: 'theme' | 'description';
+  theme?: string;
+  description?: string;
+  n?: number;
   language?: string;
   style_mode?: string;
   include_images?: boolean;

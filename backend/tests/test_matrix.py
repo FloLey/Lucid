@@ -86,6 +86,51 @@ class TestMatrixModels:
         assert req.language == "French"
         assert req.include_images is True
 
+    # ── Description mode validation ───────────────────────────────────────
+
+    def test_create_request_description_mode_valid(self):
+        req = CreateMatrixRequest(
+            input_mode="description",
+            description="feels like a certain generation but is actually from one",
+            n=3,
+        )
+        assert req.input_mode == "description"
+        assert "generation" in req.description
+        assert req.n == 3
+        assert req.theme == ""  # theme is blank in description mode
+
+    def test_create_request_description_mode_defaults(self):
+        req = CreateMatrixRequest(
+            input_mode="description",
+            description="enjoyed by X but intended for Y",
+        )
+        assert req.n == 4
+        assert req.language == "English"
+        assert req.style_mode == "neutral"
+        assert req.include_images is False
+
+    def test_create_request_description_mode_missing_description_raises(self):
+        with pytest.raises(ValidationError):
+            CreateMatrixRequest(input_mode="description")
+
+    def test_create_request_description_mode_empty_description_raises(self):
+        with pytest.raises(ValidationError):
+            CreateMatrixRequest(input_mode="description", description="   ")
+
+    def test_create_request_theme_mode_empty_theme_raises(self):
+        with pytest.raises(ValidationError):
+            CreateMatrixRequest(input_mode="theme", theme="")
+
+    def test_create_request_theme_mode_short_theme_raises(self):
+        with pytest.raises(ValidationError):
+            CreateMatrixRequest(input_mode="theme", theme="ab")
+
+    def test_create_request_theme_mode_still_works(self):
+        req = CreateMatrixRequest(theme="Cooking Techniques", n=4)
+        assert req.input_mode == "theme"
+        assert req.theme == "Cooking Techniques"
+        assert req.description is None
+
     def test_regenerate_cell_request_defaults(self):
         req = RegenerateCellRequest()
         assert req.image_only is False
@@ -362,6 +407,37 @@ class TestMatrixDB:
         cell = run_async(matrix_db.get_cell("nonexistent", row=0, col=0))
         assert cell is None
 
+    def test_create_project_description_mode_stores_fields(self):
+        _clear()
+        project = run_async(
+            matrix_db.create_project(
+                theme="feels like X but is actually Y",
+                n=3,
+                language="English",
+                style_mode="neutral",
+                include_images=False,
+                input_mode="description",
+                description="feels like a certain generation but is actually from one",
+            )
+        )
+        assert project.input_mode == "description"
+        assert project.description == "feels like a certain generation but is actually from one"
+        assert project.theme == "feels like X but is actually Y"
+
+    def test_create_project_theme_mode_has_default_input_mode(self):
+        _clear()
+        project = run_async(
+            matrix_db.create_project(
+                theme="AI Ethics",
+                n=3,
+                language="English",
+                style_mode="neutral",
+                include_images=False,
+            )
+        )
+        assert project.input_mode == "theme"
+        assert project.description is None
+
 
 # ── 3. MatrixSettingsManager ──────────────────────────────────────────────
 
@@ -403,13 +479,18 @@ class TestMatrixSettingsManager:
 def mock_create(monkeypatch):
     """Patch create_and_start to skip background generation task."""
     async def _fake_start(req):
+        effective_theme = (
+            req.description if req.input_mode == "description" else req.theme
+        )
         p = await matrix_db.create_project(
-            theme=req.theme,
+            theme=effective_theme or "",
             n=req.n,
             language=req.language,
             style_mode=req.style_mode,
             include_images=req.include_images,
             name=req.name,
+            input_mode=req.input_mode,
+            description=req.description,
         )
         await matrix_db.update_project_status(p.id, "generating")
         # Re-fetch so the returned project reflects the updated status
@@ -445,6 +526,28 @@ class TestMatrixRoutes:
 
     def test_create_matrix_theme_too_short(self, client):
         resp = client.post("/api/matrix/", json={"theme": "ab"})
+        assert resp.status_code == 422
+
+    def test_create_matrix_description_mode(self, client, mock_create):
+        payload = {
+            "input_mode": "description",
+            "description": "feels like a certain generation but is actually from one",
+            "n": 3,
+        }
+        resp = client.post("/api/matrix/", json=payload)
+        assert resp.status_code == 200
+        data = resp.json()["matrix"]
+        assert data["input_mode"] == "description"
+        assert data["description"] == "feels like a certain generation but is actually from one"
+        assert data["n"] == 3
+        assert data["status"] == "generating"
+
+    def test_create_matrix_description_mode_missing_description_returns_422(self, client, mock_create):
+        resp = client.post("/api/matrix/", json={"input_mode": "description"})
+        assert resp.status_code == 422
+
+    def test_create_matrix_description_mode_empty_description_returns_422(self, client, mock_create):
+        resp = client.post("/api/matrix/", json={"input_mode": "description", "description": "  "})
         assert resp.status_code == 422
 
     def test_list_matrices_after_create(self, client, mock_create):
@@ -891,6 +994,16 @@ class TestMatrixPromptFormatting:
             {"theme": "Cooking Techniques", "matrix_json": '[{"row": 0, "col": 1, "concept": "Kimchi"}]'},
             "Cooking Techniques",
         ),
+        (
+            "matrix_description_axes",
+            {
+                "description": "feels like a certain generation but is actually from one",
+                "n": 4,
+                "language": "English",
+                "style_mode": "neutral",
+            },
+            "feels like a certain generation",
+        ),
     ])
     def test_prompt_formats_without_error(self, loader, name, kwargs, sentinel):
         """Each prompt must format cleanly and include a known sentinel value."""
@@ -909,6 +1022,16 @@ class TestMatrixPromptFormatting:
             "matrix_axes",
             {"index": 1, "concept_label": "X", "concept_definition": "Y", "all_concepts_json": "[]"},
             ['"row_descriptor"', '"col_descriptor"'],
+        ),
+        (
+            "matrix_description_axes",
+            {
+                "description": "enjoys X but was made for Y",
+                "n": 3,
+                "language": "English",
+                "style_mode": "neutral",
+            },
+            ['"row_axis_label"', '"col_axis_label"', '"labels"', '"definitions"'],
         ),
     ])
     def test_prompt_output_contains_literal_json_keys(self, loader, name, kwargs, expected_keys):
@@ -1080,3 +1203,149 @@ class TestMatrixGeneratorLLMRobustness:
             )
         )
         assert failures == []
+
+
+# ── 9. generate_from_description ─────────────────────────────────────────
+
+
+class TestGenerateFromDescription:
+    """Unit tests for MatrixGenerator.generate_from_description."""
+
+    @pytest.fixture
+    def generator(self):
+        gemini = AsyncMock()
+        prompt_loader = MagicMock()
+        prompt_loader.get_cached.return_value = "static test prompt"
+        return MatrixGenerator(
+            gemini_service=gemini,
+            image_service=AsyncMock(),
+            storage_service=MagicMock(),
+            prompt_loader=prompt_loader,
+        )
+
+    @staticmethod
+    async def _collect_emit(event: dict, events: list) -> None:
+        events.append(event)
+
+    def test_returns_correct_concepts_and_axes(self, generator):
+        generator._gemini_service.generate_json.return_value = {
+            "row_axis_label": "Is actually",
+            "col_axis_label": "Feels like",
+            "labels": ["Gen-Z", "Millennial", "Gen-X"],
+            "definitions": ["Born 1997-2012", "Born 1981-1996", "Born 1965-1980"],
+        }
+        settings = MatrixSettings()
+        events: list = []
+        concepts, axes = run_async(
+            generator.generate_from_description(
+                project_id="test",
+                description="feels like a generation but is actually from one",
+                n=3,
+                language="English",
+                style_mode="neutral",
+                settings=settings,
+                emit=lambda e: self._collect_emit(e, events),
+            )
+        )
+        assert len(concepts) == 3
+        assert concepts[0] == {"label": "Gen-Z", "definition": "Born 1997-2012"}
+        assert concepts[2] == {"label": "Gen-X", "definition": "Born 1965-1980"}
+
+        assert len(axes) == 3
+        assert axes[0] == ("Is actually Gen-Z", "Feels like Gen-Z")
+        assert axes[1] == ("Is actually Millennial", "Feels like Millennial")
+
+    def test_emits_diagonal_and_axes_events(self, generator):
+        generator._gemini_service.generate_json.return_value = {
+            "row_axis_label": "Was intended for",
+            "col_axis_label": "Is enjoyed by",
+            "labels": ["Nerds", "Jocks"],
+            "definitions": ["Tech enthusiasts", "Sports fans"],
+        }
+        settings = MatrixSettings()
+        events: list = []
+        run_async(
+            generator.generate_from_description(
+                project_id="proj-1",
+                description="intended for X enjoyed by Y",
+                n=2,
+                language="English",
+                style_mode="neutral",
+                settings=settings,
+                emit=lambda e: self._collect_emit(e, events),
+            )
+        )
+        diagonal_events = [e for e in events if e["type"] == "diagonal"]
+        axes_events = [e for e in events if e["type"] == "axes"]
+        assert len(diagonal_events) == 2
+        assert len(axes_events) == 2
+        assert diagonal_events[0]["label"] == "Nerds"
+        assert diagonal_events[1]["label"] == "Jocks"
+        assert axes_events[0]["row_descriptor"] == "Was intended for Nerds"
+        assert axes_events[0]["col_descriptor"] == "Is enjoyed by Nerds"
+
+    def test_raises_gemini_error_when_too_few_labels(self, generator):
+        generator._gemini_service.generate_json.return_value = {
+            "row_axis_label": "Is actually",
+            "col_axis_label": "Feels like",
+            "labels": ["Gen-Z"],  # only 1, need 3
+            "definitions": ["Born 1997-2012"],
+        }
+        settings = MatrixSettings()
+        events: list = []
+        with pytest.raises(GeminiError, match="labels, expected 3"):
+            run_async(
+                generator.generate_from_description(
+                    project_id="test",
+                    description="some description",
+                    n=3,
+                    language="English",
+                    style_mode="neutral",
+                    settings=settings,
+                    emit=lambda e: self._collect_emit(e, events),
+                )
+            )
+
+    def test_propagates_gemini_error_from_generate_json(self, generator):
+        generator._gemini_service.generate_json.side_effect = GeminiError(
+            "Expected JSON object from AI, got list"
+        )
+        settings = MatrixSettings()
+        events: list = []
+        with pytest.raises(GeminiError, match="Expected JSON object"):
+            run_async(
+                generator.generate_from_description(
+                    project_id="test",
+                    description="some description",
+                    n=3,
+                    language="English",
+                    style_mode="neutral",
+                    settings=settings,
+                    emit=lambda e: self._collect_emit(e, events),
+                )
+            )
+
+    def test_pads_missing_definitions(self, generator):
+        """If the LLM returns fewer definitions than labels, pad with empty strings."""
+        generator._gemini_service.generate_json.return_value = {
+            "row_axis_label": "Is actually",
+            "col_axis_label": "Feels like",
+            "labels": ["Gen-Z", "Millennial", "Gen-X"],
+            "definitions": ["Born 1997-2012"],  # only 1 definition for 3 labels
+        }
+        settings = MatrixSettings()
+        events: list = []
+        concepts, _ = run_async(
+            generator.generate_from_description(
+                project_id="test",
+                description="some description",
+                n=3,
+                language="English",
+                style_mode="neutral",
+                settings=settings,
+                emit=lambda e: self._collect_emit(e, events),
+            )
+        )
+        assert concepts[0]["definition"] == "Born 1997-2012"
+        assert concepts[1]["definition"] == ""
+        assert concepts[2]["definition"] == ""
