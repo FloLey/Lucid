@@ -77,8 +77,11 @@ class MatrixDB:
             try:
                 async with engine.begin() as conn:
                     await conn.execute(text(col_sql))
-            except Exception:
-                pass  # Column already exists
+            except Exception as exc:
+                if "duplicate column" in str(exc).lower():
+                    logger.debug("Migration: column already exists, skipping (%s)", exc)
+                else:
+                    logger.warning("Unexpected error during DB migration: %s — %s", col_sql, exc)
 
     # ── Projects ──────────────────────────────────────────────────────────
 

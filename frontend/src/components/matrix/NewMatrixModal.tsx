@@ -28,26 +28,17 @@ export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProp
     setCreating(true);
     setError(null);
     try {
+      const sharedParams = {
+        n,
+        language,
+        style_mode: styleMode,
+        include_images: includeImages,
+        name: name.trim() || undefined,
+      };
       const params: CreateMatrixParams =
         inputMode === 'description'
-          ? {
-              input_mode: 'description',
-              description: description.trim(),
-              n,
-              language,
-              style_mode: styleMode,
-              include_images: includeImages,
-              name: name.trim() || undefined,
-            }
-          : {
-              input_mode: 'theme',
-              theme: theme.trim(),
-              n,
-              language,
-              style_mode: styleMode,
-              include_images: includeImages,
-              name: name.trim() || undefined,
-            };
+          ? { ...sharedParams, input_mode: 'description', description: description.trim() }
+          : { ...sharedParams, input_mode: 'theme', theme: theme.trim() };
       await onCreate(params);
       onClose();
     } catch (err: unknown) {
