@@ -248,7 +248,8 @@ class MatrixService:
         """Full generation pipeline running as a background asyncio.Task."""
         settings = self._settings
         n = req.n
-        theme = req.theme
+        # In description mode, req.theme is empty; the description itself acts as theme.
+        theme = req.description if req.input_mode == "description" else req.theme
         style_mode = req.style_mode
 
         try:
@@ -264,17 +265,13 @@ class MatrixService:
                     settings=settings,
                     emit=self._emit,
                 )
-                # Persist diagonal cells together with pre-computed axes
-                for i, (c, (row_desc, col_desc)) in enumerate(
-                    zip(concepts, axes_results)
-                ):
+                # Persist only axis descriptors on diagonal cells — content is
+                # generated later along with all other cells.
+                for i, (row_desc, col_desc) in enumerate(axes_results):
                     await self._db.upsert_cell(
                         project_id, i, i,
-                        label=c["label"],
-                        definition=c["definition"],
                         row_descriptor=row_desc,
                         col_descriptor=col_desc,
-                        cell_status="complete",
                     )
             else:
                 # Step 1 — Diagonal concepts
@@ -318,9 +315,17 @@ class MatrixService:
                         col_descriptor=col_desc,
                     )
 
-            # Step 3 — Off-diagonal cells, near-diagonal first
+            # Step 3 — Cell generation.
+            # In description mode all n² cells (including diagonal) are generated
+            # equally. In theme mode only off-diagonal cells are generated here
+            # (diagonal cells were already populated in steps 1+2).
+            cell_filter = (
+                [(r, c) for r in range(n) for c in range(n)]
+                if req.input_mode == "description"
+                else [(r, c) for r in range(n) for c in range(n) if r != c]
+            )
             off_diag = sorted(
-                [(r, c) for r in range(n) for c in range(n) if r != c],
+                cell_filter,
                 key=lambda rc: (abs(rc[0] - rc[1]), rc[0], rc[1]),
             )
 
@@ -357,11 +362,19 @@ class MatrixService:
                     )
                     async with labels_lock:
                         used_labels.append(result["concept"])
+                    # For diagonal cells in description mode, also populate
+                    # label/definition so existing display logic works correctly.
+                    diag_extra: Dict[str, str] = (
+                        {"label": result["concept"], "definition": result["explanation"]}
+                        if row == col
+                        else {}
+                    )
                     await self._db.upsert_cell(
                         project_id, row, col,
                         concept=result["concept"],
                         explanation=result["explanation"],
                         cell_status="complete",
+                        **diag_extra,
                     )
                     await self._emit(
                         {

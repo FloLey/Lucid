@@ -96,7 +96,7 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
             return (
               <div
                 key={i}
-                className="text-xs font-semibold text-gray-600 dark:text-gray-300 text-center px-1 pb-1 truncate"
+                className="text-xs font-semibold text-gray-600 dark:text-gray-300 text-center px-1 pb-1 break-words line-clamp-3"
                 title={dc?.col_descriptor ?? dc?.label ?? ''}
               >
                 {dc?.col_descriptor || dc?.label || `C${i}`}
@@ -113,7 +113,7 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
                 className="flex items-center justify-end pr-2 text-xs font-semibold text-gray-600 dark:text-gray-300"
                 title={getDiagCell(row)?.row_descriptor ?? getDiagCell(row)?.label ?? ''}
               >
-                <span className="truncate">
+                <span className="break-words line-clamp-2 text-right">
                   {getDiagCell(row)?.row_descriptor || getDiagCell(row)?.label || `R${row}`}
                 </span>
               </div>

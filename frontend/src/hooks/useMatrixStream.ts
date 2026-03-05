@@ -134,15 +134,22 @@ export function useMatrixStream({
         );
         break;
 
-      case 'cell':
+      case 'cell': {
+        // For diagonal cells in description mode the server emits a "cell" event
+        // (not "diagonal"). Mirror concept→label / explanation→definition so the
+        // reveal-view display logic, which reads `cell.label` for diagonal cells,
+        // still works correctly during live streaming.
+        const isDiag = event.row === event.col;
         onUpdateRef.current((prev) =>
           patchCell(prev, event.row, event.col, {
             concept: event.concept,
             explanation: event.explanation,
             cell_status: 'complete',
+            ...(isDiag ? { label: event.concept, definition: event.explanation } : {}),
           })
         );
         break;
+      }
 
       case 'cell_failed':
         onUpdateRef.current((prev) =>

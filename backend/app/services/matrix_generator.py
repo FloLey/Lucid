@@ -299,7 +299,8 @@ class MatrixGenerator:
         """
         Single LLM call: derive axes and labels from a description.
         Returns (concepts, axes_results) in the same shape expected by _run_pipeline.
-        Emits diagonal + axes events.
+        Emits axes events only (no diagonal events — all cells are generated equally
+        in description mode, diagonal cells are not pre-populated).
         """
         prompt = self._get_prompt("matrix_description_axes").format(
             description=description,
@@ -334,19 +335,9 @@ class MatrixGenerator:
             for i in range(n)
         ]
 
-        # Emit diagonal events (reuse existing event structure)
-        for i, concept in enumerate(concepts):
-            await emit(
-                {
-                    "type": "diagonal",
-                    "project_id": project_id,
-                    "index": i,
-                    "label": concept["label"],
-                    "definition": concept["definition"],
-                }
-            )
-
         # Emit axes events (reuse existing event structure)
+        # Note: no diagonal events — in description mode all cells are generated
+        # equally (including diagonal), so we don't pre-populate them here.
         for i, (row_desc, col_desc) in enumerate(axes_results):
             await emit(
                 {
