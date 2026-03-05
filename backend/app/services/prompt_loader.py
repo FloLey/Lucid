@@ -27,6 +27,7 @@ PROMPT_FILES: Dict[str, str] = {
     "matrix_cell": "matrix_cell.prompt",
     "matrix_validator": "matrix_validator.prompt",
     "matrix_image_builder": "matrix_image_builder.prompt",
+    "matrix_description_axes": "matrix_description_axes.prompt",
 }
 
 
