@@ -5,3 +5,4 @@ services:
   backend:
     ports:
       - "${LUCID_BIND_IP:?Error: LUCID_BIND_IP environment variable is not set}:8000:8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
