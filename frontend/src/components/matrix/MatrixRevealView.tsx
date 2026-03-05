@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, Fragment } from 'react';
 import type { MatrixProject, MatrixCell } from '../../types';
 
 type CellRevealStage = 'hidden' | 'first' | 'second';
@@ -106,7 +106,7 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
 
           {/* Rows */}
           {Array.from({ length: n }, (_, row) => (
-            <>
+            <Fragment key={row}>
               {/* Row label */}
               <div
                 key={`label-${row}`}
@@ -140,7 +140,7 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
                   />
                 );
               })}
-            </>
+            </Fragment>
           ))}
         </div>
       </div>
