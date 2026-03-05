@@ -12,12 +12,12 @@ export default function StageDraft() {
   const {
     projectId,
     currentProject: project,
-    stageLoading: loading,
-    setStageLoading: setLoading,
     setError,
     updateProject,
     advanceStage: onNext,
   } = useProject();
+
+  const [loading, setLoading] = useState(false);
 
   const [draftText, setDraftText] = useState('');
   const [numSlides, setNumSlides] = useState<number | null>(null);

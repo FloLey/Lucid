@@ -10,13 +10,13 @@ export default function Stage3() {
   const {
     projectId,
     currentProject: project,
-    stageLoading: loading,
-    setStageLoading: setLoading,
     setError,
     updateProject,
     advanceStage: onNext,
     previousStage: onBack,
   } = useProject();
+
+  const [loading, setLoading] = useState(false);
 
   const [styleInstructions, setStyleInstructions] = useState('');
   const [regenInstructionSlide, setRegenInstructionSlide] = useState<number | null>(null);

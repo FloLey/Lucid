@@ -9,9 +9,7 @@ interface ProjectContextValue {
   projectsLoading: boolean;
   currentProject: Project | null;
   projectId: string;
-  stageLoading: boolean;
   error: string | null;
-  setStageLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   updateProject: (project: Project) => void;
   openProject: (projectId: string) => Promise<void>;
@@ -41,7 +39,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<ProjectCard[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [projectsLoading, setProjectsLoading] = useState(true);
-  const [stageLoading, setStageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const setNormalizedProject = useCallback((proj: Project) => {
@@ -170,9 +167,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       projectsLoading,
       currentProject,
       projectId: currentProject?.project_id ?? '',
-      stageLoading,
       error,
-      setStageLoading,
       setError,
       updateProject,
       openProject,
@@ -187,8 +182,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       goToStage,
     }),
     [
-      projects, projectsLoading, currentProject, stageLoading, error,
-      setStageLoading, setError, updateProject, openProject, closeProject,
+      projects, projectsLoading, currentProject, error,
+      setError, updateProject, openProject, closeProject,
       createNewProject, deleteProject, refreshProjects, renameCurrentProject,
       generateProjectTitle, advanceStage, previousStage, goToStage,
     ],

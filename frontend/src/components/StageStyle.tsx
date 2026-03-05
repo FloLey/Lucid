@@ -11,13 +11,13 @@ export default function Stage2() {
   const {
     projectId,
     currentProject: project,
-    stageLoading: loading,
-    setStageLoading: setLoading,
     setError,
     updateProject,
     advanceStage: onNext,
     previousStage: onBack,
   } = useProject();
+
+  const [loading, setLoading] = useState(false);
 
   const [numProposals, setNumProposals] = useState(3);
   const [instructions, setInstructions] = useState('');

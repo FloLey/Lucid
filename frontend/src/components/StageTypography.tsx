@@ -19,7 +19,6 @@ export default function StageTypography() {
   const {
     projectId,
     currentProject: project,
-    stageLoading: loading,
     setError,
     updateProject,
     previousStage: onBack,
@@ -307,7 +306,7 @@ export default function StageTypography() {
           style={style}
           selectedBox={selectedBox}
           hasTitle={hasTitle}
-          loading={loading || applyingToAll}
+          loading={applyingToAll}
           setSelectedBox={setSelectedBox}
           updateLocalStyle={updateStyle}
           onApplyToAll={applyToAll}
