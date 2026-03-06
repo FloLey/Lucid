@@ -788,6 +788,38 @@ class TestMatrixRoutes:
         assert s["max_concurrency"] == 4
         assert s["max_retries"] == 3
 
+    def test_generate_images_not_found(self, client):
+        resp = client.post("/api/matrix/nonexistent-id/generate-images")
+        assert resp.status_code == 404
+
+    def test_generate_images_starts_background_task(self, client, mock_create, monkeypatch):
+        # Create a complete matrix without images
+        create_resp = client.post("/api/matrix/", json={"theme": "Climate Change", "n": 2})
+        matrix_id = create_resp.json()["matrix"]["id"]
+        await_helper = run_async(matrix_db.update_project_status(matrix_id, "complete"))
+
+        generated = []
+
+        async def _fake_generate(project_id: str):
+            generated.append(project_id)
+
+        monkeypatch.setattr(container.matrix_service, "generate_images_for_project", _fake_generate)
+        monkeypatch.setattr(container.matrix_service, "is_generating", lambda pid: False)
+
+        resp = client.post(f"/api/matrix/{matrix_id}/generate-images")
+        assert resp.status_code == 200
+        assert resp.json() == {"started": True}
+
+    def test_generate_images_rejected_when_already_generating(self, client, mock_create, monkeypatch):
+        create_resp = client.post("/api/matrix/", json={"theme": "Philosophy", "n": 2})
+        matrix_id = create_resp.json()["matrix"]["id"]
+
+        monkeypatch.setattr(container.matrix_service, "is_generating", lambda pid: True)
+
+        resp = client.post(f"/api/matrix/{matrix_id}/generate-images")
+        assert resp.status_code == 400
+        assert "already in progress" in resp.json()["detail"]
+
 
 # ── 5. MatrixService ──────────────────────────────────────────────────────
 
