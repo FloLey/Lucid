@@ -25,6 +25,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
   );
   const [regenInstructions, setRegenInstructions] = useState('');
   const [regenLoading, setRegenLoading] = useState(false);
+  const [imgGenLoading, setImgGenLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
 
   const handleUpdate = useCallback(
@@ -137,6 +138,18 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
     }
   };
 
+  const handleGenerateAllImages = async () => {
+    setImgGenLoading(true);
+    try {
+      await api.generateMatrixImages(matrix.id);
+      startStream(matrix.id);
+    } catch (err) {
+      setStreamError(getErrorMessage(err, 'Failed to start image generation'));
+    } finally {
+      setImgGenLoading(false);
+    }
+  };
+
   // In description mode all cells are intersections — none are "diagonal concept seeds"
   const selectedIsDiagonal = selectedCell
     ? !isDescriptionMode && selectedCell.row === selectedCell.col
@@ -161,6 +174,16 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
               </svg>
               Generating…
             </div>
+          )}
+          {matrix.status === 'complete' && !isStreaming &&
+            matrix.cells.some((c) => c.cell_status === 'complete' && !c.image_url) && (
+            <button
+              onClick={handleGenerateAllImages}
+              disabled={imgGenLoading}
+              className="px-3 py-1.5 text-xs font-medium text-lucid-600 dark:text-lucid-400 border border-lucid-300 dark:border-lucid-700 rounded-lg hover:bg-lucid-50 dark:hover:bg-lucid-900/30 disabled:opacity-50 transition-colors"
+            >
+              {imgGenLoading ? 'Starting…' : '+ Generate images'}
+            </button>
           )}
           {matrix.status === 'complete' && (
             <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden text-xs font-medium">
@@ -348,7 +371,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                 >
                   {regenLoading ? 'Regenerating…' : 'Regenerate concept'}
                 </button>
-                {matrix.include_images && (
+                {selectedCell.image_url && (
                   <button
                     onClick={handleRegenerateImage}
                     disabled={regenLoading}
