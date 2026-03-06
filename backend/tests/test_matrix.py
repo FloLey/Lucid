@@ -1701,22 +1701,23 @@ class TestDescriptionModePipeline:
             diag_cell = next(c for c in final.cells if c.row == r and c.col == r)
             assert diag_cell.concept == f"Concept-{r}-{r}"
 
-    def test_description_mode_cells_generated_in_diagonal_sum_order(self, monkeypatch):
-        """Cells must be generated in ascending row+col order, ties broken by higher row.
+    def test_description_mode_cells_generated_corners_first(self, monkeypatch):
+        """Cells farthest from the grid centre are generated first (corners → centre).
 
-        For a 2×2 grid the expected sequence is:
-        (0,0) → (1,0) → (0,1) → (1,1)
+        For a 3×3 grid the expected sequence is:
+        corners (0,0),(2,0),(0,2),(2,2) → edges (1,0),(0,1),(2,1),(1,2) → centre (1,1)
         """
-        n = 2
+        n = 3
         generated_positions: list[tuple[int, int]] = []
 
         async def _run():
             async def _fake_from_description(project_id, description, n_rows, n_cols,
                                              language, style_mode, settings, emit):
-                row_concepts = [{"label": "Alpha", "definition": ""}, {"label": "Beta", "definition": ""}]
-                col_concepts = [{"label": "Alpha", "definition": ""}, {"label": "Beta", "definition": ""}]
-                row_axes = ["Row Alpha", "Row Beta"]
-                col_axes = ["Col Alpha", "Col Beta"]
+                labels = ["Alpha", "Beta", "Gamma"]
+                row_concepts = [{"label": lbl, "definition": ""} for lbl in labels]
+                col_concepts = [{"label": lbl, "definition": ""} for lbl in labels]
+                row_axes = [f"Row {lbl}" for lbl in labels]
+                col_axes = [f"Col {lbl}" for lbl in labels]
                 return row_concepts, col_concepts, row_axes, col_axes
 
             async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
@@ -1750,19 +1751,24 @@ class TestDescriptionModePipeline:
 
         run_async(_run())
 
+        cr, cc = (n - 1) / 2, (n - 1) / 2
         expected_order = sorted(
             [(r, c) for r in range(n) for c in range(n)],
-            key=lambda rc: (rc[0] + rc[1], -rc[0]),
+            key=lambda rc: (-(abs(rc[0] - cr) + abs(rc[1] - cc)), rc[0] + rc[1], -rc[0]),
         )
+        # Sanity-check: first four positions are the four corners
+        assert set(expected_order[:4]) == {(0, 0), (0, n - 1), (n - 1, 0), (n - 1, n - 1)}
+        # Last position is the centre
+        assert expected_order[-1] == (n // 2, n // 2)
         assert generated_positions == expected_order
 
-    def test_theme_mode_off_diagonal_cells_generated_in_diagonal_sum_order(self, monkeypatch):
-        """Theme mode: off-diagonal cells generated in ascending row+col order.
+    def test_theme_mode_off_diagonal_cells_generated_corners_first(self, monkeypatch):
+        """Theme mode: off-diagonal cells generated corners-first (farthest from centre).
 
-        For a 2×2 grid (only off-diagonal) the expected sequence is:
-        (1,0) → (0,1)
+        For a 3×3 grid (diagonal pre-seeded) the expected off-diagonal sequence is:
+        (2,0),(0,2) → (1,0),(0,1),(2,1),(1,2)
         """
-        n = 2
+        n = 3
         generated_positions: list[tuple[int, int]] = []
 
         async def _run():
@@ -1812,8 +1818,14 @@ class TestDescriptionModePipeline:
 
         run_async(_run())
 
+        cr, cc = (n - 1) / 2, (n - 1) / 2
         off_diagonal = [(r, c) for r in range(n) for c in range(n) if r != c]
-        expected_order = sorted(off_diagonal, key=lambda rc: (rc[0] + rc[1], -rc[0]))
+        expected_order = sorted(
+            off_diagonal,
+            key=lambda rc: (-(abs(rc[0] - cr) + abs(rc[1] - cc)), rc[0] + rc[1], -rc[0]),
+        )
+        # The two anti-diagonal corners should be generated first
+        assert expected_order[:2] == [(2, 0), (0, 2)]
         assert generated_positions == expected_order
 
     def test_generate_images_for_project_includes_description_mode_diagonal_cells(

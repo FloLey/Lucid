@@ -343,8 +343,10 @@ class MatrixService:
             # Step 3 — Cell generation.
             # Description mode: all n_rows × n_cols cells generated equally.
             # Theme mode: only off-diagonal cells (diagonal pre-populated in steps 1+2).
-            # Both modes use the same diagonal-sweep order: increasing row+col sum,
-            # ties broken by higher row first (e.g. 2×2: (0,0)→(1,0)→(0,1)→(1,1)).
+            # Both modes use the same corner-first order: cells farthest from the
+            # grid centre are generated first (corners → edges → centre).  Within
+            # each distance ring the tie-break is diagonal-sum ascending then higher
+            # row first, giving a consistent deterministic sweep.
             # Sequential execution ensures each cell sees all prior concepts in
             # already_used_labels, making duplicate prevention reliable.
             all_positions = [
@@ -353,9 +355,10 @@ class MatrixService:
                 for c in range(n_cols)
                 if req.input_mode == "description" or r != c
             ]
+            _cr, _cc = (n_rows - 1) / 2, (n_cols - 1) / 2
             cells_to_generate = sorted(
                 all_positions,
-                key=lambda rc: (rc[0] + rc[1], -rc[0]),
+                key=lambda rc: (-(abs(rc[0] - _cr) + abs(rc[1] - _cc)), rc[0] + rc[1], -rc[0]),
             )
 
             if req.input_mode == "description":
