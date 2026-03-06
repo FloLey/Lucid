@@ -1700,3 +1700,186 @@ class TestDescriptionModePipeline:
         for r in range(n):
             diag_cell = next(c for c in final.cells if c.row == r and c.col == r)
             assert diag_cell.concept == f"Concept-{r}-{r}"
+
+    def test_description_mode_cells_generated_in_diagonal_sum_order(self, monkeypatch):
+        """Cells must be generated in ascending row+col order, ties broken by higher row.
+
+        For a 2×2 grid the expected sequence is:
+        (0,0) → (1,0) → (0,1) → (1,1)
+        """
+        n = 2
+        generated_positions: list[tuple[int, int]] = []
+
+        async def _run():
+            async def _fake_from_description(project_id, description, n_rows, n_cols,
+                                             language, style_mode, settings, emit):
+                row_concepts = [{"label": "Alpha", "definition": ""}, {"label": "Beta", "definition": ""}]
+                col_concepts = [{"label": "Alpha", "definition": ""}, {"label": "Beta", "definition": ""}]
+                row_axes = ["Row Alpha", "Row Beta"]
+                col_axes = ["Col Alpha", "Col Beta"]
+                return row_concepts, col_concepts, row_axes, col_axes
+
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit, extra_instructions=""):
+                generated_positions.append((row, col))
+                return {"concept": f"C-{row}-{col}", "explanation": ""}
+
+            async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
+                return []
+
+            monkeypatch.setattr(container.matrix_service._gen, "generate_from_description",
+                                _fake_from_description)
+            monkeypatch.setattr(container.matrix_service._gen, "generate_cell",
+                                _fake_generate_cell)
+            monkeypatch.setattr(container.matrix_service._gen, "validate_matrix",
+                                _fake_validate)
+
+            req = CreateMatrixRequest(
+                input_mode="description",
+                description="feels like one era but is actually another",
+                n=n,
+                include_images=False,
+            )
+            project = await container.matrix_service.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+        run_async(_run())
+
+        expected_order = sorted(
+            [(r, c) for r in range(n) for c in range(n)],
+            key=lambda rc: (rc[0] + rc[1], -rc[0]),
+        )
+        assert generated_positions == expected_order
+
+    def test_theme_mode_off_diagonal_cells_generated_in_diagonal_sum_order(self, monkeypatch):
+        """Theme mode: off-diagonal cells generated in ascending row+col order.
+
+        For a 2×2 grid (only off-diagonal) the expected sequence is:
+        (1,0) → (0,1)
+        """
+        n = 2
+        generated_positions: list[tuple[int, int]] = []
+
+        async def _run():
+            async def _fake_diagonal(project_id, theme, n, language, style_mode, settings, emit):
+                concepts = [
+                    {"label": f"Concept{i}", "definition": f"Def{i}"}
+                    for i in range(n)
+                ]
+                for i, c in enumerate(concepts):
+                    await emit({"type": "diagonal", "project_id": project_id, "index": i,
+                                "label": c["label"], "definition": c["definition"]})
+                return concepts
+
+            async def _fake_axes(project_id, diagonal_index, concept, all_concepts,
+                                 settings, emit):
+                await emit({"type": "axes", "project_id": project_id,
+                            "row": diagonal_index, "col": diagonal_index,
+                            "row_descriptor": f"row-{diagonal_index}",
+                            "col_descriptor": f"col-{diagonal_index}"})
+                return (f"row-{diagonal_index}", f"col-{diagonal_index}")
+
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit, extra_instructions=""):
+                generated_positions.append((row, col))
+                return {"concept": f"C-{row}-{col}", "explanation": ""}
+
+            async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
+                return []
+
+            monkeypatch.setattr(container.matrix_service._gen, "generate_diagonal",
+                                _fake_diagonal)
+            monkeypatch.setattr(container.matrix_service._gen, "generate_axes_for_concept",
+                                _fake_axes)
+            monkeypatch.setattr(container.matrix_service._gen, "generate_cell",
+                                _fake_generate_cell)
+            monkeypatch.setattr(container.matrix_service._gen, "validate_matrix",
+                                _fake_validate)
+
+            req = CreateMatrixRequest(theme="Philosophy of Mind", n=n, include_images=False)
+            project = await container.matrix_service.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+        run_async(_run())
+
+        off_diagonal = [(r, c) for r in range(n) for c in range(n) if r != c]
+        expected_order = sorted(off_diagonal, key=lambda rc: (rc[0] + rc[1], -rc[0]))
+        assert generated_positions == expected_order
+
+    def test_generate_images_for_project_includes_description_mode_diagonal_cells(
+        self, monkeypatch
+    ):
+        """generate_images_for_project must generate images for diagonal cells in
+        description mode, where those cells store concept/explanation (not label/definition).
+        """
+        image_calls: list[tuple[int, int]] = []
+
+        async def _run():
+            async def _fake_from_description(project_id, description, n_rows, n_cols,
+                                             language, style_mode, settings, emit):
+                row_concepts = [{"label": "Alpha", "definition": ""}, {"label": "Beta", "definition": ""}]
+                col_concepts = [{"label": "Alpha", "definition": ""}, {"label": "Beta", "definition": ""}]
+                row_axes = ["Row Alpha", "Row Beta"]
+                col_axes = ["Col Alpha", "Col Beta"]
+                return row_concepts, col_concepts, row_axes, col_axes
+
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit, extra_instructions=""):
+                return {"concept": f"C-{row}-{col}", "explanation": "some explanation"}
+
+            async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
+                return []
+
+            async def _fake_cell_image(project_id, row, col, concept, context,
+                                       settings, emit):
+                image_calls.append((row, col))
+                return f"/images/fake-{row}-{col}.png"
+
+            monkeypatch.setattr(container.matrix_service._gen, "generate_from_description",
+                                _fake_from_description)
+            monkeypatch.setattr(container.matrix_service._gen, "generate_cell",
+                                _fake_generate_cell)
+            monkeypatch.setattr(container.matrix_service._gen, "validate_matrix",
+                                _fake_validate)
+            monkeypatch.setattr(container.matrix_service._gen, "generate_cell_image",
+                                _fake_cell_image)
+
+            req = CreateMatrixRequest(
+                input_mode="description",
+                description="feels like one era but is actually another",
+                n=2,
+                include_images=False,
+            )
+            project = await container.matrix_service.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+            # Now trigger the separate "generate images later" path
+            await container.matrix_service.generate_images_for_project(project.id)
+            return project.id
+
+        project_id = run_async(_run())
+
+        # Diagonal cells (0,0) and (1,1) must have had images generated
+        assert (0, 0) in image_calls
+        assert (1, 1) in image_calls
+
+        # Verify image_url is persisted in DB for diagonal cells
+        final = run_async(matrix_db.get_project(project_id))
+        for r in range(2):
+            diag_cell = next(c for c in final.cells if c.row == r and c.col == r)
+            assert diag_cell.image_url is not None

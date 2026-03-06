@@ -116,8 +116,12 @@ class MatrixService:
 
         coros = []
         for cell in project.cells:
-            concept = cell.label if cell.row == cell.col else cell.concept
-            context = cell.definition if cell.row == cell.col else cell.explanation
+            if cell.row == cell.col and project.input_mode != "description":
+                concept = cell.label
+                context = cell.definition
+            else:
+                concept = cell.concept
+                context = cell.explanation
             if concept:
                 coros.append(_gen_one(cell.row, cell.col, concept or "", context or ""))
 
@@ -339,24 +343,26 @@ class MatrixService:
             # Step 3 — Cell generation.
             # Description mode: all n_rows × n_cols cells generated equally.
             # Theme mode: only off-diagonal cells (diagonal pre-populated in steps 1+2).
-            if req.input_mode == "description":
-                cells_to_generate = [
-                    (r, c) for r in range(n_rows) for c in range(n_cols)
-                ]
-            else:
-                cells_to_generate = sorted(
-                    [(r, c) for r in range(n) for c in range(n) if r != c],
-                    key=lambda rc: (abs(rc[0] - rc[1]), rc[0], rc[1]),
-                )
+            # Both modes use the same diagonal-sweep order: increasing row+col sum,
+            # ties broken by higher row first (e.g. 2×2: (0,0)→(1,0)→(0,1)→(1,1)).
+            # Sequential execution ensures each cell sees all prior concepts in
+            # already_used_labels, making duplicate prevention reliable.
+            all_positions = [
+                (r, c)
+                for r in range(n_rows)
+                for c in range(n_cols)
+                if req.input_mode == "description" or r != c
+            ]
+            cells_to_generate = sorted(
+                all_positions,
+                key=lambda rc: (rc[0] + rc[1], -rc[0]),
+            )
 
-            # Collect all labels to avoid duplicates across cells.
-            # A lock ensures concurrent coroutines take consistent snapshots.
             if req.input_mode == "description":
                 all_labels = [c["label"] for c in row_concepts] + [c["label"] for c in col_concepts]
             else:
                 all_labels = [c["label"] for c in concepts]
             used_labels: List[str] = list(all_labels)
-            labels_lock = asyncio.Lock()
 
             async def _gen_one_cell(row: int, col: int) -> None:
                 if req.input_mode == "description":
@@ -377,8 +383,6 @@ class MatrixService:
                     cell_status="generating",
                 )
                 try:
-                    async with labels_lock:
-                        snapshot = list(used_labels)
                     result = await self._gen.generate_cell(
                         project_id=project_id,
                         row=row,
@@ -387,14 +391,13 @@ class MatrixService:
                         col_concept=col_concept,
                         row_descriptor=row_descriptor,
                         col_descriptor=col_descriptor,
-                        already_used_labels=snapshot,
+                        already_used_labels=list(used_labels),
                         theme=theme,
                         style_mode=style_mode,
                         settings=settings,
                         emit=self._emit,
                     )
-                    async with labels_lock:
-                        used_labels.append(result["concept"])
+                    used_labels.append(result["concept"])
                     await self._db.upsert_cell(
                         project_id, row, col,
                         concept=result["concept"],
@@ -427,10 +430,8 @@ class MatrixService:
                         }
                     )
 
-            await bounded_gather(
-                [_gen_one_cell(r, c) for r, c in cells_to_generate],
-                limit=settings.max_concurrency,
-            )
+            for r, c in cells_to_generate:
+                await _gen_one_cell(r, c)
 
             # Step 4 — Validate + targeted retry
             for attempt in range(settings.max_retries + 1):
