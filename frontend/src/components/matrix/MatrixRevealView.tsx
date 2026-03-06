@@ -1,5 +1,6 @@
 import { useState, useCallback, Fragment } from 'react';
 import type { MatrixProject, MatrixCell } from '../../types';
+import { getEffectiveDimensions } from '../../utils/matrix';
 
 type CellRevealStage = 'hidden' | 'first' | 'second';
 
@@ -14,19 +15,34 @@ interface MatrixRevealViewProps {
 export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
   const [revealMap, setRevealMap] = useState<Map<string, CellRevealStage>>(new Map());
 
-  const n = matrix.n;
+  const isDescriptionMode = matrix.input_mode === 'description';
+  const { nRows, nCols } = getEffectiveDimensions(matrix);
 
   const getCell = (row: number, col: number): MatrixCell | undefined =>
     matrix.cells.find((c) => c.row === row && c.col === col);
 
   const getDiagCell = (i: number) => getCell(i, i);
 
+  const getRowHeader = (row: number): string => {
+    if (isDescriptionMode && matrix.row_labels?.length > row) {
+      return matrix.row_labels[row];
+    }
+    return getDiagCell(row)?.row_descriptor ?? getDiagCell(row)?.label ?? `R${row}`;
+  };
+
+  const getColHeader = (col: number): string => {
+    if (isDescriptionMode && matrix.col_labels?.length > col) {
+      return matrix.col_labels[col];
+    }
+    return getDiagCell(col)?.col_descriptor ?? getDiagCell(col)?.label ?? `C${col}`;
+  };
+
   const getStage = (row: number, col: number): CellRevealStage =>
     revealMap.get(cellKey(row, col)) ?? 'hidden';
 
   const handleCellClick = useCallback(
     (cell: MatrixCell) => {
-      const isDiagonal = cell.row === cell.col;
+      const isDiagonal = !isDescriptionMode && cell.row === cell.col;
       const hasSecondary = isDiagonal ? Boolean(cell.definition) : Boolean(cell.image_url);
       const current = revealMap.get(cellKey(cell.row, cell.col)) ?? 'hidden';
 
@@ -41,7 +57,7 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
 
       setRevealMap((prev) => new Map(prev).set(cellKey(cell.row, cell.col), next));
     },
-    [revealMap],
+    [revealMap, isDescriptionMode],
   );
 
   const handleRevealAll = () => {
@@ -84,42 +100,39 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
         <div
           className="grid gap-1 min-w-fit"
           style={{
-            gridTemplateColumns: `80px repeat(${n}, minmax(90px, 1fr))`,
+            gridTemplateColumns: `80px repeat(${nCols}, minmax(90px, 1fr))`,
           }}
         >
           {/* Top-left corner */}
           <div />
 
           {/* Column headers */}
-          {Array.from({ length: n }, (_, i) => {
-            const dc = getDiagCell(i);
-            return (
-              <div
-                key={i}
-                className="text-xs font-semibold text-gray-600 dark:text-gray-300 text-center px-1 pb-1 break-words line-clamp-3"
-                title={dc?.col_descriptor ?? dc?.label ?? ''}
-              >
-                {dc?.col_descriptor || dc?.label || `C${i}`}
-              </div>
-            );
-          })}
+          {Array.from({ length: nCols }, (_, col) => (
+            <div
+              key={col}
+              className="text-xs font-semibold text-gray-600 dark:text-gray-300 text-center px-1 pb-1 break-words line-clamp-3"
+              title={getColHeader(col)}
+            >
+              {getColHeader(col)}
+            </div>
+          ))}
 
           {/* Rows */}
-          {Array.from({ length: n }, (_, row) => (
+          {Array.from({ length: nRows }, (_, row) => (
             <Fragment key={row}>
               {/* Row label */}
               <div
                 key={`label-${row}`}
                 className="flex items-center justify-end pr-2 text-xs font-semibold text-gray-600 dark:text-gray-300"
-                title={getDiagCell(row)?.row_descriptor ?? getDiagCell(row)?.label ?? ''}
+                title={getRowHeader(row)}
               >
                 <span className="break-words line-clamp-2 text-right">
-                  {getDiagCell(row)?.row_descriptor || getDiagCell(row)?.label || `R${row}`}
+                  {getRowHeader(row)}
                 </span>
               </div>
 
               {/* Cells */}
-              {Array.from({ length: n }, (_, col) => {
+              {Array.from({ length: nCols }, (_, col) => {
                 const cell = getCell(row, col);
                 if (!cell) {
                   return (
@@ -134,7 +147,7 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
                   <RevealCell
                     key={col}
                     cell={cell}
-                    isDiagonal={row === col}
+                    isDiagonal={!isDescriptionMode && row === col}
                     stage={stage}
                     onClick={() => handleCellClick(cell)}
                   />
@@ -215,7 +228,7 @@ function RevealCell({ cell, isDiagonal, stage, onClick }: RevealCellProps) {
       className={`aspect-square rounded-lg p-2 cursor-pointer flex items-center justify-center transition-colors ${
         isDiagonal
           ? 'bg-lucid-100 dark:bg-lucid-900/40 hover:bg-lucid-200 dark:hover:bg-lucid-800/40 border border-lucid-200 dark:border-lucid-700'
-          : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 border border-gray-200 dark:border-gray-600'
+          : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
       }`}
     >
       <span className="text-xs font-semibold text-gray-900 dark:text-white text-center leading-tight line-clamp-3">

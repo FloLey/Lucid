@@ -60,6 +60,11 @@ class MatrixProject(BaseModel):
     name: str
     theme: str
     n: int
+    # Separate row/col dimensions for description mode (non-square support)
+    n_rows: int = 0  # 0 means "use n"
+    n_cols: int = 0  # 0 means "use n"
+    row_labels: List[str] = Field(default_factory=list)
+    col_labels: List[str] = Field(default_factory=list)
     language: str = "English"
     style_mode: str = "neutral"
     include_images: bool = False
@@ -71,6 +76,14 @@ class MatrixProject(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    @property
+    def effective_n_rows(self) -> int:
+        return self.n_rows if self.n_rows > 0 else self.n
+
+    @property
+    def effective_n_cols(self) -> int:
+        return self.n_cols if self.n_cols > 0 else self.n
+
 
 class MatrixProjectCard(BaseModel):
     """Lightweight card for project list."""
@@ -79,6 +92,8 @@ class MatrixProjectCard(BaseModel):
     name: str
     theme: str
     n: int
+    n_rows: int = 0
+    n_cols: int = 0
     status: Literal["pending", "generating", "complete", "failed"]
     include_images: bool
     created_at: datetime
@@ -93,6 +108,9 @@ class CreateMatrixRequest(BaseModel):
     theme: str = Field(default="", max_length=1000)
     description: Optional[str] = Field(default=None, max_length=2000)
     n: int = Field(default=4, ge=2, le=8)
+    # Optional separate row/col counts for description mode
+    n_rows: Optional[int] = Field(default=None, ge=2, le=8)
+    n_cols: Optional[int] = Field(default=None, ge=2, le=8)
     language: str = Field(default="English", max_length=50)
     style_mode: str = Field(default="neutral", max_length=50)
     include_images: bool = Field(default=False)
@@ -105,6 +123,16 @@ class CreateMatrixRequest(BaseModel):
         if self.input_mode == "description" and not (self.description or "").strip():
             raise ValueError("description is required for description mode")
         return self
+
+    @property
+    def effective_n_rows(self) -> int:
+        """Actual row count: n_rows if set, else n."""
+        return self.n_rows if self.n_rows is not None else self.n
+
+    @property
+    def effective_n_cols(self) -> int:
+        """Actual col count: n_cols if set, else n."""
+        return self.n_cols if self.n_cols is not None else self.n
 
 
 class RegenerateCellRequest(BaseModel):

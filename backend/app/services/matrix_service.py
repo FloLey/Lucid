@@ -58,6 +58,8 @@ class MatrixService:
             name=req.name,
             input_mode=req.input_mode,
             description=req.description,
+            n_rows=req.effective_n_rows if req.input_mode == "description" else 0,
+            n_cols=req.effective_n_cols if req.input_mode == "description" else 0,
         )
         await self._db.update_project_status(project.id, "generating")
         _queues[project.id] = []
@@ -134,21 +136,35 @@ class MatrixService:
         if project is None:
             raise ValueError("Project not found")
 
-        # Find diagonal cells to get axes and concepts
-        diag_cells = {
-            c.row: c for c in project.cells if c.row == c.col
-        }
-        n = project.n
-        row_concept = {
-            "label": diag_cells[row].label or "",
-            "definition": diag_cells[row].definition or "",
-        }
-        col_concept = {
-            "label": diag_cells[col].label or "",
-            "definition": diag_cells[col].definition or "",
-        }
-        row_descriptor = diag_cells[row].row_descriptor or ""
-        col_descriptor = diag_cells[col].col_descriptor or ""
+        if project.input_mode == "description":
+            # Description mode: use project-level row/col labels
+            row_concept = {
+                "label": project.row_labels[row] if row < len(project.row_labels) else f"Row {row}",
+                "definition": "",
+            }
+            col_concept = {
+                "label": project.col_labels[col] if col < len(project.col_labels) else f"Col {col}",
+                "definition": "",
+            }
+            # Descriptors are stored per-cell for description mode (set during pipeline)
+            cell_obj = await self._db.get_cell(project_id, row, col)
+            row_descriptor = (cell_obj.row_descriptor if cell_obj else None) or row_concept["label"]
+            col_descriptor = (cell_obj.col_descriptor if cell_obj else None) or col_concept["label"]
+        else:
+            # Theme mode: use diagonal cells
+            diag_cells = {
+                c.row: c for c in project.cells if c.row == c.col
+            }
+            row_concept = {
+                "label": diag_cells[row].label or "",
+                "definition": diag_cells[row].definition or "",
+            }
+            col_concept = {
+                "label": diag_cells[col].label or "",
+                "definition": diag_cells[col].definition or "",
+            }
+            row_descriptor = diag_cells[row].row_descriptor or ""
+            col_descriptor = diag_cells[col].col_descriptor or ""
 
         if image_only:
             cell = await self._db.get_cell(project_id, row, col)
@@ -255,25 +271,30 @@ class MatrixService:
         try:
             # Steps 1 + 2 — Fork based on input mode
             if req.input_mode == "description":
-                # Single LLM call derives both labels (diagonal) and axis descriptors
-                concepts, axes_results = await self._gen.generate_from_description(
-                    project_id=project_id,
-                    description=req.description or "",
-                    n=n,
-                    language=req.language,
-                    style_mode=style_mode,
-                    settings=settings,
-                    emit=self._emit,
-                )
-                # Persist only axis descriptors on diagonal cells — content is
-                # generated later along with all other cells.
-                for i, (row_desc, col_desc) in enumerate(axes_results):
-                    await self._db.upsert_cell(
-                        project_id, i, i,
-                        row_descriptor=row_desc,
-                        col_descriptor=col_desc,
+                n_rows = req.effective_n_rows
+                n_cols = req.effective_n_cols
+                # Single LLM call derives separate row/col labels and axis descriptors
+                row_concepts, col_concepts, row_axes, col_axes = (
+                    await self._gen.generate_from_description(
+                        project_id=project_id,
+                        description=req.description or "",
+                        n_rows=n_rows,
+                        n_cols=n_cols,
+                        language=req.language,
+                        style_mode=style_mode,
+                        settings=settings,
+                        emit=self._emit,
                     )
+                )
+                # Persist row/col labels on the project for display
+                await self._db.update_project_labels(
+                    project_id,
+                    [c["label"] for c in row_concepts],
+                    [c["label"] for c in col_concepts],
+                )
             else:
+                n_rows = n
+                n_cols = n
                 # Step 1 — Diagonal concepts
                 concepts = await self._gen.generate_diagonal(
                     project_id=project_id,
@@ -316,28 +337,44 @@ class MatrixService:
                     )
 
             # Step 3 — Cell generation.
-            # In description mode all n² cells (including diagonal) are generated
-            # equally. In theme mode only off-diagonal cells are generated here
-            # (diagonal cells were already populated in steps 1+2).
-            all_coords = [(r, c) for r in range(n) for c in range(n)]
-            cells_to_generate = sorted(
-                all_coords if req.input_mode == "description" else [rc for rc in all_coords if rc[0] != rc[1]],
-                key=lambda rc: (abs(rc[0] - rc[1]), rc[0], rc[1]),
-            )
+            # Description mode: all n_rows × n_cols cells generated equally.
+            # Theme mode: only off-diagonal cells (diagonal pre-populated in steps 1+2).
+            if req.input_mode == "description":
+                cells_to_generate = [
+                    (r, c) for r in range(n_rows) for c in range(n_cols)
+                ]
+            else:
+                cells_to_generate = sorted(
+                    [(r, c) for r in range(n) for c in range(n) if r != c],
+                    key=lambda rc: (abs(rc[0] - rc[1]), rc[0], rc[1]),
+                )
 
             # Collect all labels to avoid duplicates across cells.
-            # A lock ensures concurrent coroutines take consistent snapshots
-            # and append results without racing.
-            used_labels: List[str] = [c["label"] for c in concepts]
+            # A lock ensures concurrent coroutines take consistent snapshots.
+            if req.input_mode == "description":
+                all_labels = [c["label"] for c in row_concepts] + [c["label"] for c in col_concepts]
+            else:
+                all_labels = [c["label"] for c in concepts]
+            used_labels: List[str] = list(all_labels)
             labels_lock = asyncio.Lock()
 
             async def _gen_one_cell(row: int, col: int) -> None:
-                row_concept = concepts[row]
-                col_concept = concepts[col]
-                row_descriptor = axes_results[row][0]
-                col_descriptor = axes_results[col][1]
+                if req.input_mode == "description":
+                    row_concept = row_concepts[row]
+                    col_concept = col_concepts[col]
+                    row_descriptor = row_axes[row]
+                    col_descriptor = col_axes[col]
+                else:
+                    row_concept = concepts[row]
+                    col_concept = concepts[col]
+                    row_descriptor = axes_results[row][0]
+                    col_descriptor = axes_results[col][1]
+
                 await self._db.upsert_cell(
-                    project_id, row, col, cell_status="generating"
+                    project_id, row, col,
+                    row_descriptor=row_descriptor,
+                    col_descriptor=col_descriptor,
+                    cell_status="generating",
                 )
                 try:
                     async with labels_lock:
@@ -358,25 +395,18 @@ class MatrixService:
                     )
                     async with labels_lock:
                         used_labels.append(result["concept"])
-                    # For diagonal cells in description mode, also populate
-                    # label/definition so existing display logic works correctly.
-                    diag_extra: Dict[str, str] = (
-                        {"label": result["concept"], "definition": result["explanation"]}
-                        if row == col
-                        else {}
-                    )
                     await self._db.upsert_cell(
                         project_id, row, col,
                         concept=result["concept"],
                         explanation=result["explanation"],
                         cell_status="complete",
-                        **diag_extra,
                     )
+                    completed = sum(1 for lbl in used_labels if lbl not in all_labels)
                     await self._emit(
                         {
                             "type": "progress",
                             "project_id": project_id,
-                            "generated": len(used_labels) - n,
+                            "generated": completed,
                             "total": len(cells_to_generate),
                         }
                     )
@@ -405,15 +435,26 @@ class MatrixService:
             # Step 4 — Validate + targeted retry
             for attempt in range(settings.max_retries + 1):
                 all_cells = await self._db.get_all_cells(project_id)
-                cells_grid = _build_grid(all_cells, n)
-                failures = await self._gen.validate_matrix(
-                    project_id=project_id,
-                    theme=theme,
-                    cells_grid=cells_grid,
-                    axes=axes_results,
-                    settings=settings,
-                    emit=self._emit,
-                )
+                cells_grid = _build_grid(all_cells, n_rows, n_cols)
+                if req.input_mode == "description":
+                    failures = await self._gen.validate_matrix(
+                        project_id=project_id,
+                        theme=theme,
+                        cells_grid=cells_grid,
+                        settings=settings,
+                        emit=self._emit,
+                        row_axes=row_axes,
+                        col_axes=col_axes,
+                    )
+                else:
+                    failures = await self._gen.validate_matrix(
+                        project_id=project_id,
+                        theme=theme,
+                        cells_grid=cells_grid,
+                        settings=settings,
+                        emit=self._emit,
+                        axes=axes_results,
+                    )
                 if not failures:
                     break
                 if attempt < settings.max_retries:
@@ -435,7 +476,13 @@ class MatrixService:
                     cell = await self._db.get_cell(project_id, cell_row, cell_col)
                     if cell is None:
                         return
-                    if cell_row == cell_col:
+                    concept = cell.concept or ""
+                    context: str
+                    if req.input_mode == "description":
+                        row_lbl = row_concepts[cell_row]["label"] if cell_row < len(row_concepts) else ""
+                        col_lbl = col_concepts[cell_col]["label"] if cell_col < len(col_concepts) else ""
+                        context = f"{row_lbl} meets {col_lbl}"
+                    elif cell_row == cell_col:
                         concept = cell.label or ""
                         context = cell.definition or ""
                     else:
@@ -503,13 +550,13 @@ class MatrixService:
 
 
 def _build_grid(
-    cells: List[Any], n: int
+    cells: List[Any], n_rows: int, n_cols: int
 ) -> List[List[Dict[str, str]]]:
-    """Build n×n grid of cell dicts for the validator prompt."""
-    grid: List[List[Dict[str, str]]] = [[{} for _ in range(n)] for _ in range(n)]
+    """Build n_rows×n_cols grid of cell dicts for the validator prompt."""
+    grid: List[List[Dict[str, str]]] = [[{} for _ in range(n_cols)] for _ in range(n_rows)]
     for cell in cells:
         r, c = cell.row, cell.col
-        if 0 <= r < n and 0 <= c < n:
+        if 0 <= r < n_rows and 0 <= c < n_cols:
             grid[r][c] = {
                 "concept": cell.concept or cell.label or "",
                 "explanation": cell.explanation or cell.definition or "",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -40,11 +41,17 @@ def _row_to_cell(row: MatrixCellDB) -> MatrixCell:
 
 
 def _row_to_project(row: MatrixProjectDB, cells: List[MatrixCell]) -> MatrixProject:
+    row_labels: List[str] = json.loads(row.row_labels_json) if row.row_labels_json else []
+    col_labels: List[str] = json.loads(row.col_labels_json) if row.col_labels_json else []
     return MatrixProject(
         id=row.id,
         name=row.name,
         theme=row.theme,
         n=row.n,
+        n_rows=row.n_rows or 0,
+        n_cols=row.n_cols or 0,
+        row_labels=row_labels,
+        col_labels=col_labels,
         language=row.language,
         style_mode=row.style_mode,
         include_images=bool(row.include_images),
@@ -72,6 +79,10 @@ class MatrixDB:
         new_columns = [
             "ALTER TABLE matrix_projects ADD COLUMN input_mode TEXT DEFAULT 'theme'",
             "ALTER TABLE matrix_projects ADD COLUMN description TEXT",
+            "ALTER TABLE matrix_projects ADD COLUMN n_rows INTEGER",
+            "ALTER TABLE matrix_projects ADD COLUMN n_cols INTEGER",
+            "ALTER TABLE matrix_projects ADD COLUMN row_labels_json TEXT",
+            "ALTER TABLE matrix_projects ADD COLUMN col_labels_json TEXT",
         ]
         for col_sql in new_columns:
             try:
@@ -95,11 +106,16 @@ class MatrixDB:
         name: Optional[str] = None,
         input_mode: str = "theme",
         description: Optional[str] = None,
+        n_rows: int = 0,
+        n_cols: int = 0,
     ) -> MatrixProject:
         project_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
         short = project_id[:6]
         auto_name = name or f"Matrix • {theme[:40]} • {short}"
+        # Effective dimensions
+        eff_rows = n_rows if n_rows > 0 else n
+        eff_cols = n_cols if n_cols > 0 else n
 
         async with async_session_factory() as session:
             async with session.begin():
@@ -108,6 +124,8 @@ class MatrixDB:
                     name=auto_name,
                     theme=theme,
                     n=n,
+                    n_rows=n_rows if n_rows > 0 else None,
+                    n_cols=n_cols if n_cols > 0 else None,
                     language=language,
                     style_mode=style_mode,
                     include_images=int(include_images),
@@ -120,14 +138,14 @@ class MatrixDB:
                 )
                 session.add(row)
 
-        # Pre-create all n*n cell stubs so grid renders immediately
-        await self._create_cell_stubs(project_id, n)
+        # Pre-create all cell stubs so grid renders immediately
+        await self._create_cell_stubs(project_id, eff_rows, eff_cols)
         project = await self.get_project(project_id)
         if project is None:
             raise RuntimeError(f"Failed to fetch project {project_id} after creation")
         return project
 
-    async def _create_cell_stubs(self, project_id: str, n: int) -> None:
+    async def _create_cell_stubs(self, project_id: str, n_rows: int, n_cols: int) -> None:
         now = datetime.now(timezone.utc)
         cells = [
             {
@@ -146,8 +164,8 @@ class MatrixDB:
                 "cell_error": None,
                 "attempts": 0,
             }
-            for r in range(n)
-            for c in range(n)
+            for r in range(n_rows)
+            for c in range(n_cols)
         ]
         async with async_session_factory() as session:
             async with session.begin():
@@ -181,6 +199,8 @@ class MatrixDB:
                 name=r.name,
                 theme=r.theme,
                 n=r.n,
+                n_rows=r.n_rows or 0,
+                n_cols=r.n_cols or 0,
                 status=r.status,
                 include_images=bool(r.include_images),
                 created_at=r.created_at,
@@ -203,6 +223,26 @@ class MatrixDB:
                     )
                 )
                 return result.rowcount > 0
+
+    async def update_project_labels(
+        self,
+        project_id: str,
+        row_labels: List[str],
+        col_labels: List[str],
+    ) -> None:
+        """Store row/col axis labels (description mode non-square)."""
+        now = datetime.now(timezone.utc)
+        async with async_session_factory() as session:
+            async with session.begin():
+                await session.execute(
+                    update(MatrixProjectDB)
+                    .where(MatrixProjectDB.id == project_id)
+                    .values(
+                        row_labels_json=json.dumps(row_labels),
+                        col_labels_json=json.dumps(col_labels),
+                        updated_at=now,
+                    )
+                )
 
     async def update_project_status(
         self,

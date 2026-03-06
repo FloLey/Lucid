@@ -154,17 +154,23 @@ export default function MatrixHome({ onOpenSettings }: MatrixHomeProps) {
                 )}
 
                 {/* Mini grid preview */}
-                <div
-                  className="mt-3 grid gap-1"
-                  style={{ gridTemplateColumns: `repeat(${matrix.n}, 1fr)` }}
-                >
-                  {Array.from({ length: matrix.n * matrix.n }).map((_, idx) => (
+                {(() => {
+                  const previewCols = matrix.n_cols > 0 ? matrix.n_cols : matrix.n;
+                  const previewRows = matrix.n_rows > 0 ? matrix.n_rows : matrix.n;
+                  return (
                     <div
-                      key={idx}
-                      className="h-5 rounded-sm bg-lucid-100 dark:bg-lucid-900/30"
-                    />
-                  ))}
-                </div>
+                      className="mt-3 grid gap-1"
+                      style={{ gridTemplateColumns: `repeat(${previewCols}, 1fr)` }}
+                    >
+                      {Array.from({ length: previewRows * previewCols }).map((_, idx) => (
+                        <div
+                          key={idx}
+                          className="h-5 rounded-sm bg-lucid-100 dark:bg-lucid-900/30"
+                        />
+                      ))}
+                    </div>
+                  );
+                })()}
 
                 {/* Footer */}
                 <div className="flex items-center justify-between mt-3">

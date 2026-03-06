@@ -383,6 +383,9 @@ export interface CreateMatrixParams {
   theme?: string;
   description?: string;
   n?: number;
+  /** Description mode only: separate row/col counts (defaults to n). */
+  n_rows?: number;
+  n_cols?: number;
   language?: string;
   style_mode?: string;
   include_images?: boolean;

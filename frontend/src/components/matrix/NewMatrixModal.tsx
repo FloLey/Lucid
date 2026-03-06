@@ -13,6 +13,8 @@ export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProp
   const [theme, setTheme] = useState('');
   const [description, setDescription] = useState('');
   const [n, setN] = useState(4);
+  const [nRows, setNRows] = useState(3);
+  const [nCols, setNCols] = useState(5);
   const [language, setLanguage] = useState('English');
   const [styleMode, setStyleMode] = useState('neutral');
   const [includeImages, setIncludeImages] = useState(false);
@@ -29,7 +31,6 @@ export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProp
     setError(null);
     try {
       const sharedParams = {
-        n,
         language,
         style_mode: styleMode,
         include_images: includeImages,
@@ -37,8 +38,14 @@ export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProp
       };
       const params: CreateMatrixParams =
         inputMode === 'description'
-          ? { ...sharedParams, input_mode: 'description', description: description.trim() }
-          : { ...sharedParams, input_mode: 'theme', theme: theme.trim() };
+          ? {
+              ...sharedParams,
+              input_mode: 'description',
+              description: description.trim(),
+              n_rows: nRows,
+              n_cols: nCols,
+            }
+          : { ...sharedParams, input_mode: 'theme', theme: theme.trim(), n };
       await onCreate(params);
       onClose();
     } catch (err: unknown) {
@@ -81,7 +88,7 @@ export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProp
                   'flex-1 py-2 text-sm font-medium transition-colors',
                   inputMode === 'theme'
                     ? 'bg-lucid-600 text-white'
-                    : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-650',
+                    : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600',
                 ].join(' ')}
               >
                 Theme
@@ -92,7 +99,7 @@ export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProp
                   'flex-1 py-2 text-sm font-medium transition-colors border-l border-gray-300 dark:border-gray-600',
                   inputMode === 'description'
                     ? 'bg-lucid-600 text-white'
-                    : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-650',
+                    : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600',
                 ].join(' ')}
               >
                 Description
@@ -138,31 +145,82 @@ export default function NewMatrixModal({ onClose, onCreate }: NewMatrixModalProp
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Matrix Size
-            </label>
-            <div className="flex items-center gap-2">
-              {SIZES.map((val) => (
-                <button
-                  key={val}
-                  onClick={() => setN(val)}
-                  className={[
-                    'w-10 h-10 rounded-lg text-sm font-medium border transition-colors',
-                    n === val
-                      ? 'bg-lucid-600 text-white border-lucid-600'
-                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-lucid-400',
-                  ].join(' ')}
-                >
-                  {val}
-                </button>
-              ))}
-              <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">×{n}</span>
+          {/* Size pickers — single for theme mode, separate row/col for description mode */}
+          {inputMode === 'theme' ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Matrix Size
+              </label>
+              <div className="flex items-center gap-2">
+                {SIZES.map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setN(val)}
+                    className={[
+                      'w-10 h-10 rounded-lg text-sm font-medium border transition-colors',
+                      n === val
+                        ? 'bg-lucid-600 text-white border-lucid-600'
+                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-lucid-400',
+                    ].join(' ')}
+                  >
+                    {val}
+                  </button>
+                ))}
+                <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">×{n}</span>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                {n * n} cells total ({n} diagonal + {n * (n - 1)} intersections)
+              </p>
             </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              {n * n} cells total ({n} diagonal + {n * (n - 1)} intersections)
-            </p>
-          </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Rows
+                </label>
+                <div className="flex items-center gap-2">
+                  {SIZES.map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setNRows(val)}
+                      className={[
+                        'w-10 h-10 rounded-lg text-sm font-medium border transition-colors',
+                        nRows === val
+                          ? 'bg-lucid-600 text-white border-lucid-600'
+                          : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-lucid-400',
+                      ].join(' ')}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Columns
+                </label>
+                <div className="flex items-center gap-2">
+                  {SIZES.map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => setNCols(val)}
+                      className={[
+                        'w-10 h-10 rounded-lg text-sm font-medium border transition-colors',
+                        nCols === val
+                          ? 'bg-lucid-600 text-white border-lucid-600'
+                          : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-lucid-400',
+                      ].join(' ')}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                {nRows * nCols} cells total ({nRows} rows × {nCols} columns)
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

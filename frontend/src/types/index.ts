@@ -186,6 +186,12 @@ export interface MatrixProject {
   name: string;
   theme: string;
   n: number;
+  /** Non-zero only for description mode non-square matrices; otherwise use n. */
+  n_rows: number;
+  n_cols: number;
+  /** Row/column axis labels for description mode. Empty array for theme mode. */
+  row_labels: string[];
+  col_labels: string[];
   language: string;
   style_mode: string;
   include_images: boolean;
@@ -203,6 +209,8 @@ export interface MatrixProjectCard {
   name: string;
   theme: string;
   n: number;
+  n_rows: number;
+  n_cols: number;
   status: CellStatus;
   include_images: boolean;
   created_at: string;

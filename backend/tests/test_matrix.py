@@ -131,6 +131,45 @@ class TestMatrixModels:
         assert req.theme == "Cooking Techniques"
         assert req.description is None
 
+    def test_create_request_description_mode_non_square(self):
+        """n_rows and n_cols can differ in description mode."""
+        req = CreateMatrixRequest(
+            input_mode="description",
+            description="feels like X but is actually Y",
+            n_rows=3,
+            n_cols=5,
+        )
+        assert req.effective_n_rows == 3
+        assert req.effective_n_cols == 5
+
+    def test_create_request_description_mode_n_rows_too_large(self):
+        """n_rows > 8 must be rejected."""
+        with pytest.raises(ValidationError):
+            CreateMatrixRequest(
+                input_mode="description",
+                description="feels like X but is actually Y",
+                n_rows=9,
+            )
+
+    def test_create_request_description_mode_n_cols_too_large(self):
+        """n_cols > 8 must be rejected."""
+        with pytest.raises(ValidationError):
+            CreateMatrixRequest(
+                input_mode="description",
+                description="feels like X but is actually Y",
+                n_cols=9,
+            )
+
+    def test_create_request_description_mode_defaults_n_rows_n_cols(self):
+        """Without explicit n_rows/n_cols, effective values fall back to n."""
+        req = CreateMatrixRequest(
+            input_mode="description",
+            description="feels like X but is actually Y",
+            n=4,
+        )
+        assert req.effective_n_rows == 4
+        assert req.effective_n_cols == 4
+
     def test_regenerate_cell_request_defaults(self):
         req = RegenerateCellRequest()
         assert req.image_only is False
@@ -438,6 +477,71 @@ class TestMatrixDB:
         assert project.input_mode == "theme"
         assert project.description is None
 
+    def test_create_project_non_square_stubs(self):
+        """Description mode with n_rows=3, n_cols=5 creates 15 cell stubs."""
+        _clear()
+        project = run_async(
+            matrix_db.create_project(
+                theme="desc",
+                n=4,
+                language="English",
+                style_mode="neutral",
+                include_images=False,
+                input_mode="description",
+                description="enjoyed by X but intended for Y",
+                n_rows=3,
+                n_cols=5,
+            )
+        )
+        assert project.n_rows == 3
+        assert project.n_cols == 5
+        assert len(project.cells) == 15  # 3×5
+
+    def test_create_project_non_square_all_positions_exist(self):
+        """Every (row, col) position in a 3×5 matrix must have a cell stub."""
+        _clear()
+        project = run_async(
+            matrix_db.create_project(
+                theme="desc",
+                n=4,
+                language="English",
+                style_mode="neutral",
+                include_images=False,
+                input_mode="description",
+                description="enjoyed by X but intended for Y",
+                n_rows=3,
+                n_cols=5,
+            )
+        )
+        positions = {(c.row, c.col) for c in project.cells}
+        expected = {(r, c) for r in range(3) for c in range(5)}
+        assert positions == expected
+
+    def test_update_project_labels_round_trips(self):
+        """update_project_labels persists row_labels/col_labels to DB."""
+        _clear()
+        project = run_async(
+            matrix_db.create_project(
+                theme="desc",
+                n=3,
+                language="English",
+                style_mode="neutral",
+                include_images=False,
+                input_mode="description",
+                description="enjoyed by X but intended for Y",
+                n_rows=3,
+                n_cols=3,
+            )
+        )
+        run_async(matrix_db.update_project_labels(
+            project.id,
+            row_labels=["Row A", "Row B", "Row C"],
+            col_labels=["Col 1", "Col 2", "Col 3"],
+        ))
+        refreshed = run_async(matrix_db.get_project(project.id))
+        assert refreshed.row_labels == ["Row A", "Row B", "Row C"]
+        assert refreshed.col_labels == ["Col 1", "Col 2", "Col 3"]
+
 
 # ── 3. MatrixSettingsManager ──────────────────────────────────────────────
 
@@ -491,6 +595,8 @@ def mock_create(monkeypatch):
             name=req.name,
             input_mode=req.input_mode,
             description=req.description,
+            n_rows=req.effective_n_rows if req.input_mode == "description" else 0,
+            n_cols=req.effective_n_cols if req.input_mode == "description" else 0,
         )
         await matrix_db.update_project_status(p.id, "generating")
         # Re-fetch so the returned project reflects the updated status
@@ -541,6 +647,32 @@ class TestMatrixRoutes:
         assert data["description"] == "feels like a certain generation but is actually from one"
         assert data["n"] == 3
         assert data["status"] == "generating"
+
+    def test_create_matrix_description_mode_non_square(self, client, mock_create):
+        """Route accepts n_rows/n_cols and returns correct dimensions."""
+        payload = {
+            "input_mode": "description",
+            "description": "enjoyed by X but intended for Y",
+            "n_rows": 3,
+            "n_cols": 5,
+        }
+        resp = client.post("/api/matrix/", json=payload)
+        assert resp.status_code == 200
+        data = resp.json()["matrix"]
+        assert data["input_mode"] == "description"
+        assert data["n_rows"] == 3
+        assert data["n_cols"] == 5
+        # 3×5 = 15 cell stubs
+        assert len(data["cells"]) == 15
+
+    def test_create_matrix_description_mode_n_rows_too_large(self, client, mock_create):
+        """n_rows > 8 must be rejected with 422."""
+        resp = client.post("/api/matrix/", json={
+            "input_mode": "description",
+            "description": "enjoyed by X but intended for Y",
+            "n_rows": 9,
+        })
+        assert resp.status_code == 422
 
     def test_create_matrix_description_mode_missing_description_returns_422(self, client, mock_create):
         resp = client.post("/api/matrix/", json={"input_mode": "description"})
@@ -655,6 +787,38 @@ class TestMatrixRoutes:
         s = resp.json()["settings"]
         assert s["max_concurrency"] == 4
         assert s["max_retries"] == 3
+
+    def test_generate_images_not_found(self, client):
+        resp = client.post("/api/matrix/nonexistent-id/generate-images")
+        assert resp.status_code == 404
+
+    def test_generate_images_starts_background_task(self, client, mock_create, monkeypatch):
+        # Create a complete matrix without images
+        create_resp = client.post("/api/matrix/", json={"theme": "Climate Change", "n": 2})
+        matrix_id = create_resp.json()["matrix"]["id"]
+        run_async(matrix_db.update_project_status(matrix_id, "complete"))
+
+        generated = []
+
+        async def _fake_generate(project_id: str):
+            generated.append(project_id)
+
+        monkeypatch.setattr(container.matrix_service, "generate_images_for_project", _fake_generate)
+        monkeypatch.setattr(container.matrix_service, "is_generating", lambda pid: False)
+
+        resp = client.post(f"/api/matrix/{matrix_id}/generate-images")
+        assert resp.status_code == 200
+        assert resp.json() == {"started": True}
+
+    def test_generate_images_rejected_when_already_generating(self, client, mock_create, monkeypatch):
+        create_resp = client.post("/api/matrix/", json={"theme": "Philosophy", "n": 2})
+        matrix_id = create_resp.json()["matrix"]["id"]
+
+        monkeypatch.setattr(container.matrix_service, "is_generating", lambda pid: True)
+
+        resp = client.post(f"/api/matrix/{matrix_id}/generate-images")
+        assert resp.status_code == 400
+        assert "already in progress" in resp.json()["detail"]
 
 
 # ── 5. MatrixService ──────────────────────────────────────────────────────
@@ -893,7 +1057,7 @@ class TestBuildGrid:
             for r in range(3)
             for c in range(3)
         ]
-        grid = _build_grid(cells, 3)
+        grid = _build_grid(cells, 3, 3)
         assert len(grid) == 3
         assert all(len(row) == 3 for row in grid)
 
@@ -902,7 +1066,7 @@ class TestBuildGrid:
             id="c01", project_id="p", row=0, col=1,
             concept="Synergy", explanation="They reinforce each other",
         )
-        grid = _build_grid([cell], 2)
+        grid = _build_grid([cell], 2, 2)
         assert grid[0][1]["concept"] == "Synergy"
         assert grid[0][1]["explanation"] == "They reinforce each other"
 
@@ -912,7 +1076,7 @@ class TestBuildGrid:
             id="c00", project_id="p", row=0, col=0,
             label="Alpha", definition="The first element",
         )
-        grid = _build_grid([cell], 2)
+        grid = _build_grid([cell], 2, 2)
         assert grid[0][0]["concept"] == "Alpha"
         assert grid[0][0]["explanation"] == "The first element"
 
@@ -922,12 +1086,12 @@ class TestBuildGrid:
             id="c00", project_id="p", row=0, col=0,
             concept="Concept Value", label="Label Value",
         )
-        grid = _build_grid([cell], 2)
+        grid = _build_grid([cell], 2, 2)
         assert grid[0][0]["concept"] == "Concept Value"
 
     def test_missing_positions_yield_empty_dicts(self):
         """Positions with no matching cell produce empty dicts."""
-        grid = _build_grid([], 2)
+        grid = _build_grid([], 2, 2)
         for r in range(2):
             for c in range(2):
                 assert grid[r][c] == {}
@@ -935,10 +1099,22 @@ class TestBuildGrid:
     def test_out_of_bounds_cells_are_ignored(self):
         """Cells with row/col outside [0, n) are silently skipped."""
         cell = MatrixCell(id="cx", project_id="p", row=5, col=5, concept="OOB")
-        grid = _build_grid([cell], 2)
+        grid = _build_grid([cell], 2, 2)
         for r in range(2):
             for c in range(2):
                 assert grid[r][c] == {}
+
+    def test_rectangular_grid_shape(self):
+        """Non-square: 3 rows × 5 cols produces the right dimensions."""
+        cells = [
+            MatrixCell(id=f"c{r}{c}", project_id="p", row=r, col=c, concept=f"{r},{c}")
+            for r in range(3)
+            for c in range(5)
+        ]
+        grid = _build_grid(cells, 3, 5)
+        assert len(grid) == 3
+        assert all(len(row) == 5 for row in grid)
+        assert grid[2][4]["concept"] == "2,4"
 
 
 # ── 7. Prompt template formatting ─────────────────────────────────────────
@@ -998,7 +1174,8 @@ class TestMatrixPromptFormatting:
             "matrix_description_axes",
             {
                 "description": "feels like a certain generation but is actually from one",
-                "n": 4,
+                "n_rows": 4,
+                "n_cols": 4,
                 "language": "English",
                 "style_mode": "neutral",
             },
@@ -1027,11 +1204,12 @@ class TestMatrixPromptFormatting:
             "matrix_description_axes",
             {
                 "description": "enjoys X but was made for Y",
-                "n": 3,
+                "n_rows": 3,
+                "n_cols": 4,
                 "language": "English",
                 "style_mode": "neutral",
             },
-            ['"row_axis_label"', '"col_axis_label"', '"labels"', '"definitions"'],
+            ['"row_axis_label"', '"col_axis_label"', '"row_labels"', '"col_labels"'],
         ),
     ])
     def test_prompt_output_contains_literal_json_keys(self, loader, name, kwargs, expected_keys):
@@ -1231,29 +1409,64 @@ class TestGenerateFromDescription:
         generator._gemini_service.generate_json.return_value = {
             "row_axis_label": "Is actually",
             "col_axis_label": "Feels like",
-            "labels": ["Gen-Z", "Millennial", "Gen-X"],
-            "definitions": ["Born 1997-2012", "Born 1981-1996", "Born 1965-1980"],
+            "row_labels": ["Gen-Z", "Millennial", "Gen-X"],
+            "row_definitions": ["Born 1997-2012", "Born 1981-1996", "Born 1965-1980"],
+            "col_labels": ["Gen-Z", "Millennial", "Gen-X"],
+            "col_definitions": ["Born 1997-2012", "Born 1981-1996", "Born 1965-1980"],
         }
         settings = MatrixSettings()
         events: list = []
-        concepts, axes = run_async(
+        row_concepts, col_concepts, row_axes, col_axes = run_async(
             generator.generate_from_description(
                 project_id="test",
                 description="feels like a generation but is actually from one",
-                n=3,
+                n_rows=3,
+                n_cols=3,
                 language="English",
                 style_mode="neutral",
                 settings=settings,
                 emit=lambda e: self._collect_emit(e, events),
             )
         )
-        assert len(concepts) == 3
-        assert concepts[0] == {"label": "Gen-Z", "definition": "Born 1997-2012"}
-        assert concepts[2] == {"label": "Gen-X", "definition": "Born 1965-1980"}
+        assert len(row_concepts) == 3
+        assert row_concepts[0] == {"label": "Gen-Z", "definition": "Born 1997-2012"}
+        assert row_concepts[2] == {"label": "Gen-X", "definition": "Born 1965-1980"}
 
-        assert len(axes) == 3
-        assert axes[0] == ("Is actually Gen-Z", "Feels like Gen-Z")
-        assert axes[1] == ("Is actually Millennial", "Feels like Millennial")
+        assert len(row_axes) == 3
+        assert row_axes[0] == "Is actually Gen-Z"
+        assert row_axes[1] == "Is actually Millennial"
+        assert col_axes[0] == "Feels like Gen-Z"
+
+    def test_returns_independent_row_col_labels_non_square(self, generator):
+        """When n_rows != n_cols, row and col labels must be independently parsed."""
+        generator._gemini_service.generate_json.return_value = {
+            "row_axis_label": "Was intended for",
+            "col_axis_label": "Is enjoyed by",
+            "row_labels": ["Children", "Seniors"],
+            "row_definitions": ["Under 12", "65+"],
+            "col_labels": ["Nerds", "Jocks", "Gamers"],
+            "col_definitions": ["Tech fans", "Sports fans", "Gaming fans"],
+        }
+        settings = MatrixSettings()
+        events: list = []
+        row_concepts, col_concepts, row_axes, col_axes = run_async(
+            generator.generate_from_description(
+                project_id="test",
+                description="intended for X but enjoyed by Y",
+                n_rows=2,
+                n_cols=3,
+                language="English",
+                style_mode="neutral",
+                settings=settings,
+                emit=lambda e: self._collect_emit(e, events),
+            )
+        )
+        assert len(row_concepts) == 2
+        assert len(col_concepts) == 3
+        assert row_concepts[0]["label"] == "Children"
+        assert col_concepts[2]["label"] == "Gamers"
+        assert len(row_axes) == 2
+        assert len(col_axes) == 3
 
     def test_emits_axes_events_only_no_diagonal(self, generator):
         """generate_from_description must emit axes events but NOT diagonal events.
@@ -1264,8 +1477,10 @@ class TestGenerateFromDescription:
         generator._gemini_service.generate_json.return_value = {
             "row_axis_label": "Was intended for",
             "col_axis_label": "Is enjoyed by",
-            "labels": ["Nerds", "Jocks"],
-            "definitions": ["Tech enthusiasts", "Sports fans"],
+            "row_labels": ["Nerds", "Jocks"],
+            "row_definitions": ["Tech enthusiasts", "Sports fans"],
+            "col_labels": ["Nerds", "Jocks"],
+            "col_definitions": ["Tech enthusiasts", "Sports fans"],
         }
         settings = MatrixSettings()
         events: list = []
@@ -1273,7 +1488,8 @@ class TestGenerateFromDescription:
             generator.generate_from_description(
                 project_id="proj-1",
                 description="intended for X enjoyed by Y",
-                n=2,
+                n_rows=2,
+                n_cols=2,
                 language="English",
                 style_mode="neutral",
                 settings=settings,
@@ -1289,21 +1505,49 @@ class TestGenerateFromDescription:
         assert axes_events[0]["row_descriptor"] == "Was intended for Nerds"
         assert axes_events[0]["col_descriptor"] == "Is enjoyed by Nerds"
 
-    def test_raises_gemini_error_when_too_few_labels(self, generator):
+    def test_raises_gemini_error_when_too_few_row_labels(self, generator):
         generator._gemini_service.generate_json.return_value = {
             "row_axis_label": "Is actually",
             "col_axis_label": "Feels like",
-            "labels": ["Gen-Z"],  # only 1, need 3
-            "definitions": ["Born 1997-2012"],
+            "row_labels": ["Gen-Z"],  # only 1, need 3
+            "row_definitions": ["Born 1997-2012"],
+            "col_labels": ["Gen-Z", "Millennial", "Gen-X"],
+            "col_definitions": ["Born 1997-2012", "Born 1981-1996", "Born 1965-1980"],
         }
         settings = MatrixSettings()
         events: list = []
-        with pytest.raises(GeminiError, match="labels, expected 3"):
+        with pytest.raises(GeminiError, match="row labels"):
             run_async(
                 generator.generate_from_description(
                     project_id="test",
                     description="some description",
-                    n=3,
+                    n_rows=3,
+                    n_cols=3,
+                    language="English",
+                    style_mode="neutral",
+                    settings=settings,
+                    emit=lambda e: self._collect_emit(e, events),
+                )
+            )
+
+    def test_raises_gemini_error_when_too_few_col_labels(self, generator):
+        generator._gemini_service.generate_json.return_value = {
+            "row_axis_label": "Is actually",
+            "col_axis_label": "Feels like",
+            "row_labels": ["Gen-Z", "Millennial", "Gen-X"],
+            "row_definitions": ["Born 1997-2012", "Born 1981-1996", "Born 1965-1980"],
+            "col_labels": ["Gen-Z"],  # only 1, need 3
+            "col_definitions": ["Born 1997-2012"],
+        }
+        settings = MatrixSettings()
+        events: list = []
+        with pytest.raises(GeminiError, match="col labels"):
+            run_async(
+                generator.generate_from_description(
+                    project_id="test",
+                    description="some description",
+                    n_rows=3,
+                    n_cols=3,
                     language="English",
                     style_mode="neutral",
                     settings=settings,
@@ -1322,7 +1566,8 @@ class TestGenerateFromDescription:
                 generator.generate_from_description(
                     project_id="test",
                     description="some description",
-                    n=3,
+                    n_rows=3,
+                    n_cols=3,
                     language="English",
                     style_mode="neutral",
                     settings=settings,
@@ -1335,25 +1580,29 @@ class TestGenerateFromDescription:
         generator._gemini_service.generate_json.return_value = {
             "row_axis_label": "Is actually",
             "col_axis_label": "Feels like",
-            "labels": ["Gen-Z", "Millennial", "Gen-X"],
-            "definitions": ["Born 1997-2012"],  # only 1 definition for 3 labels
+            "row_labels": ["Gen-Z", "Millennial", "Gen-X"],
+            "row_definitions": ["Born 1997-2012"],  # only 1 definition for 3 labels
+            "col_labels": ["Gen-Z", "Millennial", "Gen-X"],
+            "col_definitions": [],  # completely missing
         }
         settings = MatrixSettings()
         events: list = []
-        concepts, _ = run_async(
+        row_concepts, col_concepts, _, _ = run_async(
             generator.generate_from_description(
                 project_id="test",
                 description="some description",
-                n=3,
+                n_rows=3,
+                n_cols=3,
                 language="English",
                 style_mode="neutral",
                 settings=settings,
                 emit=lambda e: self._collect_emit(e, events),
             )
         )
-        assert concepts[0]["definition"] == "Born 1997-2012"
-        assert concepts[1]["definition"] == ""
-        assert concepts[2]["definition"] == ""
+        assert row_concepts[0]["definition"] == "Born 1997-2012"
+        assert row_concepts[1]["definition"] == ""
+        assert row_concepts[2]["definition"] == ""
+        assert col_concepts[0]["definition"] == ""
 
 
 # ── 10. Description mode pipeline: all cells generated equally ────────────
@@ -1378,21 +1627,26 @@ class TestDescriptionModePipeline:
 
         async def _run():
             # Stub generate_from_description: return labels + axes, no diagonal events
-            async def _fake_from_description(project_id, description, n, language,
-                                             style_mode, settings, emit):
-                concepts = [
+            async def _fake_from_description(project_id, description, n_rows, n_cols,
+                                             language, style_mode, settings, emit):
+                row_concepts = [
                     {"label": "Alpha", "definition": "def-alpha"},
                     {"label": "Beta", "definition": "def-beta"},
                 ]
-                axes = [("Row Alpha", "Col Alpha"), ("Row Beta", "Col Beta")]
+                col_concepts = [
+                    {"label": "Alpha", "definition": "def-alpha"},
+                    {"label": "Beta", "definition": "def-beta"},
+                ]
+                row_axes = ["Row Alpha", "Row Beta"]
+                col_axes = ["Col Alpha", "Col Beta"]
                 # Emit only axes events (no diagonal events — mirrors new behaviour)
-                for i, (rd, cd) in enumerate(axes):
+                for i, rd in enumerate(row_axes):
                     await emit({
                         "type": "axes", "project_id": project_id,
                         "row": i, "col": i,
-                        "row_descriptor": rd, "col_descriptor": cd,
+                        "row_descriptor": rd, "col_descriptor": col_axes[i],
                     })
-                return concepts, axes
+                return row_concepts, col_concepts, row_axes, col_axes
 
             # Stub generate_cell: record which positions were requested
             async def _fake_generate_cell(project_id, row, col, row_concept,
@@ -1409,7 +1663,7 @@ class TestDescriptionModePipeline:
                 return {"concept": f"Concept-{row}-{col}", "explanation": f"Exp-{row}-{col}"}
 
             # Stub validate_matrix: no failures
-            async def _fake_validate(project_id, theme, cells_grid, axes, settings, emit):
+            async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
                 return []
 
             monkeypatch.setattr(container.matrix_service._gen, "generate_from_description",
@@ -1441,9 +1695,8 @@ class TestDescriptionModePipeline:
         expected = {(r, c) for r in range(n) for c in range(n)}
         assert set(generated_positions) == expected
 
-        # Diagonal cells must have concept/label set (not just axis descriptors)
+        # Diagonal cells must have concept set (description mode: no label field)
         final = run_async(matrix_db.get_project(project_id))
         for r in range(n):
             diag_cell = next(c for c in final.cells if c.row == r and c.col == r)
             assert diag_cell.concept == f"Concept-{r}-{r}"
-            assert diag_cell.label == f"Concept-{r}-{r}"  # copied from concept

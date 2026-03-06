@@ -59,6 +59,11 @@ class MatrixProjectDB(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     input_mode: Mapped[str] = mapped_column(String, nullable=False, default="theme")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Non-square description mode
+    n_rows: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    n_cols: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    row_labels_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    col_labels_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
