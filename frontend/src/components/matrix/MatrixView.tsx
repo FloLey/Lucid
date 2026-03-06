@@ -56,15 +56,33 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
     }
   }, [initialMatrix.id, initialMatrix.status, startStream]);
 
-  const n = matrix.n;
+  const isDescriptionMode = matrix.input_mode === 'description';
+  const nRows = isDescriptionMode && matrix.n_rows > 0 ? matrix.n_rows : matrix.n;
+  const nCols = isDescriptionMode && matrix.n_cols > 0 ? matrix.n_cols : matrix.n;
 
   const getCell = (row: number, col: number): MatrixCellType | undefined =>
     matrix.cells.find((c) => c.row === row && c.col === col);
 
   const getDiagCell = (i: number) => getCell(i, i);
 
+  /** Row header for row i — uses row_labels in description mode, diagonal cell otherwise. */
+  const getRowHeader = (row: number): string => {
+    if (isDescriptionMode && matrix.row_labels?.length > row) {
+      return matrix.row_labels[row];
+    }
+    return getDiagCell(row)?.row_descriptor ?? getDiagCell(row)?.label ?? `R${row}`;
+  };
+
+  /** Col header for col j — uses col_labels in description mode, diagonal cell otherwise. */
+  const getColHeader = (col: number): string => {
+    if (isDescriptionMode && matrix.col_labels?.length > col) {
+      return matrix.col_labels[col];
+    }
+    return getDiagCell(col)?.col_descriptor ?? getDiagCell(col)?.label ?? `C${col}`;
+  };
+
   const completedCells = matrix.cells.filter((c) => c.cell_status === 'complete').length;
-  const totalCells = n * n;
+  const totalCells = nRows * nCols;
 
   const handleCellClick = (cell: MatrixCellType) => {
     setSelectedCell((prev) => (prev?.id === cell.id ? null : cell));
@@ -119,12 +137,13 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
     }
   };
 
+  // In description mode all cells are intersections — none are "diagonal concept seeds"
   const selectedIsDiagonal = selectedCell
-    ? selectedCell.row === selectedCell.col
+    ? !isDescriptionMode && selectedCell.row === selectedCell.col
     : false;
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-4 h-full p-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between shrink-0">
         <div>
@@ -203,46 +222,43 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
           <div
             className="grid gap-1 min-w-fit"
             style={{
-              gridTemplateColumns: `64px repeat(${n}, minmax(80px, 1fr))`,
+              gridTemplateColumns: `64px repeat(${nCols}, minmax(80px, 1fr))`,
             }}
           >
             {/* Top-left corner */}
             <div />
             {/* Column headers */}
-            {Array.from({ length: n }, (_, i) => {
-              const dc = getDiagCell(i);
-              return (
-                <div
-                  key={i}
-                  className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center px-1 pb-1 truncate"
-                  title={dc?.col_descriptor ?? dc?.label ?? ''}
-                >
-                  {dc?.col_descriptor || dc?.label || `C${i}`}
-                </div>
-              );
-            })}
+            {Array.from({ length: nCols }, (_, col) => (
+              <div
+                key={col}
+                className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center px-1 pb-1 truncate"
+                title={getColHeader(col)}
+              >
+                {getColHeader(col)}
+              </div>
+            ))}
 
             {/* Row + cells */}
-            {Array.from({ length: n }, (_, row) => (
+            {Array.from({ length: nRows }, (_, row) => (
               <>
                 {/* Row label */}
                 <div
                   key={`label-${row}`}
                   className="flex items-center justify-end pr-2 text-xs font-medium text-gray-500 dark:text-gray-400 truncate"
-                  title={getDiagCell(row)?.row_descriptor ?? getDiagCell(row)?.label ?? ''}
+                  title={getRowHeader(row)}
                 >
-                  {getDiagCell(row)?.row_descriptor || getDiagCell(row)?.label || `R${row}`}
+                  {getRowHeader(row)}
                 </div>
-                {Array.from({ length: n }, (_, col) => {
+                {Array.from({ length: nCols }, (_, col) => {
                   const cell = getCell(row, col);
                   if (!cell) return <div key={col} className="aspect-square" />;
                   return (
                     <MatrixCell
                       key={col}
                       cell={cell}
-                      isDiagonal={row === col}
-                      rowLabel={getDiagCell(row)?.row_descriptor ?? getDiagCell(row)?.label ?? ''}
-                      colLabel={getDiagCell(col)?.col_descriptor ?? getDiagCell(col)?.label ?? ''}
+                      isDiagonal={!isDescriptionMode && row === col}
+                      rowLabel={getRowHeader(row)}
+                      colLabel={getColHeader(col)}
                       isSelected={selectedCell?.id === cell.id}
                       onClick={() => handleCellClick(cell)}
                     />
@@ -266,12 +282,12 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                     {selectedCell.definition}
                   </p>
                   {selectedCell.row_descriptor && (
-                    <div className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                    <div className="mt-2 text-xs text-gray-400 dark:text-gray-400">
                       <span className="font-medium">Row axis:</span> {selectedCell.row_descriptor}
                     </div>
                   )}
                   {selectedCell.col_descriptor && (
-                    <div className="text-xs text-gray-400 dark:text-gray-500">
+                    <div className="text-xs text-gray-400 dark:text-gray-400">
                       <span className="font-medium">Col axis:</span> {selectedCell.col_descriptor}
                     </div>
                   )}
@@ -281,7 +297,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                   <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                     {selectedCell.explanation}
                   </p>
-                  <div className="mt-3 space-y-1 text-xs text-gray-400 dark:text-gray-500">
+                  <div className="mt-3 space-y-1 text-xs text-gray-400 dark:text-gray-400">
                     {(() => {
                       const rowDiag = getDiagCell(selectedCell.row);
                       const colDiag = getDiagCell(selectedCell.col);
@@ -316,7 +332,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
             )}
 
             {/* Actions */}
-            {!selectedIsDiagonal && (
+            {(isDescriptionMode || !selectedIsDiagonal) && (
               <div className="flex flex-col gap-2 mt-auto">
                 <textarea
                   value={regenInstructions}

@@ -196,28 +196,45 @@ class MatrixGenerator:
         project_id: str,
         theme: str,
         cells_grid: List[List[Dict[str, str]]],
-        axes: List[Tuple[str, str]],
         settings: MatrixSettings,
         emit: EventEmitter,
+        axes: Optional[List[Tuple[str, str]]] = None,
+        row_axes: Optional[List[str]] = None,
+        col_axes: Optional[List[str]] = None,
     ) -> List[Tuple[int, int]]:
         """
-        Validate all off-diagonal cells.
+        Validate all cells (off-diagonal only in theme mode; all in description mode).
         Returns [(row, col), ...] of failing cells.
         Emits one 'validation' event.
+
+        For theme mode: pass ``axes`` (List[Tuple[row_desc, col_desc]]).
+        For description mode: pass ``row_axes`` and ``col_axes`` separately.
         """
         # Build matrix payload for the prompt
         matrix_data = []
-        n = len(cells_grid)
-        for r in range(n):
-            for c in range(n):
-                if r == c:
+        n_rows = len(cells_grid)
+        n_cols = len(cells_grid[0]) if cells_grid else 0
+        is_square_theme = n_rows == n_cols and axes is not None
+
+        for r in range(n_rows):
+            for c in range(n_cols):
+                # In theme mode, skip diagonal cells (they are pre-seeded concepts)
+                if is_square_theme and r == c:
                     continue
+                if row_axes is not None and col_axes is not None:
+                    row_desc = row_axes[r] if r < len(row_axes) else ""
+                    col_desc = col_axes[c] if c < len(col_axes) else ""
+                elif axes is not None:
+                    row_desc = axes[r][0] if r < len(axes) else ""
+                    col_desc = axes[c][1] if c < len(axes) else ""
+                else:
+                    row_desc = col_desc = ""
                 matrix_data.append(
                     {
                         "row": r,
                         "col": c,
-                        "row_descriptor": axes[r][0] if r < len(axes) else "",
-                        "col_descriptor": axes[c][1] if c < len(axes) else "",
+                        "row_descriptor": row_desc,
+                        "col_descriptor": col_desc,
                         "concept": cells_grid[r][c].get("concept", ""),
                         "explanation": cells_grid[r][c].get("explanation", ""),
                     }
@@ -290,23 +307,28 @@ class MatrixGenerator:
         self,
         project_id: str,
         description: str,
-        n: int,
+        n_rows: int,
+        n_cols: int,
         language: str,
         style_mode: str,
         settings: MatrixSettings,
         emit: EventEmitter,
-    ) -> Tuple[List[Dict[str, str]], List[Tuple[str, str]]]:
+    ) -> Tuple[List[Dict[str, str]], List[Dict[str, str]], List[str], List[str]]:
         """
-        Single LLM call: derive axes and labels from a description.
-        Returns (concepts, axes_results) in the same shape expected by _run_pipeline.
-        Emits axes events only (no diagonal events — all cells are generated equally
-        in description mode, diagonal cells are not pre-populated).
+        Single LLM call: derive axes and separate row/col labels from a description.
+
+        Returns (row_concepts, col_concepts, row_axes, col_axes) where:
+        - row_concepts: [{label, definition}, ...] length n_rows
+        - col_concepts: [{label, definition}, ...] length n_cols
+        - row_axes: [row_descriptor_string, ...] length n_rows
+        - col_axes: [col_descriptor_string, ...] length n_cols
         """
         # Sanitize user input to prevent breaking out of the XML delimiter in the prompt template.
         safe_description = description.replace("</user_description>", "&lt;/user_description&gt;")
         prompt = self._get_prompt("matrix_description_axes").format(
             description=safe_description,
-            n=n,
+            n_rows=n_rows,
+            n_cols=n_cols,
             language=language,
             style_mode=style_mode,
         )
@@ -317,30 +339,38 @@ class MatrixGenerator:
         )
         row_axis_label = raw.get("row_axis_label", "Row")
         col_axis_label = raw.get("col_axis_label", "Col")
-        labels: List[str] = raw.get("labels", [])[:n]
-        definitions: List[str] = raw.get("definitions", [])[:n]
 
-        if len(labels) < n:
+        row_labels: List[str] = raw.get("row_labels", [])[:n_rows]
+        row_definitions: List[str] = raw.get("row_definitions", [])[:n_rows]
+        col_labels: List[str] = raw.get("col_labels", [])[:n_cols]
+        col_definitions: List[str] = raw.get("col_definitions", [])[:n_cols]
+
+        if len(row_labels) < n_rows:
             raise GeminiError(
-                f"Description axes returned {len(labels)} labels, expected {n}"
+                f"Description axes returned {len(row_labels)} row labels, expected {n_rows}"
+            )
+        if len(col_labels) < n_cols:
+            raise GeminiError(
+                f"Description axes returned {len(col_labels)} col labels, expected {n_cols}"
             )
 
         # Pad definitions if the model returned fewer than expected
-        while len(definitions) < n:
-            definitions.append("")
+        while len(row_definitions) < n_rows:
+            row_definitions.append("")
+        while len(col_definitions) < n_cols:
+            col_definitions.append("")
 
-        concepts: List[Dict[str, str]] = [
-            {"label": labels[i], "definition": definitions[i]} for i in range(n)
+        row_concepts: List[Dict[str, str]] = [
+            {"label": row_labels[i], "definition": row_definitions[i]} for i in range(n_rows)
         ]
-        axes_results: List[Tuple[str, str]] = [
-            (f"{row_axis_label} {labels[i]}", f"{col_axis_label} {labels[i]}")
-            for i in range(n)
+        col_concepts: List[Dict[str, str]] = [
+            {"label": col_labels[j], "definition": col_definitions[j]} for j in range(n_cols)
         ]
+        row_axes = [f"{row_axis_label} {row_labels[i]}" for i in range(n_rows)]
+        col_axes = [f"{col_axis_label} {col_labels[j]}" for j in range(n_cols)]
 
-        # Emit axes events (reuse existing event structure)
-        # Note: no diagonal events — in description mode all cells are generated
-        # equally (including diagonal), so we don't pre-populate them here.
-        for i, (row_desc, col_desc) in enumerate(axes_results):
+        # Emit axes events so the frontend can show header labels as they arrive
+        for i, row_desc in enumerate(row_axes):
             await emit(
                 {
                     "type": "axes",
@@ -348,11 +378,11 @@ class MatrixGenerator:
                     "row": i,
                     "col": i,
                     "row_descriptor": row_desc,
-                    "col_descriptor": col_desc,
+                    "col_descriptor": col_axes[i] if i < len(col_axes) else "",
                 }
             )
 
-        return concepts, axes_results
+        return row_concepts, col_concepts, row_axes, col_axes
 
     # ── Retry helper ──────────────────────────────────────────────────────
 

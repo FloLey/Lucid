@@ -22,8 +22,10 @@ export default function MatrixPosterView({ matrix }: MatrixPosterViewProps) {
     setIsRendering(true);
 
     const { n, cells } = matrix;
-    const W = HEADER_W + n * CELL_SIZE;
-    const H = HEADER_H + n * CELL_SIZE;
+    const nRows = matrix.input_mode === 'description' && matrix.n_rows > 0 ? matrix.n_rows : n;
+    const nCols = matrix.input_mode === 'description' && matrix.n_cols > 0 ? matrix.n_cols : n;
+    const W = HEADER_W + nCols * CELL_SIZE;
+    const H = HEADER_H + nRows * CELL_SIZE;
     canvas.width = W;
     canvas.height = H;
 
@@ -67,7 +69,9 @@ export default function MatrixPosterView({ matrix }: MatrixPosterViewProps) {
           <span className="text-xs text-gray-500 dark:text-gray-400">Rendering…</span>
         ) : (
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            {matrix.n}×{matrix.n} matrix poster
+            {matrix.input_mode === 'description' && matrix.n_rows > 0
+              ? `${matrix.n_rows}×${matrix.n_cols}`
+              : `${matrix.n}×${matrix.n}`} matrix poster
           </span>
         )}
         <button
@@ -167,6 +171,24 @@ function drawPoster(
   if (!ctx) return;
 
   const { n, cells, input_mode } = matrix;
+  const nRows = input_mode === 'description' && matrix.n_rows > 0 ? matrix.n_rows : n;
+  const nCols = input_mode === 'description' && matrix.n_cols > 0 ? matrix.n_cols : n;
+
+  // Helper to resolve header labels respecting description mode row/col labels
+  const getRowLabel = (row: number): string => {
+    if (input_mode === 'description' && matrix.row_labels?.length > row) {
+      return matrix.row_labels[row];
+    }
+    const dc = getCell(cells, row, row);
+    return dc?.row_descriptor || dc?.label || `R${row}`;
+  };
+  const getColLabel = (col: number): string => {
+    if (input_mode === 'description' && matrix.col_labels?.length > col) {
+      return matrix.col_labels[col];
+    }
+    const dc = getCell(cells, col, col);
+    return dc?.col_descriptor || dc?.label || `C${col}`;
+  };
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -176,9 +198,8 @@ function drawPoster(
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // ── Column headers ──────────────────────────────────────────────────────────
-  for (let col = 0; col < n; col++) {
-    const dc = getCell(cells, col, col);
-    const label = dc?.col_descriptor || dc?.label || `C${col}`;
+  for (let col = 0; col < nCols; col++) {
+    const label = getColLabel(col);
     const x = HEADER_W + col * CELL_SIZE;
 
     ctx.fillStyle = '#f1f5f9'; // slate-100
@@ -190,9 +211,8 @@ function drawPoster(
   }
 
   // ── Row headers ─────────────────────────────────────────────────────────────
-  for (let row = 0; row < n; row++) {
-    const dc = getCell(cells, row, row);
-    const label = dc?.row_descriptor || dc?.label || `R${row}`;
+  for (let row = 0; row < nRows; row++) {
+    const label = getRowLabel(row);
     const y = HEADER_H + row * CELL_SIZE;
 
     ctx.fillStyle = '#f1f5f9';
@@ -208,8 +228,8 @@ function drawPoster(
   ctx.fillRect(0, 0, HEADER_W, HEADER_H);
 
   // ── Cells ────────────────────────────────────────────────────────────────────
-  for (let row = 0; row < n; row++) {
-    for (let col = 0; col < n; col++) {
+  for (let row = 0; row < nRows; row++) {
+    for (let col = 0; col < nCols; col++) {
       const cell = getCell(cells, row, col);
       const cx = HEADER_W + col * CELL_SIZE + CELL_SIZE / 2;
       const cy = HEADER_H + row * CELL_SIZE + CELL_SIZE / 2;
