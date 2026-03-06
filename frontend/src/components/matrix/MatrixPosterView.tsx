@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import type { MatrixProject, MatrixCell } from '../../types';
+import { getEffectiveDimensions } from '../../utils/matrix';
 
 const HEADER_W = 110; // width of row-label column (px)
 const HEADER_H = 70;  // height of column-label row (px)
@@ -21,9 +22,8 @@ export default function MatrixPosterView({ matrix }: MatrixPosterViewProps) {
 
     setIsRendering(true);
 
-    const { n, cells } = matrix;
-    const nRows = matrix.input_mode === 'description' && matrix.n_rows > 0 ? matrix.n_rows : n;
-    const nCols = matrix.input_mode === 'description' && matrix.n_cols > 0 ? matrix.n_cols : n;
+    const { cells } = matrix;
+    const { nRows, nCols } = getEffectiveDimensions(matrix);
     const W = HEADER_W + nCols * CELL_SIZE;
     const H = HEADER_H + nRows * CELL_SIZE;
     canvas.width = W;
@@ -170,9 +170,8 @@ function drawPoster(
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const { n, cells, input_mode } = matrix;
-  const nRows = input_mode === 'description' && matrix.n_rows > 0 ? matrix.n_rows : n;
-  const nCols = input_mode === 'description' && matrix.n_cols > 0 ? matrix.n_cols : n;
+  const { cells, input_mode } = matrix;
+  const { nRows, nCols } = getEffectiveDimensions(matrix);
 
   // Helper to resolve header labels respecting description mode row/col labels
   const getRowLabel = (row: number): string => {
@@ -305,7 +304,7 @@ function drawPoster(
   ctx.lineWidth = 1;
 
   // Vertical lines
-  for (let col = 0; col <= n; col++) {
+  for (let col = 0; col <= nCols; col++) {
     const x = HEADER_W + col * CELL_SIZE;
     ctx.beginPath();
     ctx.moveTo(x, 0);
@@ -313,7 +312,7 @@ function drawPoster(
     ctx.stroke();
   }
   // Horizontal lines
-  for (let row = 0; row <= n; row++) {
+  for (let row = 0; row <= nRows; row++) {
     const y = HEADER_H + row * CELL_SIZE;
     ctx.beginPath();
     ctx.moveTo(0, y);

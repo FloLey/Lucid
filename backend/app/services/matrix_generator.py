@@ -355,10 +355,8 @@ class MatrixGenerator:
             )
 
         # Pad definitions if the model returned fewer than expected
-        while len(row_definitions) < n_rows:
-            row_definitions.append("")
-        while len(col_definitions) < n_cols:
-            col_definitions.append("")
+        row_definitions += [""] * (n_rows - len(row_definitions))
+        col_definitions += [""] * (n_cols - len(col_definitions))
 
         row_concepts: List[Dict[str, str]] = [
             {"label": row_labels[i], "definition": row_definitions[i]} for i in range(n_rows)

@@ -148,8 +148,8 @@ class MatrixService:
             }
             # Descriptors are stored per-cell for description mode (set during pipeline)
             cell_obj = await self._db.get_cell(project_id, row, col)
-            row_descriptor = cell_obj.row_descriptor or row_concept["label"] if cell_obj else row_concept["label"]
-            col_descriptor = cell_obj.col_descriptor or col_concept["label"] if cell_obj else col_concept["label"]
+            row_descriptor = (cell_obj.row_descriptor if cell_obj else None) or row_concept["label"]
+            col_descriptor = (cell_obj.col_descriptor if cell_obj else None) or col_concept["label"]
         else:
             # Theme mode: use diagonal cells
             diag_cells = {

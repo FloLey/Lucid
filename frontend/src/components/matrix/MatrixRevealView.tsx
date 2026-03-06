@@ -1,5 +1,6 @@
 import { useState, useCallback, Fragment } from 'react';
 import type { MatrixProject, MatrixCell } from '../../types';
+import { getEffectiveDimensions } from '../../utils/matrix';
 
 type CellRevealStage = 'hidden' | 'first' | 'second';
 
@@ -15,8 +16,7 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
   const [revealMap, setRevealMap] = useState<Map<string, CellRevealStage>>(new Map());
 
   const isDescriptionMode = matrix.input_mode === 'description';
-  const nRows = isDescriptionMode && matrix.n_rows > 0 ? matrix.n_rows : matrix.n;
-  const nCols = isDescriptionMode && matrix.n_cols > 0 ? matrix.n_cols : matrix.n;
+  const { nRows, nCols } = getEffectiveDimensions(matrix);
 
   const getCell = (row: number, col: number): MatrixCell | undefined =>
     matrix.cells.find((c) => c.row === row && c.col === col);

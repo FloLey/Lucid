@@ -796,7 +796,7 @@ class TestMatrixRoutes:
         # Create a complete matrix without images
         create_resp = client.post("/api/matrix/", json={"theme": "Climate Change", "n": 2})
         matrix_id = create_resp.json()["matrix"]["id"]
-        await_helper = run_async(matrix_db.update_project_status(matrix_id, "complete"))
+        run_async(matrix_db.update_project_status(matrix_id, "complete"))
 
         generated = []
 

@@ -7,6 +7,7 @@ import { useMatrixStream } from '../../hooks/useMatrixStream';
 import { useMatrix } from '../../contexts/MatrixContext';
 import * as api from '../../services/api';
 import { getErrorMessage } from '../../utils/error';
+import { getEffectiveDimensions } from '../../utils/matrix';
 
 type ViewMode = 'edit' | 'reveal' | 'poster';
 
@@ -58,8 +59,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
   }, [initialMatrix.id, initialMatrix.status, startStream]);
 
   const isDescriptionMode = matrix.input_mode === 'description';
-  const nRows = isDescriptionMode && matrix.n_rows > 0 ? matrix.n_rows : matrix.n;
-  const nCols = isDescriptionMode && matrix.n_cols > 0 ? matrix.n_cols : matrix.n;
+  const { nRows, nCols } = getEffectiveDimensions(matrix);
 
   const getCell = (row: number, col: number): MatrixCellType | undefined =>
     matrix.cells.find((c) => c.row === row && c.col === col);
