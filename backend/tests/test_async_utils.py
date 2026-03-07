@@ -88,3 +88,29 @@ class TestBoundedGather:
 
         run_async(bounded_gather([_append(i) for i in range(4)], limit=1))
         assert order == [0, 1, 2, 3]
+
+    def test_large_batch_with_tight_limit(self):
+        """100 tasks with limit=3 should all complete and return correct values."""
+
+        async def _square(n: int) -> int:
+            await asyncio.sleep(0)
+            return n * n
+
+        results = run_async(bounded_gather([_square(i) for i in range(100)], limit=3))
+        assert results == [i * i for i in range(100)]
+
+    def test_all_exceptions_captured_with_return_exceptions(self):
+        """return_exceptions=True collects every exception without short-circuiting."""
+
+        async def _always_fail(msg: str) -> None:
+            raise RuntimeError(msg)
+
+        results = run_async(
+            bounded_gather(
+                [_always_fail(f"err{i}") for i in range(3)],
+                limit=2,
+                return_exceptions=True,
+            )
+        )
+        assert len(results) == 3
+        assert all(isinstance(r, RuntimeError) for r in results)

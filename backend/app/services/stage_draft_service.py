@@ -5,11 +5,10 @@ import logging
 from typing import AsyncGenerator, Optional, TYPE_CHECKING
 
 from app.models.slide import Slide, SlideText
-from app.models.style import TextStyle, StrokeStyle
 from app.models.project import ProjectState
 from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
-from app.services.llm_logger import set_project_context
+from app.services.llm_logger import set_project_context  # used in complex methods not yet migrated
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -33,24 +32,6 @@ class StageDraftService(BaseStageService):
         self.project_manager = self._require(project_manager, "project_manager")
         self.gemini_service = self._require(gemini_service, "gemini_service")
         self.prompt_loader = prompt_loader or PromptLoader()
-
-    @staticmethod
-    def _style_from_config(project: ProjectState) -> TextStyle:
-        """Build a TextStyle seeded from the project's config defaults."""
-        cfg = project.project_config.style
-        return TextStyle(
-            font_family=cfg.default_font_family,
-            font_weight=cfg.default_font_weight,
-            font_size_px=cfg.default_font_size_px,
-            text_color=cfg.default_text_color,
-            alignment=cfg.default_alignment,
-            text_enabled=cfg.default_text_enabled,
-            stroke=StrokeStyle(
-                enabled=cfg.default_stroke_enabled,
-                width_px=cfg.default_stroke_width_px,
-                color=cfg.default_stroke_color,
-            ),
-        )
 
     @staticmethod
     def _build_word_count_instruction(words_per_slide: Optional[str]) -> str:
@@ -265,53 +246,52 @@ class StageDraftService(BaseStageService):
         instruction: Optional[str] = None,
     ) -> Optional[ProjectState]:
         """Regenerate a single slide text."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        instruction_text = (
-            f"\nSpecific instruction: {instruction}" if instruction else ""
-        )
-
-        language_instruction = f"Write ALL slide content in {project.language}."
-
-        title_instruction = (
-            "Include both title and body."
-            if project.include_titles
-            else "Only provide body text."
-        )
-        response_format = '{"title": "...", "body": "..."}'
-
-        all_slides_parts = []
-        for i, s in enumerate(project.slides):
-            marker = " ← CURRENT SLIDE" if i == slide_index else ""
-            all_slides_parts.append(f"Slide {i + 1}: {s.text.get_full_text()}{marker}")
-        all_slides_context = "\n".join(all_slides_parts)
-
-        prompt_template = self.prompt_loader.resolve_prompt(project, "regenerate_single_slide")
-
-        prompt = prompt_template.format(
-            draft_text=project.draft_text,
-            language_instruction=language_instruction,
-            all_slides_context=all_slides_context,
-            current_text=project.slides[slide_index].text.get_full_text(),
-            instruction_text=instruction_text,
-            title_instruction=title_instruction,
-            response_format=response_format,
-        )
-
-        result = await self.gemini_service.generate_json(
-            prompt, caller="stage_draft_service.regenerate_slide_text"
-        )
-
-        if result:
-            project.slides[slide_index].text = SlideText(
-                title=result.get("title") if project.include_titles else None,
-                body=result.get(
-                    "body", project.slides[slide_index].text.body
-                ),
+            instruction_text = (
+                f"\nSpecific instruction: {instruction}" if instruction else ""
             )
-            await self.project_manager.update_project(project)
+
+            language_instruction = f"Write ALL slide content in {project.language}."
+
+            title_instruction = (
+                "Include both title and body."
+                if project.include_titles
+                else "Only provide body text."
+            )
+            response_format = '{"title": "...", "body": "..."}'
+
+            all_slides_parts = []
+            for i, s in enumerate(project.slides):
+                marker = " ← CURRENT SLIDE" if i == slide_index else ""
+                all_slides_parts.append(f"Slide {i + 1}: {s.text.get_full_text()}{marker}")
+            all_slides_context = "\n".join(all_slides_parts)
+
+            prompt_template = self.prompt_loader.resolve_prompt(project, "regenerate_single_slide")
+
+            prompt = prompt_template.format(
+                draft_text=project.draft_text,
+                language_instruction=language_instruction,
+                all_slides_context=all_slides_context,
+                current_text=project.slides[slide_index].text.get_full_text(),
+                instruction_text=instruction_text,
+                title_instruction=title_instruction,
+                response_format=response_format,
+            )
+
+            result = await self.gemini_service.generate_json(
+                prompt, caller="stage_draft_service.regenerate_slide_text"
+            )
+
+            if result:
+                project.slides[slide_index].text = SlideText(
+                    title=result.get("title") if project.include_titles else None,
+                    body=result.get(
+                        "body", project.slides[slide_index].text.body
+                    ),
+                )
 
         return project
 
@@ -323,9 +303,13 @@ class StageDraftService(BaseStageService):
     ) -> AsyncGenerator[str, None]:
         """Stream plain-text body content for single-slide regeneration.
 
-        Yields text chunks as they arrive. Saves nothing — the caller is
-        responsible for persisting the final text (e.g., via update_slide_text).
+        Yields accumulated text chunks as they arrive, followed by a final
+        ``{"done": True}`` sentinel after persisting the completed text.
+
+        The caller (route handler) is only responsible for wrapping each
+        yielded chunk in the SSE ``data:`` envelope.
         """
+        set_project_context(project_id)
         project = await self.project_manager.get_project(project_id)
         if not self._valid_slide(project, slide_index):
             return
@@ -349,8 +333,20 @@ class StageDraftService(BaseStageService):
             f"No titles, no labels, no JSON — just the text content."
         )
 
+        full_text = ""
         async for chunk in self.gemini_service.generate_text_stream(prompt):
-            yield chunk
+            full_text += chunk
+            yield full_text
+
+        # Persist the final text once streaming completes
+        try:
+            await self.update_slide_text(project_id, slide_index, body=full_text)
+        except Exception:
+            logger.exception(
+                "Failed to persist streamed slide text for project %s slide %d",
+                project_id,
+                slide_index,
+            )
 
     async def update_slide_text(
         self,
@@ -360,15 +356,14 @@ class StageDraftService(BaseStageService):
         body: Optional[str] = None,
     ) -> Optional[ProjectState]:
         """Manually update a slide's text."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        slide = project.slides[slide_index]
-        if title is not None:
-            slide.text.title = title
-        if body is not None:
-            slide.text.body = body
+            slide = project.slides[slide_index]
+            if title is not None:
+                slide.text.title = title
+            if body is not None:
+                slide.text.body = body
 
-        await self.project_manager.update_project(project)
         return project

@@ -287,9 +287,7 @@ class MatrixGenerator:
             context=context,
         )
         b64 = await self._image_service.generate_image(image_prompt)
-        image_url = await asyncio.to_thread(
-            self._storage_service.save_image_to_disk, b64
-        )
+        image_url = await self._storage_service.save_image_to_disk(b64)
         await emit(
             {
                 "type": "image",

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).parent.parent.parent / "prompts"
 
-# Canonical map of prompt names to filenames
+# Canonical map of prompt names to filenames (shared / default prompts)
 PROMPT_FILES: Dict[str, str] = {
     "generate_draft_from_research": "generate_draft_from_research.prompt",
     "slide_generation": "slide_generation.prompt",
@@ -28,6 +28,30 @@ PROMPT_FILES: Dict[str, str] = {
     "matrix_validator": "matrix_validator.prompt",
     "matrix_image_builder": "matrix_image_builder.prompt",
     "matrix_description_axes": "matrix_description_axes.prompt",
+}
+
+
+# Prompts specific to the Carousel template (override shared defaults)
+CAROUSEL_PROMPT_FILES: Dict[str, str] = {
+    "generate_draft_from_research": "carousel/generate_draft_from_research.prompt",
+    "slide_generation": "carousel/slide_generation.prompt",
+    "style_proposal": "carousel/style_proposal.prompt",
+    "generate_single_image_prompt": "carousel/generate_single_image_prompt.prompt",
+}
+
+# Prompts specific to the Painting template (override shared defaults)
+PAINTING_PROMPT_FILES: Dict[str, str] = {
+    "generate_draft_from_research": "painting/generate_draft_from_research.prompt",
+    "slide_generation": "painting/slide_generation.prompt",
+    "style_proposal": "painting/style_proposal.prompt",
+    "generate_single_image_prompt": "painting/generate_single_image_prompt.prompt",
+    "regenerate_single_slide": "painting/regenerate_single_slide.prompt",
+}
+
+# Map of template name → its prompt file overrides
+TEMPLATE_PROMPT_FILES: Dict[str, Dict[str, str]] = {
+    "Carousel": CAROUSEL_PROMPT_FILES,
+    "Painting": PAINTING_PROMPT_FILES,
 }
 
 
@@ -71,6 +95,28 @@ class PromptLoader:
     def load(self, filename: str) -> str:
         """Load a prompt from the prompts directory."""
         return load_prompt_file(filename)
+
+    def load_for_template(self, template_name: str) -> Dict[str, str]:
+        """Return the base prompts merged with template-specific overrides.
+
+        Loads the shared defaults first, then overlays any prompt files
+        registered under *template_name* in ``TEMPLATE_PROMPT_FILES``.
+
+        Args:
+            template_name: The canonical template name (e.g. ``"Carousel"``).
+
+        Returns:
+            Dict mapping prompt names to their content.
+        """
+        prompts = self.load_all()
+        for name, filename in TEMPLATE_PROMPT_FILES.get(template_name, {}).items():
+            filepath = PROMPTS_DIR / filename
+            try:
+                with open(filepath, "r", encoding="utf-8") as f:
+                    prompts[name] = f.read()
+            except Exception as e:
+                logger.error("Failed to load template prompt %s: %s", filename, e)
+        return prompts
 
     def load_all(self) -> Dict[str, str]:
         """Load all registered prompt files.

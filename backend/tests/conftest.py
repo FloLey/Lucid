@@ -12,6 +12,7 @@ os.environ.setdefault("LUCID_IMAGE_DIR", "./data/images")
 
 import pytest
 from fastapi.testclient import TestClient
+from typing import List, Optional
 
 from app.main import app, _limiter
 
@@ -60,3 +61,58 @@ def client():
     _limiter._hits.clear()
     run_async(container.project_manager.clear_all())
     return TestClient(app)
+
+
+# ---------------------------------------------------------------------------
+# Shared project factory fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def make_project_with_slides():
+    """Factory fixture that creates a project with a configurable set of slides.
+
+    Usage::
+
+        def test_something(make_project_with_slides):
+            from app.models.slide import Slide, SlideText
+            project = make_project_with_slides(
+                slides=[Slide(index=0, text=SlideText(title="T", body="B"))],
+                draft_text="my draft",
+            )
+    """
+    from app.dependencies import container
+    from app.models.slide import Slide, SlideText
+
+    project_manager = container.project_manager
+
+    def _factory(
+        slides: Optional[List] = None,
+        draft_text: str = "Test draft content",
+        shared_prompt_prefix: Optional[str] = None,
+    ):
+        run_async(project_manager.clear_all())
+        project = run_async(project_manager.create_project())
+
+        if slides is None:
+            slides = [
+                Slide(index=0, text=SlideText(title="Slide 1", body="Content 1")),
+                Slide(index=1, text=SlideText(title="Slide 2", body="Content 2")),
+                Slide(index=2, text=SlideText(title="Slide 3", body="Content 3")),
+            ]
+
+        project.slides = slides
+        project.draft_text = draft_text
+        if shared_prompt_prefix is not None:
+            project.shared_prompt_prefix = shared_prompt_prefix
+
+        run_async(project_manager.update_project(project))
+        return project
+
+    return _factory
+
+
+@pytest.fixture
+def project_with_slides(make_project_with_slides):
+    """Shared convenience fixture: a project with 3 generic slides."""
+    return make_project_with_slides()

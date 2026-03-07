@@ -12,20 +12,6 @@ project_manager = container.project_manager
 
 
 @pytest.fixture
-def project_with_slides():
-    """Create a project with slides for testing."""
-    run_async(project_manager.clear_all())
-    project = run_async(project_manager.create_project())
-    project.slides = [
-        Slide(index=0, text=SlideText(title="Hook", body="Grab attention")),
-        Slide(index=1, text=SlideText(title="Point 1", body="First key point")),
-        Slide(index=2, text=SlideText(title="Point 2", body="Second key point")),
-    ]
-    run_async(project_manager.update_project(project))
-    return project
-
-
-@pytest.fixture
 def mock_gemini():
     """Mock the Gemini service for Stage 2."""
 

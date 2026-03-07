@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
+import { usePerSlideLoading } from '../hooks/usePerSlideLoading';
 import { POLL_INTERVAL_MS } from '../constants';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
@@ -18,7 +19,7 @@ export default function Stage4() {
 
   const [loading, setLoading] = useState(false);
 
-  const [regeneratingImages, setRegeneratingImages] = useState<Set<number>>(new Set());
+  const { isLoading: isImageLoading, startLoading: startImageLoading, stopLoading: stopImageLoading, loadingSlides: regeneratingImages } = usePerSlideLoading();
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Clean up polling interval if component unmounts mid-generation
@@ -63,18 +64,14 @@ export default function Stage4() {
   };
 
   const handleRegenerateImage = async (index: number) => {
-    setRegeneratingImages((prev) => new Set(prev).add(index));
+    startImageLoading(index);
     try {
       const sess = await api.regenerateImage(projectId, index);
       updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, `Failed to regenerate image ${index + 1}`));
     } finally {
-      setRegeneratingImages((prev) => {
-        const next = new Set(prev);
-        next.delete(index);
-        return next;
-      });
+      stopImageLoading(index);
     }
   };
 
@@ -172,7 +169,7 @@ export default function Stage4() {
                 >
                   <div className="flex items-start gap-4 p-4">
                     <div className="w-48 shrink-0 aspect-[4/5] relative bg-gray-100 rounded-lg overflow-hidden">
-                      {regeneratingImages.has(index) ? (
+                      {isImageLoading(index) ? (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
                           <Spinner size="md" />
                         </div>
@@ -193,7 +190,7 @@ export default function Stage4() {
                         <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Slide {index + 1}</span>
                         <button
                           onClick={() => handleRegenerateImage(index)}
-                          disabled={regeneratingImages.has(index)}
+                          disabled={isImageLoading(index)}
                           className="text-xs text-lucid-600 hover:text-lucid-700 disabled:opacity-50"
                         >
                           Regen

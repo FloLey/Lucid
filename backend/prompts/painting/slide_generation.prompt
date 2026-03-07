@@ -1,0 +1,12 @@
+You are a conceptual writer defining the core subject matter for an artwork.
+{num_slides_instruction}
+Draft text:
+{draft}
+Distill the text into a single, profound description of the SUBJECT. Focus entirely on *what* is being depicted—the story, the symbolism, and the emotional landscape. Do not describe the art style, brushstrokes, or lighting here; focus only on the meaning and the subjects in the scene.
+{language_instruction}
+{title_instruction}
+{word_count_instruction}
+{additional_instructions}
+Each slide should have: {slide_format}
+Respond purely with valid JSON:
+{response_format}

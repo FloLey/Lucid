@@ -18,158 +18,28 @@ from app.models.config import GlobalDefaultsConfig, StyleConfig
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Carousel template prompts
-# ---------------------------------------------------------------------------
-
-_CAROUSEL_PROMPTS = {
-    "generate_draft_from_research": """\
-You are an expert educator and writer. Your task is to distill a research conversation into a clear, high-quality article draft.
-Transcript:
-{transcript}
-{instructions}
-Extract the most valuable insights. Write compelling, well-structured prose that is factual but fun to read. Focus on delivering real value and explaining concepts clearly without using cheap marketing tactics or fluff. Output ONLY the polished draft text.""",
-
-    "slide_generation": """\
-You are a skilled writer adapting an article into a multi-part visual presentation.
-Given a draft text, {num_slides_instruction}
-Draft text:
-{draft}
-Transform the text into a cohesive, high-quality presentation:
-- The Introduction (Slide 1): An engaging but natural introduction to the topic. Do not use aggressive "scroll-stopping" clickbait.
-- The Body: Break ideas into logical, well-explained chunks. One core concept per slide.
-- The Conclusion: A clear summary of the main takeaway. DO NOT include Call-To-Actions (CTAs).
-{language_instruction}
-{title_instruction}
-{word_count_instruction}
-{additional_instructions}
-Each slide should have: {slide_format}
-Respond purely with valid JSON:
-{response_format}""",
-
-    "style_proposal": """\
-You are an expert Art Director establishing the visual identity for an elegant presentation.
-Given the texts below, propose {num_proposals} distinct, high-end visual art directions.
-Slides:
-{slides_text}
-{additional_instructions}
-For each proposal, write a direct image generation prompt detailing the visual aesthetic. Focus on:
-- Color Palette: Specific harmonious tones (e.g., muted sage, deep slate, warm terracotta).
-- Texture & Medium: (e.g., frosted glass, subtle grain, clean vector, minimalist photography).
-- Lighting: (e.g., soft diffused studio light, natural morning sun).
-CRITICAL: The style MUST serve as a clean, unobtrusive background for reading text.
-Respond with JSON:
-{response_format}""",
-
-    "generate_single_image_prompt": """\
-Task: Create an image generation prompt for a background asset for ONE slide.
-Slide content: {slide_text}
-All slides context: {context}
-{instruction_text}
-Visual Art Direction: "{shared_theme}"
-{style_instructions_text}
-Create a highly specific image prompt for this slide.
-CRITICAL COMPOSITIONAL RULES:
-- The image is purely a background. It MUST have clean negative space or smooth areas where text can be easily read.
-- Push any abstract shapes or elements to the edges.
-- NEVER include any text, UI elements, borders, letters, or watermarks.
-Respond with JSON: {response_format}""",
-}
+_prompts_cache: Optional[Dict[str, Dict[str, str]]] = None
 
 
-# ---------------------------------------------------------------------------
-# Painting template prompts
-# ---------------------------------------------------------------------------
+def _load_template_prompts() -> Dict[str, Dict[str, str]]:
+    """Return per-template prompt dicts, cached at module level.
 
-_PAINTING_PROMPTS = {
-    "generate_draft_from_research": """\
-You are a conceptual researcher. Synthesize this conversation into a deep, meaningful exploration of a subject that will inspire a painting.
-Transcript:
-{transcript}
-{instructions}
-Define the central allegory, the emotional weight, and the historical or philosophical context of the topic. Output ONLY the concept text itself, with no meta-commentary.""",
-
-    "slide_generation": """\
-You are a conceptual writer defining the core subject matter for an artwork.
-{num_slides_instruction}
-Draft text:
-{draft}
-Distill the text into a single, profound description of the SUBJECT. Focus entirely on *what* is being depicted—the story, the symbolism, and the emotional landscape. Do not describe the art style, brushstrokes, or lighting here; focus only on the meaning and the subjects in the scene.
-{language_instruction}
-{title_instruction}
-{word_count_instruction}
-{additional_instructions}
-Each slide should have: {slide_format}
-Respond purely with valid JSON:
-{response_format}""",
-
-    "style_proposal": """\
-You are a renowned art historian and Art Director.
-Given the artwork's subject below, propose {num_proposals} distinct, breathtaking fine art mediums and styles.
-Subject:
-{slides_text}
-{additional_instructions}
-For each proposal, write a highly detailed visual directive focusing entirely on the execution:
-- Medium & Brushwork: (e.g., thick impasto oil on canvas, ethereal watercolor, detailed tempera).
-- Lighting Technique: (e.g., dramatic Chiaroscuro, flat gold-leaf, dappled light).
-- Color Theory: (e.g., monochromatic umber, vibrant Fauvist complementary colors).
-This is for a standalone masterpiece, not a background.
-Respond with JSON:
-{response_format}""",
-
-    "generate_single_image_prompt": """\
-Task: Act as an elite AI art prompt engineer. Construct a complex, vivid prompt to generate a breathtaking painting.
-Subject: {slide_text}
-{context}
-{instruction_text}
-Artistic Style & Medium to apply: "{shared_theme}"
-{style_instructions_text}
-Create a master-level image generation prompt that fuses the subject with the artistic style.
-- Reinforce the physical properties of the paint and canvas (e.g., visible brushstrokes, canvas texture).
-- This is a complete, standalone artwork. Do NOT leave empty negative space for text.
-- EXPLICITLY FORBID: text, signatures, watermarks, borders, and UI elements.
-Respond with JSON: {response_format}""",
-
-    "regenerate_single_slide": """\
-You are a conceptual writer refining the subject description for a painting.
-
-Original concept:
-{draft_text}
-
-{language_instruction}
-
-Current subject description:
-{current_text}
-
-{instruction_text}
-
-{title_instruction}
-
-Rewrite the subject description to be more evocative and meaningful. Focus entirely on *what* is depicted — the story, the symbolism, and the emotional landscape. Do not describe art style, brushstrokes, or lighting; those are defined separately. The rewrite must stand alone as the definitive subject of the artwork.
-
-Respond with JSON:
-{response_format}
-""",
-}
-
-
-_prompts_cache: Optional[Dict[str, str]] = None
-
-
-def _load_default_prompts() -> Dict[str, str]:
-    """Load all known .prompt files into a dict keyed by stem.
-
-    The result is cached at module level so repeated calls (e.g. every
-    create_template API call) don't re-read files from disk.
+    Returns a mapping of ``{template_name: {prompt_name: content}}``.
+    The result is cached so repeated calls (e.g. every ``create_template``
+    API call) avoid redundant disk I/O.
     """
     global _prompts_cache
     if _prompts_cache is None:
-        from app.services.prompt_loader import PromptLoader
+        from app.services.prompt_loader import PromptLoader, TEMPLATE_PROMPT_FILES
 
         loader = PromptLoader()
-        all_prompts = loader.load_all()
-        _prompts_cache = {name: content for name, content in all_prompts.items()}
-    return dict(_prompts_cache)
+        _prompts_cache = {
+            name: loader.load_for_template(name)
+            for name in TEMPLATE_PROMPT_FILES
+        }
+        # Include a generic fallback (no overrides) for custom templates
+        _prompts_cache[""] = loader.load_all()
+    return _prompts_cache
 
 
 def _row_to_data(row: TemplateDB) -> TemplateData:
@@ -206,37 +76,35 @@ class TemplateManager:
                 logger.debug("Templates already seeded — skipping")
                 return
 
-        base_prompts = _load_default_prompts()
-
-        # --- Carousel template ---
-        carousel_prompts = dict(base_prompts)
-        carousel_prompts.update(_CAROUSEL_PROMPTS)
-        carousel_config = ProjectConfig(
-            global_defaults=GlobalDefaultsConfig(
-                num_slides=None,
-                include_titles=True,
-                words_per_slide="ai",
-            ),
-            style=StyleConfig(default_text_enabled=True),
-            prompts=carousel_prompts,
-        )
-
-        # --- Painting template ---
-        painting_prompts = dict(base_prompts)
-        painting_prompts.update(_PAINTING_PROMPTS)
-        painting_config = ProjectConfig(
-            global_defaults=GlobalDefaultsConfig(
-                num_slides=1,
-                include_titles=False,
-                words_per_slide="keep_as_is",
-            ),
-            style=StyleConfig(default_text_enabled=False),
-            prompts=painting_prompts,
-        )
+        all_prompts = _load_template_prompts()
 
         templates = [
-            ("Carousel", 5, carousel_config),
-            ("Painting", 1, painting_config),
+            (
+                "Carousel",
+                5,
+                ProjectConfig(
+                    global_defaults=GlobalDefaultsConfig(
+                        num_slides=None,
+                        include_titles=True,
+                        words_per_slide="ai",
+                    ),
+                    style=StyleConfig(default_text_enabled=True),
+                    prompts=all_prompts["Carousel"],
+                ),
+            ),
+            (
+                "Painting",
+                1,
+                ProjectConfig(
+                    global_defaults=GlobalDefaultsConfig(
+                        num_slides=1,
+                        include_titles=False,
+                        words_per_slide="keep_as_is",
+                    ),
+                    style=StyleConfig(default_text_enabled=False),
+                    prompts=all_prompts["Painting"],
+                ),
+            ),
         ]
 
         async with self._session_factory() as session:
@@ -291,7 +159,7 @@ class TemplateManager:
     ) -> TemplateData:
         """Create a new template."""
         if config is None:
-            prompts = _load_default_prompts()
+            prompts = _load_template_prompts().get("") or {}
             config = ProjectConfig(prompts=prompts)
 
         row = TemplateDB(

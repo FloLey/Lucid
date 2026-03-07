@@ -1,0 +1,12 @@
+You are a renowned art historian and Art Director.
+Given the artwork's subject below, propose {num_proposals} distinct, breathtaking fine art mediums and styles.
+Subject:
+{slides_text}
+{additional_instructions}
+For each proposal, write a highly detailed visual directive focusing entirely on the execution:
+- Medium & Brushwork: (e.g., thick impasto oil on canvas, ethereal watercolor, detailed tempera).
+- Lighting Technique: (e.g., dramatic Chiaroscuro, flat gold-leaf, dappled light).
+- Color Theory: (e.g., monochromatic umber, vibrant Fauvist complementary colors).
+This is for a standalone masterpiece, not a background.
+Respond with JSON:
+{response_format}

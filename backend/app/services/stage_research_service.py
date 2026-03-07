@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from app.models.project import MAX_STAGES, ProjectState
 from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
-from app.services.llm_logger import set_project_context
+from app.services.llm_logger import set_project_context  # used in send_message (not migrated due to rollback logic)
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -95,41 +95,39 @@ class StageResearchService(BaseStageService):
         After this call ``project.draft_text`` is populated. The stage is NOT
         advanced automatically — the user must explicitly proceed to Stage Draft.
         """
-        set_project_context(project_id)
-        project = await self.project_manager.get_project(project_id)
-        if not project:
-            return None
+        async with self._project_ctx(project_id) as project:
+            if project is None:
+                return None
 
-        if research_instructions is not None:
-            project.research_instructions = research_instructions
+            if research_instructions is not None:
+                project.research_instructions = research_instructions
 
-        # Build a readable transcript of the conversation
-        transcript_lines: List[str] = []
-        for turn in project.chat_history:
-            role_label = "User" if turn.get("role") == "user" else "AI"
-            transcript_lines.append(f"{role_label}: {turn.get('content', '')}")
-        transcript = "\n\n".join(transcript_lines)
+            # Build a readable transcript of the conversation
+            transcript_lines: List[str] = []
+            for turn in project.chat_history:
+                role_label = "User" if turn.get("role") == "user" else "AI"
+                transcript_lines.append(f"{role_label}: {turn.get('content', '')}")
+            transcript = "\n\n".join(transcript_lines)
 
-        instructions_block = (
-            f"User instructions: {project.research_instructions}"
-            if project.research_instructions
-            else "No specific formatting instructions provided — use your best judgment."
-        )
+            instructions_block = (
+                f"User instructions: {project.research_instructions}"
+                if project.research_instructions
+                else "No specific formatting instructions provided — use your best judgment."
+            )
 
-        prompt_template = self.prompt_loader.resolve_prompt(
-            project, "generate_draft_from_research"
-        )
-        prompt = prompt_template.format(
-            transcript=transcript,
-            instructions=instructions_block,
-        )
+            prompt_template = self.prompt_loader.resolve_prompt(
+                project, "generate_draft_from_research"
+            )
+            prompt = prompt_template.format(
+                transcript=transcript,
+                instructions=instructions_block,
+            )
 
-        draft_text = await self.gemini_service.generate_text(
-            prompt,
-            caller="stage_research_service.extract_draft",
-        )
+            draft_text = await self.gemini_service.generate_text(
+                prompt,
+                caller="stage_research_service.extract_draft",
+            )
 
-        project.draft_text = draft_text.strip()
+            project.draft_text = draft_text.strip()
 
-        await self.project_manager.update_project(project)
         return project

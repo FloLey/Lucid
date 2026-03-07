@@ -135,24 +135,15 @@ async def regenerate_slide_text_stream(
     """Stream body-text regeneration for a single slide via Server-Sent Events.
 
     Each event carries ``{"text": "<accumulated text so far>"}`` while streaming,
-    followed by a final ``{"done": true}`` event when the text has been saved.
+    followed by a final ``{"done": true}`` event after the text has been saved.
+    Persistence is handled by the service; this route is a thin SSE adapter.
     """
 
     async def event_stream():
-        full_text = ""
-        async for chunk in stage_draft_service.regenerate_slide_text_stream(
+        async for accumulated in stage_draft_service.regenerate_slide_text_stream(
             request.project_id, request.slide_index, request.instruction
         ):
-            full_text += chunk
-            yield f"data: {json.dumps({'text': full_text})}\n\n"
-
-        # Persist the final result before sending the done event
-        try:
-            await stage_draft_service.update_slide_text(
-                request.project_id, request.slide_index, body=full_text
-            )
-        except Exception:
-            logger.exception("Failed to save streamed slide text")
+            yield f"data: {json.dumps({'text': accumulated})}\n\n"
 
         yield f"data: {json.dumps({'done': True})}\n\n"
 

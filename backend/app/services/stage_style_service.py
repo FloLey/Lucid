@@ -1,13 +1,11 @@
 """Stage Style service - Generate and select shared visual style proposals."""
 
 from __future__ import annotations
-import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
 from app.models.project import ProjectState
 from app.models.style_proposal import StyleProposal
-from app.services.async_utils import bounded_gather
 from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
 from app.services.storage_service import StorageService
@@ -95,9 +93,7 @@ class StageStyleService(BaseStageService):
             preview_path: Optional[str] = None
             try:
                 b64 = await self.image_service.generate_image(common_flow)
-                preview_path = await asyncio.to_thread(
-                    self.storage_service.save_image_to_disk, b64
-                )
+                preview_path = await self.storage_service.save_image_to_disk(b64)
             except Exception as e:
                 logger.warning("Failed to generate preview for proposal %d: %s", i, e, exc_info=True)
 
@@ -107,9 +103,9 @@ class StageStyleService(BaseStageService):
                 preview_image=preview_path,
             )
 
-        proposals = await bounded_gather(
+        proposals = await self._batch(
             [generate_preview(i, p) for i, p in enumerate(raw_proposals)],
-            concurrency_limit,
+            limit=concurrency_limit,
         )
 
         old_proposals = project.style_proposals
@@ -122,7 +118,7 @@ class StageStyleService(BaseStageService):
         # remain reachable from the DB record (no orphaned/missing files).
         await self.project_manager.update_project(project)
         for old in old_proposals:
-            await asyncio.to_thread(self.storage_service.delete_image, old.preview_image)
+            await self.storage_service.delete_image(old.preview_image)
         return project
 
     async def select_proposal(
@@ -131,18 +127,18 @@ class StageStyleService(BaseStageService):
         proposal_index: int,
     ) -> Optional[ProjectState]:
         """Select a style proposal and set shared_prompt_prefix."""
-        project = await self.project_manager.get_project(project_id)
-        if not project:
-            return None
+        async with self._project_ctx(project_id) as project:
+            if project is None:
+                return None
 
-        if proposal_index < 0 or proposal_index >= len(project.style_proposals):
-            return None
+            if proposal_index < 0 or proposal_index >= len(project.style_proposals):
+                return None
 
-        proposal = project.style_proposals[proposal_index]
-        project.shared_prompt_prefix = proposal.description
-        project.selected_style_proposal_index = proposal_index
-        # Update thumbnail to reflect the chosen style
-        if proposal.preview_image:
-            project.thumbnail_url = proposal.preview_image
-        await self.project_manager.update_project(project)
+            proposal = project.style_proposals[proposal_index]
+            project.shared_prompt_prefix = proposal.description
+            project.selected_style_proposal_index = proposal_index
+            # Update thumbnail to reflect the chosen style
+            if proposal.preview_image:
+                project.thumbnail_url = proposal.preview_image
+
         return project

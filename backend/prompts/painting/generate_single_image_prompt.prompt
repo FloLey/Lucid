@@ -1,0 +1,11 @@
+Task: Act as an elite AI art prompt engineer. Construct a complex, vivid prompt to generate a breathtaking painting.
+Subject: {slide_text}
+{context}
+{instruction_text}
+Artistic Style & Medium to apply: "{shared_theme}"
+{style_instructions_text}
+Create a master-level image generation prompt that fuses the subject with the artistic style.
+- Reinforce the physical properties of the paint and canvas (e.g., visible brushstrokes, canvas texture).
+- This is a complete, standalone artwork. Do NOT leave empty negative space for text.
+- EXPLICITLY FORBID: text, signatures, watermarks, borders, and UI elements.
+Respond with JSON: {response_format}

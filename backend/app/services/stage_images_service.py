@@ -1,12 +1,10 @@
 """Stage Images service - Image prompts to Images transformation."""
 
 from __future__ import annotations
-import asyncio
 import logging
 from typing import Optional, TYPE_CHECKING
 
 from app.models.project import ProjectState
-from app.services.async_utils import bounded_gather
 from app.services.base_stage_service import BaseStageService
 from app.services.storage_service import StorageService
 
@@ -61,13 +59,11 @@ class StageImagesService(BaseStageService):
 
         # Delete existing background images before overwriting
         for slide in project.slides:
-            await asyncio.to_thread(
-                self.storage_service.delete_image, slide.background_image_url
-            )
+            await self.storage_service.delete_image(slide.background_image_url)
 
-        results = await bounded_gather(
+        results = await self._batch(
             [self.image_service.generate_image(p) for p in full_prompts],
-            concurrency_limit,
+            limit=concurrency_limit,
             return_exceptions=True,
         )
         for slide, result in zip(project.slides, results):
@@ -79,9 +75,7 @@ class StageImagesService(BaseStageService):
                 )
                 # Preserve existing image on failure rather than losing it
                 continue
-            slide.background_image_url = await asyncio.to_thread(
-                self.storage_service.save_image_to_disk, result
-            )
+            slide.background_image_url = await self.storage_service.save_image_to_disk(result)
 
         # Update thumbnail to the first slide's background image
         if project.slides and project.slides[0].background_image_url:
@@ -96,30 +90,25 @@ class StageImagesService(BaseStageService):
         slide_index: int,
     ) -> Optional[ProjectState]:
         """Regenerate image for a single slide."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        slide = project.slides[slide_index]
-        if not slide.image_prompt:
-            slide.image_prompt = _DEFAULT_IMAGE_PROMPT.format(n=slide_index + 1)
+            slide = project.slides[slide_index]
+            if not slide.image_prompt:
+                slide.image_prompt = _DEFAULT_IMAGE_PROMPT.format(n=slide_index + 1)
 
-        full_prompt = self._build_full_prompt(project, slide_index)
-        # Delete existing background image before overwriting
-        await asyncio.to_thread(
-            self.storage_service.delete_image, slide.background_image_url
-        )
-        b64 = await self.image_service.generate_image(full_prompt)
-        slide.background_image_url = await asyncio.to_thread(
-            self.storage_service.save_image_to_disk, b64
-        )
+            full_prompt = self._build_full_prompt(project, slide_index)
+            # Delete existing background image before overwriting
+            await self.storage_service.delete_image(slide.background_image_url)
+            b64 = await self.image_service.generate_image(full_prompt)
+            slide.background_image_url = await self.storage_service.save_image_to_disk(b64)
 
-        # Keep the project thumbnail in sync: if this slide was the thumbnail source,
-        # update it so the project list doesn't show a broken image.
-        if slide_index == 0:
-            project.thumbnail_url = slide.background_image_url
+            # Keep the project thumbnail in sync: if this slide was the thumbnail source,
+            # update it so the project list doesn't show a broken image.
+            if slide_index == 0:
+                project.thumbnail_url = slide.background_image_url
 
-        await self.project_manager.update_project(project)
         return project
 
     async def set_image_data(
@@ -129,10 +118,10 @@ class StageImagesService(BaseStageService):
         image_data: str,
     ) -> Optional[ProjectState]:
         """Set image data directly (for uploads)."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        project.slides[slide_index].background_image_url = image_data
-        await self.project_manager.update_project(project)
+            project.slides[slide_index].background_image_url = image_data
+
         return project

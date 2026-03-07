@@ -5,10 +5,9 @@ import logging
 from typing import Optional, TYPE_CHECKING
 
 from app.models.project import ProjectState
-from app.services.async_utils import bounded_gather
 from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
-from app.services.llm_logger import set_project_context
+from app.services.llm_logger import set_project_context  # used in generate_all_prompts (not yet migrated)
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -97,7 +96,7 @@ class StagePromptsService(BaseStageService):
                 f"Abstract professional background for: {project.slides[slide_index].text.body[:50]}",
             )
 
-        prompts = await bounded_gather(
+        prompts = await self._batch(
             [generate_single_prompt(i) for i in range(len(project.slides))],
             limit=concurrency_limit,
         )
@@ -115,18 +114,17 @@ class StagePromptsService(BaseStageService):
         instruction: Optional[str] = None,
     ) -> Optional[ProjectState]:
         """Regenerate image prompt for a single slide."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        prompt = self._build_slide_prompt(project, slide_index, instruction=instruction)
-        result = await self.gemini_service.generate_json(
-            prompt, caller="stage_prompts_service.regenerate_prompt"
-        )
+            prompt = self._build_slide_prompt(project, slide_index, instruction=instruction)
+            result = await self.gemini_service.generate_json(
+                prompt, caller="stage_prompts_service.regenerate_prompt"
+            )
 
-        if result.get("prompt"):
-            project.slides[slide_index].image_prompt = result["prompt"]
-            await self.project_manager.update_project(project)
+            if result.get("prompt"):
+                project.slides[slide_index].image_prompt = result["prompt"]
 
         return project
 
@@ -137,12 +135,12 @@ class StagePromptsService(BaseStageService):
         prompt: str,
     ) -> Optional[ProjectState]:
         """Manually update an image prompt."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        project.slides[slide_index].image_prompt = prompt
-        await self.project_manager.update_project(project)
+            project.slides[slide_index].image_prompt = prompt
+
         return project
 
     async def update_style_instructions(
@@ -151,10 +149,10 @@ class StagePromptsService(BaseStageService):
         style_instructions: str,
     ) -> Optional[ProjectState]:
         """Update the shared style instructions."""
-        project = await self.project_manager.get_project(project_id)
-        if not project:
-            return None
+        async with self._project_ctx(project_id) as project:
+            if project is None:
+                return None
 
-        project.image_style_instructions = style_instructions
-        await self.project_manager.update_project(project)
+            project.image_style_instructions = style_instructions
+
         return project

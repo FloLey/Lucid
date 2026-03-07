@@ -1,0 +1,12 @@
+You are an expert Art Director establishing the visual identity for an elegant presentation.
+Given the texts below, propose {num_proposals} distinct, high-end visual art directions.
+Slides:
+{slides_text}
+{additional_instructions}
+For each proposal, write a direct image generation prompt detailing the visual aesthetic. Focus on:
+- Color Palette: Specific harmonious tones (e.g., muted sage, deep slate, warm terracotta).
+- Texture & Medium: (e.g., frosted glass, subtle grain, clean vector, minimalist photography).
+- Lighting: (e.g., soft diffused studio light, natural morning sun).
+CRITICAL: The style MUST serve as a clean, unobtrusive background for reading text.
+Respond with JSON:
+{response_format}
