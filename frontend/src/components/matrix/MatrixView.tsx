@@ -322,6 +322,26 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                   </p>
                   <div className="mt-3 space-y-1 text-xs text-gray-400 dark:text-gray-400">
                     {(() => {
+                      if (isDescriptionMode) {
+                        const rowLabel = matrix.row_labels?.[selectedCell.row];
+                        const colLabel = matrix.col_labels?.[selectedCell.col];
+                        return (
+                          <>
+                            {rowLabel && (
+                              <div>
+                                <span className="font-medium text-gray-500 dark:text-gray-400">Row:</span>{' '}
+                                {rowLabel}
+                              </div>
+                            )}
+                            {colLabel && (
+                              <div>
+                                <span className="font-medium text-gray-500 dark:text-gray-400">Col:</span>{' '}
+                                {colLabel}
+                              </div>
+                            )}
+                          </>
+                        );
+                      }
                       const rowDiag = getDiagCell(selectedCell.row);
                       const colDiag = getDiagCell(selectedCell.col);
                       return (

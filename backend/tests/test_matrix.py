@@ -1908,3 +1908,313 @@ class TestDescriptionModePipeline:
         for r in range(2):
             diag_cell = next(c for c in final.cells if c.row == r and c.col == r)
             assert diag_cell.image_url is not None
+
+
+# ── 11. Pipeline SSE event regression fixes ───────────────────────────────
+
+
+class TestPipelineSSEEventFixes:
+    """Regression tests for two SSE event bugs in _run_pipeline:
+
+    Bug 1 — Validation stall: validate_matrix always emits a 'validation'
+    event marking failing cells as 'generating'. When the last retry attempt
+    finishes and failures remain, no subsequent event resets those cells in
+    the frontend, leaving them stuck as 'generating' indefinitely (until
+    onComplete refetches). The fix emits a 'cell' event for each unremedied
+    failure after the retry loop.
+
+    Bug 2 — Missing labels: In description mode, row_labels/col_labels are
+    persisted to the DB but never broadcast via SSE. Live subscribers show
+    empty headers because the frontend's MatrixProject state is never updated
+    with these labels until onComplete triggers a full refetch. The fix emits
+    a 'labels' SSE event immediately after update_project_labels().
+    """
+
+    def setup_method(self):
+        _clear()
+
+    # ── Bug 2: 'labels' event emitted in description mode ─────────────────
+
+    def test_labels_event_emitted_in_description_mode(self, monkeypatch):
+        """_run_pipeline must emit a 'labels' SSE event with row_labels and
+        col_labels immediately after the description-mode axes are generated,
+        so live subscribers can render headers without waiting for onComplete.
+        """
+        emitted: list[dict] = []
+
+        async def _run():
+            svc = container.matrix_service
+
+            async def _fake_from_description(project_id, description, n_rows, n_cols,
+                                             language, style_mode, settings, emit):
+                row_concepts = [{"label": f"Row{i}", "definition": ""} for i in range(n_rows)]
+                col_concepts = [{"label": f"Col{j}", "definition": ""} for j in range(n_cols)]
+                row_axes = [f"row_axis_{i}" for i in range(n_rows)]
+                col_axes = [f"col_axis_{j}" for j in range(n_cols)]
+                for i, rd in enumerate(row_axes):
+                    await emit({
+                        "type": "axes", "project_id": project_id,
+                        "row": i, "col": i,
+                        "row_descriptor": rd, "col_descriptor": col_axes[i],
+                    })
+                return row_concepts, col_concepts, row_axes, col_axes
+
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit, extra_instructions=""):
+                concept = f"C-{row}-{col}"
+                await emit({"type": "cell", "project_id": project_id,
+                            "row": row, "col": col, "concept": concept, "explanation": ""})
+                return {"concept": concept, "explanation": ""}
+
+            async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
+                return []
+
+            monkeypatch.setattr(svc._gen, "generate_from_description", _fake_from_description)
+            monkeypatch.setattr(svc._gen, "generate_cell", _fake_generate_cell)
+            monkeypatch.setattr(svc._gen, "validate_matrix", _fake_validate)
+
+            # Capture emitted events without breaking broadcast
+            original_emit = svc._emit
+            async def _capture(event):
+                emitted.append(event)
+                await original_emit(event)
+            monkeypatch.setattr(svc, "_emit", _capture)
+
+            req = CreateMatrixRequest(
+                input_mode="description",
+                description="feels like one generation but is actually another",
+                n=2,
+                include_images=False,
+            )
+            project = await svc.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+        run_async(_run())
+
+        labels_events = [e for e in emitted if e["type"] == "labels"]
+        assert len(labels_events) == 1, "Expected exactly one 'labels' SSE event"
+        ev = labels_events[0]
+        assert ev["row_labels"] == ["Row0", "Row1"]
+        assert ev["col_labels"] == ["Col0", "Col1"]
+
+    def test_labels_event_contains_all_labels(self, monkeypatch):
+        """The 'labels' event row_labels and col_labels must match exactly what
+        was derived by generate_from_description and persisted to the DB.
+        """
+        emitted: list[dict] = []
+
+        async def _run():
+            svc = container.matrix_service
+
+            async def _fake_from_description(project_id, description, n_rows, n_cols,
+                                             language, style_mode, settings, emit):
+                row_concepts = [
+                    {"label": "Gen-Z", "definition": ""},
+                    {"label": "Millennial", "definition": ""},
+                    {"label": "Gen-X", "definition": ""},
+                ]
+                col_concepts = [
+                    {"label": "TikTok", "definition": ""},
+                    {"label": "Instagram", "definition": ""},
+                ]
+                return row_concepts, col_concepts, ["ra0", "ra1", "ra2"], ["ca0", "ca1"]
+
+            async def _fake_generate_cell(project_id, row, col, *args, **kwargs):
+                emit = kwargs.get("emit") or args[10]
+                await emit({"type": "cell", "project_id": project_id,
+                            "row": row, "col": col, "concept": f"C{row}{col}", "explanation": ""})
+                return {"concept": f"C{row}{col}", "explanation": ""}
+
+            async def _fake_validate(*args, **kwargs):
+                return []
+
+            monkeypatch.setattr(svc._gen, "generate_from_description", _fake_from_description)
+            monkeypatch.setattr(svc._gen, "generate_cell", _fake_generate_cell)
+            monkeypatch.setattr(svc._gen, "validate_matrix", _fake_validate)
+
+            original_emit = svc._emit
+            async def _capture(event):
+                emitted.append(event)
+                await original_emit(event)
+            monkeypatch.setattr(svc, "_emit", _capture)
+
+            req = CreateMatrixRequest(
+                input_mode="description",
+                description="enjoyed by X but made for Y",
+                n_rows=3,
+                n_cols=2,
+                include_images=False,
+            )
+            project = await svc.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+        run_async(_run())
+
+        labels_events = [e for e in emitted if e["type"] == "labels"]
+        assert len(labels_events) == 1
+        ev = labels_events[0]
+        assert ev["row_labels"] == ["Gen-Z", "Millennial", "Gen-X"]
+        assert ev["col_labels"] == ["TikTok", "Instagram"]
+
+    # ── Bug 1: cell events emitted after last validation retry ────────────
+
+    def test_cell_events_emitted_after_last_retry_failures(self, monkeypatch):
+        """When validation still reports failures after all retries, _run_pipeline
+        must emit a 'cell' SSE event for each remaining failure so the frontend
+        transitions those cells out of the 'generating' state it set them to
+        when it received the last 'validation' event.
+        """
+        emitted: list[dict] = []
+
+        async def _run():
+            svc = container.matrix_service
+
+            async def _fake_diagonal(project_id, theme, n, language, style_mode, settings, emit):
+                concepts = [{"label": f"D{i}", "definition": f"Def{i}"} for i in range(n)]
+                for i, c in enumerate(concepts):
+                    await emit({"type": "diagonal", "project_id": project_id, "index": i,
+                                "label": c["label"], "definition": c["definition"]})
+                return concepts
+
+            async def _fake_axes(project_id, diagonal_index, concept, all_concepts, settings, emit):
+                await emit({"type": "axes", "project_id": project_id,
+                            "row": diagonal_index, "col": diagonal_index,
+                            "row_descriptor": f"r{diagonal_index}",
+                            "col_descriptor": f"c{diagonal_index}"})
+                return (f"r{diagonal_index}", f"c{diagonal_index}")
+
+            async def _fake_generate_cell(project_id, row, col, *args, **kwargs):
+                emit_fn = kwargs.get("emit") or args[10]
+                concept = f"C{row}{col}"
+                await emit_fn({"type": "cell", "project_id": project_id,
+                               "row": row, "col": col, "concept": concept, "explanation": "exp"})
+                return {"concept": concept, "explanation": "exp"}
+
+            # Validator always reports (0,1) as failing — simulates persistent failure
+            async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
+                failures = [{"row": 0, "col": 1, "reason": "test failure"}]
+                await emit({"type": "validation", "project_id": project_id,
+                            "failures": failures})
+                return [(0, 1)]
+
+            monkeypatch.setattr(svc._gen, "generate_diagonal", _fake_diagonal)
+            monkeypatch.setattr(svc._gen, "generate_axes_for_concept", _fake_axes)
+            monkeypatch.setattr(svc._gen, "generate_cell", _fake_generate_cell)
+            monkeypatch.setattr(svc._gen, "validate_matrix", _fake_validate)
+
+            # Use max_retries=0: one validation attempt, no retries.
+            svc.load_settings(MatrixSettings(max_retries=0))
+
+            original_emit = svc._emit
+            async def _capture(event):
+                emitted.append(event)
+                await original_emit(event)
+            monkeypatch.setattr(svc, "_emit", _capture)
+
+            req = CreateMatrixRequest(theme="Test Theme", n=2, include_images=False)
+            project = await svc.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+        run_async(_run())
+
+        # Restore default settings so other tests aren't affected
+        container.matrix_service.load_settings(MatrixSettings())
+
+        # Find the index of the last validation event
+        validation_indices = [i for i, e in enumerate(emitted) if e["type"] == "validation"]
+        assert validation_indices, "Expected at least one validation event"
+        last_validation_idx = max(validation_indices)
+
+        # A 'cell' event for (0,1) must appear AFTER the last validation event
+        cell_events_after_validation = [
+            e for i, e in enumerate(emitted)
+            if e["type"] == "cell"
+            and e.get("row") == 0 and e.get("col") == 1
+            and i > last_validation_idx
+        ]
+        assert cell_events_after_validation, (
+            "Expected a 'cell' event for (0,1) after the last validation event "
+            "to clear its 'generating' status in the frontend"
+        )
+
+    def test_no_extra_cell_events_when_validation_passes(self, monkeypatch):
+        """When validation succeeds on the first attempt, no extra 'cell' events
+        should be emitted after the validation event.
+        """
+        emitted: list[dict] = []
+
+        async def _run():
+            svc = container.matrix_service
+
+            async def _fake_diagonal(project_id, theme, n, language, style_mode, settings, emit):
+                concepts = [{"label": f"D{i}", "definition": ""} for i in range(n)]
+                for i, c in enumerate(concepts):
+                    await emit({"type": "diagonal", "project_id": project_id, "index": i,
+                                "label": c["label"], "definition": c["definition"]})
+                return concepts
+
+            async def _fake_axes(project_id, diagonal_index, concept, all_concepts, settings, emit):
+                return (f"r{diagonal_index}", f"c{diagonal_index}")
+
+            async def _fake_generate_cell(project_id, row, col, *args, **kwargs):
+                emit_fn = kwargs.get("emit") or args[10]
+                concept = f"C{row}{col}"
+                await emit_fn({"type": "cell", "project_id": project_id,
+                               "row": row, "col": col, "concept": concept, "explanation": "exp"})
+                return {"concept": concept, "explanation": "exp"}
+
+            # Validator always passes
+            async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
+                await emit({"type": "validation", "project_id": project_id, "failures": []})
+                return []
+
+            monkeypatch.setattr(svc._gen, "generate_diagonal", _fake_diagonal)
+            monkeypatch.setattr(svc._gen, "generate_axes_for_concept", _fake_axes)
+            monkeypatch.setattr(svc._gen, "generate_cell", _fake_generate_cell)
+            monkeypatch.setattr(svc._gen, "validate_matrix", _fake_validate)
+
+            svc.load_settings(MatrixSettings(max_retries=0))
+
+            original_emit = svc._emit
+            async def _capture(event):
+                emitted.append(event)
+                await original_emit(event)
+            monkeypatch.setattr(svc, "_emit", _capture)
+
+            req = CreateMatrixRequest(theme="Test Theme", n=2, include_images=False)
+            project = await svc.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+        run_async(_run())
+        container.matrix_service.load_settings(MatrixSettings())
+
+        # Find events after validation
+        validation_indices = [i for i, e in enumerate(emitted) if e["type"] == "validation"]
+        assert validation_indices
+        last_validation_idx = max(validation_indices)
+
+        # No 'cell' events should appear after validation (it passed, no reset needed)
+        cell_events_after_validation = [
+            e for i, e in enumerate(emitted)
+            if e["type"] == "cell" and i > last_validation_idx
+        ]
+        assert cell_events_after_validation == [], (
+            "No extra 'cell' events expected after a passing validation"
+        )

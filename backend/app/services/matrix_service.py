@@ -291,10 +291,20 @@ class MatrixService:
                     )
                 )
                 # Persist row/col labels on the project for display
+                _row_labels = [c["label"] for c in row_concepts]
+                _col_labels = [c["label"] for c in col_concepts]
                 await self._db.update_project_labels(
-                    project_id,
-                    [c["label"] for c in row_concepts],
-                    [c["label"] for c in col_concepts],
+                    project_id, _row_labels, _col_labels
+                )
+                # Broadcast labels immediately so live subscribers can render
+                # column/row headers without waiting for the stream to complete.
+                await self._emit(
+                    {
+                        "type": "labels",
+                        "project_id": project_id,
+                        "row_labels": _row_labels,
+                        "col_labels": _col_labels,
+                    }
                 )
             else:
                 n_rows = n
@@ -492,6 +502,27 @@ class MatrixService:
                         [_gen_one_cell(r, c) for r, c in failures],
                         limit=settings.max_concurrency,
                     )
+
+            # If validation failures remain after all retries, the frontend still
+            # shows those cells as "generating" (from the last validation event).
+            # Emit cell events to restore them to "complete" so the UI isn't stuck.
+            if failures:
+                for r, c in failures:
+                    cell = await self._db.get_cell(project_id, r, c)
+                    if cell:
+                        concept = cell.concept or cell.label or ""
+                        explanation = cell.explanation or cell.definition or ""
+                        if concept:
+                            await self._emit(
+                                {
+                                    "type": "cell",
+                                    "project_id": project_id,
+                                    "row": r,
+                                    "col": c,
+                                    "concept": concept,
+                                    "explanation": explanation,
+                                }
+                            )
 
             # Step 5 — Images (optional)
             if req.include_images:
