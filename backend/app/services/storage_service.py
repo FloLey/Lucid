@@ -5,6 +5,7 @@ Single Responsibility Principle. All reads/writes to the image directory
 go through this service.
 """
 
+import asyncio
 import base64
 import logging
 import os
@@ -38,19 +39,56 @@ class StorageService:
     - Reading image bytes from either a URL path or a raw base64 string
     - Decoding stored images into PIL objects
     - Deleting orphaned image files from disk
+
+    Async note: ``save_image_to_disk`` and ``delete_image`` are async; they
+    offload blocking disk I/O to a thread pool internally so callers don't
+    need to wrap them in ``asyncio.to_thread``.  ``read_image_bytes``,
+    ``decode_image_from_path_or_b64``, and ``encode_image`` remain synchronous
+    because they are used inside functions that already run in a thread
+    (e.g. ``ExportService._build_zip``, ``RenderingService``).
     """
 
-    def save_image_to_disk(self, base64_data: str) -> str:
+    # ------------------------------------------------------------------
+    # Async public API
+    # ------------------------------------------------------------------
+
+    async def save_image_to_disk(self, base64_data: str) -> str:
         """Save a base64-encoded PNG to the image directory.
 
         Returns the URL path (e.g. ``/images/<uuid>.png``) that should be
         stored in the database instead of the raw base64 blob.
         """
+        return await asyncio.to_thread(self._save_image_to_disk, base64_data)
+
+    async def delete_image(self, path_or_b64: Optional[str]) -> None:
+        """Delete an image file from disk if *path_or_b64* is a stored file path.
+
+        Silently ignores raw base64 strings and missing files.
+        """
+        await asyncio.to_thread(self._delete_image, path_or_b64)
+
+    # ------------------------------------------------------------------
+    # Synchronous helpers (used inside threads or sync contexts)
+    # ------------------------------------------------------------------
+
+    def _save_image_to_disk(self, base64_data: str) -> str:
+        """Synchronous implementation — call ``save_image_to_disk`` from async code."""
         IMAGE_DIR.mkdir(parents=True, exist_ok=True)
         file_name = f"{uuid.uuid4()}.png"
         file_path = IMAGE_DIR / file_name
         file_path.write_bytes(base64.b64decode(base64_data))
         return f"{_IMAGE_URL_PREFIX}{file_name}"
+
+    def _delete_image(self, path_or_b64: Optional[str]) -> None:
+        """Synchronous implementation — call ``delete_image`` from async code."""
+        if not path_or_b64 or not _is_file_path(path_or_b64):
+            return
+        file_name = path_or_b64[len(_IMAGE_URL_PREFIX):]
+        file_path = IMAGE_DIR / file_name
+        try:
+            file_path.unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning("Failed to delete image file %s: %s", file_path, e)
 
     def read_image_bytes(self, path_or_b64: str) -> bytes:
         """Return raw PNG bytes from either an /images/ path or a base64 string."""
@@ -71,20 +109,6 @@ class StorageService:
         buffer = BytesIO()
         image.save(buffer, format="PNG")
         return base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-    def delete_image(self, path_or_b64: Optional[str]) -> None:
-        """Delete an image file from disk if *path_or_b64* is a stored file path.
-
-        Silently ignores raw base64 strings and missing files.
-        """
-        if not path_or_b64 or not _is_file_path(path_or_b64):
-            return
-        file_name = path_or_b64[len(_IMAGE_URL_PREFIX):]
-        file_path = IMAGE_DIR / file_name
-        try:
-            file_path.unlink(missing_ok=True)
-        except Exception as e:
-            logger.warning("Failed to delete image file %s: %s", file_path, e)
 
 
 # Module-level singleton

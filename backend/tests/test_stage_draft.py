@@ -36,7 +36,6 @@ class TestStage1Service:
 
     def test_generate_slide_texts_creates_slides(self, mock_gemini):
         """Test that generate_slide_texts populates slides on a project."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage1_service.generate_slide_texts(
@@ -52,7 +51,6 @@ class TestStage1Service:
 
     def test_generate_slide_texts_stores_inputs(self, mock_gemini):
         """Test that inputs are stored in project."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage1_service.generate_slide_texts(
@@ -70,7 +68,6 @@ class TestStage1Service:
 
     def test_generate_slide_texts_with_titles(self, mock_gemini):
         """Test slide generation with titles."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage1_service.generate_slide_texts(
@@ -86,7 +83,6 @@ class TestStage1Service:
 
     def test_generate_slide_texts_nonexistent_project(self, mock_gemini):
         """Test that generate_slide_texts returns None for nonexistent project."""
-        run_async(project_manager.clear_all())
         result = run_async(
             stage1_service.generate_slide_texts(
                 project_id="nonexistent",
@@ -98,7 +94,6 @@ class TestStage1Service:
 
     def test_regenerate_all_requires_draft(self, mock_gemini):
         """Test that regenerate_all requires existing draft."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         result = run_async(
             stage1_service.regenerate_all_slide_texts(created.project_id)
@@ -107,7 +102,6 @@ class TestStage1Service:
 
     def test_regenerate_single_slide(self, mock_gemini):
         """Test regenerating a single slide."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         run_async(
             stage1_service.generate_slide_texts(
@@ -128,7 +122,6 @@ class TestStage1Service:
 
     def test_update_slide_text(self):
         """Test manually updating slide text."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [Slide(index=0)]
         run_async(project_manager.update_project(created))
@@ -147,7 +140,6 @@ class TestStage1Service:
 
     def test_update_slide_text_partial(self):
         """Test partially updating slide text."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [
             Slide(index=0, text=SlideText(title="Original", body="Original body"))
@@ -166,7 +158,6 @@ class TestStage1Service:
 
     def test_update_nonexistent_slide(self):
         """Test updating a nonexistent slide."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         result = run_async(
             stage1_service.update_slide_text(
@@ -176,6 +167,32 @@ class TestStage1Service:
             )
         )
         assert result is None
+
+    def test_generate_slide_texts_gemini_failure_does_not_persist(self):
+        """If Gemini raises during slide generation, the original slides are not overwritten."""
+        created = run_async(project_manager.create_project())
+        from app.models.slide import Slide, SlideText
+        created.slides = [Slide(index=0, text=SlideText(body="Original content"))]
+        run_async(project_manager.update_project(created))
+
+        async def mock_generate_json_fail(*args, **kwargs):
+            raise Exception("Gemini down")
+
+        with patch("app.dependencies.container.stage_draft.gemini_service") as mock:
+            mock.generate_json = mock_generate_json_fail
+            with pytest.raises(Exception, match="Gemini down"):
+                run_async(
+                    stage1_service.generate_slide_texts(
+                        project_id=created.project_id,
+                        draft_text="A draft that triggers an error",
+                    )
+                )
+
+        # Project state should be unchanged in the DB
+        reloaded = run_async(project_manager.get_project(created.project_id))
+        assert reloaded is not None
+        assert len(reloaded.slides) == 1
+        assert reloaded.slides[0].text.body == "Original content"
 
 
 class TestStage1Routes:
@@ -466,7 +483,6 @@ class TestWordsPerSlide:
 
     def test_keep_as_is_service_direct(self):
         """Test keep_as_is path directly through the service."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage1_service.generate_slide_texts(
@@ -497,7 +513,6 @@ class TestGenerateProjectTitle:
 
     def test_generate_title_sets_name(self, mock_title_gemini):
         """generate_project_title renames the project when slides exist."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [
             Slide(index=0, text=SlideText(title="Hook", body="Intro text")),
@@ -514,7 +529,6 @@ class TestGenerateProjectTitle:
 
     def test_generate_title_no_slides_returns_project_unchanged(self, mock_title_gemini):
         """generate_project_title returns project unchanged when there are no slides."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
 
         result = run_async(
@@ -525,7 +539,6 @@ class TestGenerateProjectTitle:
 
     def test_generate_title_nonexistent_project_returns_none(self, mock_title_gemini):
         """generate_project_title returns None for a nonexistent project."""
-        run_async(project_manager.clear_all())
 
         result = run_async(
             stage1_service.generate_project_title("nonexistent-id", force=True)
@@ -534,7 +547,6 @@ class TestGenerateProjectTitle:
 
     def test_generate_title_skips_when_manually_set_without_force(self, mock_title_gemini):
         """generate_project_title skips when name was manually set and force=False."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
         created.name = "My Custom Name"
@@ -548,7 +560,6 @@ class TestGenerateProjectTitle:
 
     def test_generate_title_skips_when_not_untitled_without_force(self, mock_title_gemini):
         """generate_project_title skips when name doesn't start with Untitled and force=False."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
         created.name = "Already Named Project"
@@ -561,7 +572,6 @@ class TestGenerateProjectTitle:
 
     def test_generate_title_force_overrides_manually_set(self, mock_title_gemini):
         """generate_project_title renames even a manually-set name when force=True."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
         created.name = "Old Manual Name"
@@ -579,8 +589,6 @@ class TestGenerateProjectTitle:
 
         async def mock_generate_json_fail(*args, **kwargs):
             raise RuntimeError("Gemini unavailable")
-
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
         run_async(project_manager.update_project(created))
@@ -599,8 +607,6 @@ class TestGenerateProjectTitle:
 
         async def mock_generate_json_empty(*args, **kwargs):
             return {}
-
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
         run_async(project_manager.update_project(created))
@@ -618,7 +624,6 @@ class TestGenerateProjectTitle:
 
     def test_generate_title_auto_runs_on_untitled_project(self, mock_title_gemini):
         """generate_project_title runs (force=False) when project name starts with Untitled."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.slides = [Slide(index=0, text=SlideText(body="Some content"))]
         run_async(project_manager.update_project(created))

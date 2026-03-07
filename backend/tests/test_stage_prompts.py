@@ -12,20 +12,6 @@ project_manager = container.project_manager
 
 
 @pytest.fixture
-def project_with_slides():
-    """Create a project with slides for testing."""
-    run_async(project_manager.clear_all())
-    project = run_async(project_manager.create_project())
-    project.slides = [
-        Slide(index=0, text=SlideText(title="Hook", body="Grab attention")),
-        Slide(index=1, text=SlideText(title="Point 1", body="First key point")),
-        Slide(index=2, text=SlideText(title="Point 2", body="Second key point")),
-    ]
-    run_async(project_manager.update_project(project))
-    return project
-
-
-@pytest.fixture
 def mock_gemini():
     """Mock the Gemini service for Stage 2."""
 
@@ -55,7 +41,6 @@ class TestStage2Service:
 
     def test_generate_prompts_no_project(self, mock_gemini):
         """Test generating prompts with no project."""
-        run_async(project_manager.clear_all())
         project = run_async(
             stage2_service.generate_all_prompts(project_id="nonexistent")
         )
@@ -63,7 +48,6 @@ class TestStage2Service:
 
     def test_generate_prompts_no_slides(self, mock_gemini):
         """Test generating prompts with no slides."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage2_service.generate_all_prompts(project_id=created.project_id)
@@ -138,7 +122,6 @@ class TestStage2Service:
 
     def test_update_style_no_project(self):
         """Test updating style with no project."""
-        run_async(project_manager.clear_all())
         project = run_async(
             stage2_service.update_style_instructions(
                 project_id="nonexistent",
@@ -146,6 +129,28 @@ class TestStage2Service:
             )
         )
         assert project is None
+
+    def test_generate_all_prompts_gemini_failure_does_not_persist(self, project_with_slides):
+        """If Gemini raises during prompt generation, image_prompt fields stay unchanged."""
+        for slide in project_with_slides.slides:
+            assert slide.image_prompt is None
+
+        async def mock_generate_json_fail(*args, **kwargs):
+            raise Exception("Gemini down")
+
+        with patch("app.dependencies.container.stage_prompts.gemini_service") as mock:
+            mock.generate_json = mock_generate_json_fail
+            with pytest.raises(Exception, match="Gemini down"):
+                run_async(
+                    stage2_service.generate_all_prompts(
+                        project_id=project_with_slides.project_id
+                    )
+                )
+
+        reloaded = run_async(project_manager.get_project(project_with_slides.project_id))
+        assert reloaded is not None
+        for slide in reloaded.slides:
+            assert slide.image_prompt is None
 
 
 class TestStage2Routes:

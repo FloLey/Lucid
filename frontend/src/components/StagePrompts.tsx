@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
+import { usePerSlideLoading } from '../hooks/usePerSlideLoading';
+import { useRegenInstruction } from '../hooks/useRegenInstruction';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
 import RegenerateInput from './RegenerateInput';
@@ -19,9 +21,8 @@ export default function Stage3() {
   const [loading, setLoading] = useState(false);
 
   const [styleInstructions, setStyleInstructions] = useState('');
-  const [regenInstructionSlide, setRegenInstructionSlide] = useState<number | null>(null);
-  const [regenInstruction, setRegenInstruction] = useState('');
-  const [loadingSlides, setLoadingSlides] = useState<Set<number>>(new Set());
+  const { slide: regenInstructionSlide, instruction: regenInstruction, setInstruction: setRegenInstruction, toggleSlide: toggleRegenSlide, reset: resetRegen } = useRegenInstruction();
+  const { isLoading: isSlideLoading, startLoading: startSlideLoading, stopLoading: stopSlideLoading } = usePerSlideLoading();
 
   // Sync style instructions when project changes
   useEffect(() => {
@@ -57,20 +58,15 @@ export default function Stage3() {
   };
 
   const handleRegeneratePrompt = async (index: number, instruction?: string) => {
-    setRegenInstructionSlide(null);
-    setRegenInstruction('');
-    setLoadingSlides((prev) => new Set(prev).add(index));
+    resetRegen();
+    startSlideLoading(index);
     try {
       const sess = await api.regeneratePrompt(projectId, index, instruction || undefined);
       updateProject(sess);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to regenerate prompt'));
     } finally {
-      setLoadingSlides((prev) => {
-        const next = new Set(prev);
-        next.delete(index);
-        return next;
-      });
+      stopSlideLoading(index);
     }
   };
 
@@ -191,29 +187,21 @@ export default function Stage3() {
                         {editingPrompt === index ? 'Cancel' : 'Edit'}
                       </button>
                       <button
-                        onClick={() => {
-                          if (regenInstructionSlide === index) {
-                            setRegenInstructionSlide(null);
-                            setRegenInstruction('');
-                          } else {
-                            setRegenInstructionSlide(index);
-                            setRegenInstruction('');
-                          }
-                        }}
-                        disabled={loading || loadingSlides.has(index)}
+                        onClick={() => toggleRegenSlide(index)}
+                        disabled={loading || isSlideLoading(index)}
                         className="text-xs text-lucid-600 hover:text-lucid-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {loadingSlides.has(index) ? 'Regenerating...' : 'Regenerate'}
+                        {isSlideLoading(index) ? 'Regenerating...' : 'Regenerate'}
                       </button>
                     </div>
                   </div>
 
-                  {regenInstructionSlide === index && !loading && !loadingSlides.has(index) && (
+                  {regenInstructionSlide === index && !loading && !isSlideLoading(index) && (
                     <RegenerateInput
                       value={regenInstruction}
                       onChange={setRegenInstruction}
                       onSubmit={() => handleRegeneratePrompt(index, regenInstruction)}
-                      onCancel={() => { setRegenInstructionSlide(null); setRegenInstruction(''); }}
+                      onCancel={resetRegen}
                     />
                   )}
 

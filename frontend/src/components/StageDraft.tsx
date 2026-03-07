@@ -3,6 +3,7 @@ import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
 import { useProject } from '../contexts/ProjectContext';
 import { useStreamingText } from '../hooks/useStreamingText';
+import { useRegenInstruction } from '../hooks/useRegenInstruction';
 import { SLIDE_COUNT_OPTIONS, LANGUAGES, WORDS_PER_SLIDE_OPTIONS } from '../constants';
 import Spinner from './Spinner';
 import StageLayout from './StageLayout';
@@ -68,8 +69,7 @@ export default function StageDraft() {
   }, [project]);
 
   const [editingSlide, setEditingSlide] = useState<number | null>(null);
-  const [regenInstructionSlide, setRegenInstructionSlide] = useState<number | null>(null);
-  const [regenInstruction, setRegenInstruction] = useState('');
+  const { slide: regenInstructionSlide, instruction: regenInstruction, setInstruction: setRegenInstruction, toggleSlide: toggleRegenSlide, reset: resetRegen } = useRegenInstruction();
 
   const { streamingTexts, startStream } = useStreamingText({
     projectId,
@@ -127,8 +127,7 @@ export default function StageDraft() {
   };
 
   const handleRegenerateSlide = async (index: number, instruction?: string) => {
-    setRegenInstructionSlide(null);
-    setRegenInstruction('');
+    resetRegen();
     await startStream(index, instruction);
   };
 
@@ -300,15 +299,7 @@ export default function StageDraft() {
                         {editingSlide === index ? 'Cancel' : 'Edit'}
                       </button>
                       <button
-                        onClick={() => {
-                          if (regenInstructionSlide === index) {
-                            setRegenInstructionSlide(null);
-                            setRegenInstruction('');
-                          } else {
-                            setRegenInstructionSlide(index);
-                            setRegenInstruction('');
-                          }
-                        }}
+                        onClick={() => toggleRegenSlide(index)}
                         disabled={streamingTexts.has(index)}
                         className="text-xs text-lucid-600 hover:text-lucid-700"
                       >
@@ -322,7 +313,7 @@ export default function StageDraft() {
                       value={regenInstruction}
                       onChange={setRegenInstruction}
                       onSubmit={() => handleRegenerateSlide(index, regenInstruction)}
-                      onCancel={() => { setRegenInstructionSlide(null); setRegenInstruction(''); }}
+                      onCancel={resetRegen}
                     />
                   )}
 

@@ -5,11 +5,13 @@ import logging
 from typing import AsyncGenerator, Optional, TYPE_CHECKING
 
 from app.models.slide import Slide, SlideText
-from app.models.style import TextStyle, StrokeStyle
 from app.models.project import ProjectState
 from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
+# set_project_context is used only by regenerate_slide_text_stream, which cannot
+# use _project_ctx() because it is an async generator (see method docstring).
 from app.services.llm_logger import set_project_context
+
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -33,24 +35,6 @@ class StageDraftService(BaseStageService):
         self.project_manager = self._require(project_manager, "project_manager")
         self.gemini_service = self._require(gemini_service, "gemini_service")
         self.prompt_loader = prompt_loader or PromptLoader()
-
-    @staticmethod
-    def _style_from_config(project: ProjectState) -> TextStyle:
-        """Build a TextStyle seeded from the project's config defaults."""
-        cfg = project.project_config.style
-        return TextStyle(
-            font_family=cfg.default_font_family,
-            font_weight=cfg.default_font_weight,
-            font_size_px=cfg.default_font_size_px,
-            text_color=cfg.default_text_color,
-            alignment=cfg.default_alignment,
-            text_enabled=cfg.default_text_enabled,
-            stroke=StrokeStyle(
-                enabled=cfg.default_stroke_enabled,
-                width_px=cfg.default_stroke_width_px,
-                color=cfg.default_stroke_color,
-            ),
-        )
 
     @staticmethod
     def _build_word_count_instruction(words_per_slide: Optional[str]) -> str:
@@ -92,101 +76,97 @@ class StageDraftService(BaseStageService):
         words_per_slide: Optional[str] = None,
     ) -> Optional[ProjectState]:
         """Generate slide texts from a draft."""
-        set_project_context(project_id)
-        project = await self.project_manager.get_project(project_id)
-        if not project:
-            return None
+        async with self._project_ctx(project_id) as project:
+            if project is None:
+                return None
 
-        # Store inputs
-        project.draft_text = draft_text
-        project.num_slides = num_slides
-        project.include_titles = include_titles
-        project.additional_instructions = additional_instructions
-        project.language = language
+            # Store inputs
+            project.draft_text = draft_text
+            project.num_slides = num_slides
+            project.include_titles = include_titles
+            project.additional_instructions = additional_instructions
+            project.language = language
 
-        # Handle "keep as is" — skip AI, use draft text directly as single slide
-        if words_per_slide == "keep_as_is":
-            project.slides = [
-                Slide(
-                    index=0,
-                    text=SlideText(body=draft_text),
-                    style=self._style_from_config(project),
-                )
-            ]
-            project.num_slides = 1
-            await self.project_manager.update_project(project)
-            return project
-
-        if num_slides is not None:
-            num_slides_instruction = f"Generate exactly {num_slides} slides."
-        else:
-            num_slides_instruction = (
-                "Choose the optimal number of slides based on the content "
-                "(maximum 20 slides)."
-            )
-
-        language_instruction = f"Write ALL slide content in {language}."
-        title_instruction = self._build_title_instruction(include_titles)
-        slide_format = self._build_slide_format(include_titles)
-        response_format = self._build_response_format(include_titles)
-        word_count_instruction = self._build_word_count_instruction(words_per_slide)
-
-        additional = (
-            f"Additional instructions: {additional_instructions}"
-            if additional_instructions
-            else ""
-        )
-
-        prompt_template = self.prompt_loader.resolve_prompt(project, "slide_generation")
-
-        prompt = prompt_template.format(
-            num_slides_instruction=num_slides_instruction,
-            language_instruction=language_instruction,
-            title_instruction=title_instruction,
-            word_count_instruction=word_count_instruction,
-            additional_instructions=additional,
-            draft=draft_text,
-            slide_format=slide_format,
-            response_format=response_format,
-        )
-
-        result = await self.gemini_service.generate_json(
-            prompt, caller="stage_draft_service.generate_slide_texts"
-        )
-
-        slides_data = result.get("slides", [])
-        project.slides = []
-
-        max_slides = num_slides if num_slides is not None else 20
-
-        default_style = self._style_from_config(project)
-
-        for i, slide_data in enumerate(slides_data[:max_slides]):
-            slide = Slide(
-                index=i,
-                text=SlideText(
-                    title=slide_data.get("title") if include_titles else None,
-                    body=slide_data.get("body", ""),
-                ),
-                style=default_style.model_copy(deep=True),
-            )
-            project.slides.append(slide)
-
-        if num_slides is not None:
-            while len(project.slides) < num_slides:
-                project.slides.append(
+            # Handle "keep as is" — skip AI, use draft text directly as single slide
+            if words_per_slide == "keep_as_is":
+                project.slides = [
                     Slide(
-                        index=len(project.slides),
-                        text=SlideText(
-                            body=f"Slide {len(project.slides) + 1} content"
-                        ),
-                        style=default_style.model_copy(deep=True),
+                        index=0,
+                        text=SlideText(body=draft_text),
+                        style=self._style_from_config(project),
                     )
+                ]
+                project.num_slides = 1
+                return project
+
+            if num_slides is not None:
+                num_slides_instruction = f"Generate exactly {num_slides} slides."
+            else:
+                num_slides_instruction = (
+                    "Choose the optimal number of slides based on the content "
+                    "(maximum 20 slides)."
                 )
 
-        project.num_slides = len(project.slides)
+            language_instruction = f"Write ALL slide content in {language}."
+            title_instruction = self._build_title_instruction(include_titles)
+            slide_format = self._build_slide_format(include_titles)
+            response_format = self._build_response_format(include_titles)
+            word_count_instruction = self._build_word_count_instruction(words_per_slide)
 
-        await self.project_manager.update_project(project)
+            additional = (
+                f"Additional instructions: {additional_instructions}"
+                if additional_instructions
+                else ""
+            )
+
+            prompt_template = self.prompt_loader.resolve_prompt(project, "slide_generation")
+
+            prompt = prompt_template.format(
+                num_slides_instruction=num_slides_instruction,
+                language_instruction=language_instruction,
+                title_instruction=title_instruction,
+                word_count_instruction=word_count_instruction,
+                additional_instructions=additional,
+                draft=draft_text,
+                slide_format=slide_format,
+                response_format=response_format,
+            )
+
+            result = await self.gemini_service.generate_json(
+                prompt, caller="stage_draft_service.generate_slide_texts"
+            )
+
+            slides_data = result.get("slides", [])
+            project.slides = []
+
+            max_slides = num_slides if num_slides is not None else 20
+
+            default_style = self._style_from_config(project)
+
+            for i, slide_data in enumerate(slides_data[:max_slides]):
+                slide = Slide(
+                    index=i,
+                    text=SlideText(
+                        title=slide_data.get("title") if include_titles else None,
+                        body=slide_data.get("body", ""),
+                    ),
+                    style=default_style.model_copy(deep=True),
+                )
+                project.slides.append(slide)
+
+            if num_slides is not None:
+                while len(project.slides) < num_slides:
+                    project.slides.append(
+                        Slide(
+                            index=len(project.slides),
+                            text=SlideText(
+                                body=f"Slide {len(project.slides) + 1} content"
+                            ),
+                            style=default_style.model_copy(deep=True),
+                        )
+                    )
+
+            project.num_slides = len(project.slides)
 
         return project
 
@@ -205,36 +185,38 @@ class StageDraftService(BaseStageService):
             The updated ProjectState, or None if skipped or on error.
         """
         try:
-            set_project_context(project_id)
-            project = await self.project_manager.get_project(project_id)
-            if not project:
-                return None
-
-            # Background auto-rename: skip if user has set the name manually
-            if not force:
-                if project.name_manually_set:
-                    return None
-                if not project.name.startswith("Untitled"):
+            async with self._project_ctx(project_id) as project:
+                if project is None:
                     return None
 
-            if not project.slides:
-                return project
+                # Background auto-rename: skip if user has set the name manually
+                if not force:
+                    if project.name_manually_set:
+                        return None
+                    if not project.name.startswith("Untitled"):
+                        return None
 
-            slides_summary = "\n".join(
-                f"Slide {s.index + 1}: {s.text.get_full_text()[:120]}"
-                for s in project.slides[:6]
-            )
+                if not project.slides:
+                    return project
 
-            prompt_template = self.prompt_loader.resolve_prompt(project, "generate_project_title")
-            prompt = prompt_template.format(slides_summary=slides_summary)
+                slides_summary = "\n".join(
+                    f"Slide {s.index + 1}: {s.text.get_full_text()[:120]}"
+                    for s in project.slides[:6]
+                )
 
-            result = await self.gemini_service.generate_json(
-                prompt, caller="stage_draft_service.generate_project_title"
-            )
-            title = result.get("title", "").strip()
-            if title and len(title) <= 80:
-                # Use manually_set=False so auto-rename remains possible in future
-                return await self.project_manager.rename_project(project_id, title, manually_set=False)
+                prompt_template = self.prompt_loader.resolve_prompt(project, "generate_project_title")
+                prompt = prompt_template.format(slides_summary=slides_summary)
+
+                result = await self.gemini_service.generate_json(
+                    prompt, caller="stage_draft_service.generate_project_title"
+                )
+                title = result.get("title", "").strip()
+                if title and len(title) <= 80:
+                    # Inline the rename so _project_ctx handles the single save;
+                    # manually_set=False keeps auto-rename available in future.
+                    project.name = title
+                    project.name_manually_set = False
+
             return project
         except Exception:
             logger.exception("Title generation failed for %s", project_id)
@@ -265,53 +247,52 @@ class StageDraftService(BaseStageService):
         instruction: Optional[str] = None,
     ) -> Optional[ProjectState]:
         """Regenerate a single slide text."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        instruction_text = (
-            f"\nSpecific instruction: {instruction}" if instruction else ""
-        )
-
-        language_instruction = f"Write ALL slide content in {project.language}."
-
-        title_instruction = (
-            "Include both title and body."
-            if project.include_titles
-            else "Only provide body text."
-        )
-        response_format = '{"title": "...", "body": "..."}'
-
-        all_slides_parts = []
-        for i, s in enumerate(project.slides):
-            marker = " ← CURRENT SLIDE" if i == slide_index else ""
-            all_slides_parts.append(f"Slide {i + 1}: {s.text.get_full_text()}{marker}")
-        all_slides_context = "\n".join(all_slides_parts)
-
-        prompt_template = self.prompt_loader.resolve_prompt(project, "regenerate_single_slide")
-
-        prompt = prompt_template.format(
-            draft_text=project.draft_text,
-            language_instruction=language_instruction,
-            all_slides_context=all_slides_context,
-            current_text=project.slides[slide_index].text.get_full_text(),
-            instruction_text=instruction_text,
-            title_instruction=title_instruction,
-            response_format=response_format,
-        )
-
-        result = await self.gemini_service.generate_json(
-            prompt, caller="stage_draft_service.regenerate_slide_text"
-        )
-
-        if result:
-            project.slides[slide_index].text = SlideText(
-                title=result.get("title") if project.include_titles else None,
-                body=result.get(
-                    "body", project.slides[slide_index].text.body
-                ),
+            instruction_text = (
+                f"\nSpecific instruction: {instruction}" if instruction else ""
             )
-            await self.project_manager.update_project(project)
+
+            language_instruction = f"Write ALL slide content in {project.language}."
+
+            title_instruction = (
+                "Include both title and body."
+                if project.include_titles
+                else "Only provide body text."
+            )
+            response_format = '{"title": "...", "body": "..."}'
+
+            all_slides_parts = []
+            for i, s in enumerate(project.slides):
+                marker = " ← CURRENT SLIDE" if i == slide_index else ""
+                all_slides_parts.append(f"Slide {i + 1}: {s.text.get_full_text()}{marker}")
+            all_slides_context = "\n".join(all_slides_parts)
+
+            prompt_template = self.prompt_loader.resolve_prompt(project, "regenerate_single_slide")
+
+            prompt = prompt_template.format(
+                draft_text=project.draft_text,
+                language_instruction=language_instruction,
+                all_slides_context=all_slides_context,
+                current_text=project.slides[slide_index].text.get_full_text(),
+                instruction_text=instruction_text,
+                title_instruction=title_instruction,
+                response_format=response_format,
+            )
+
+            result = await self.gemini_service.generate_json(
+                prompt, caller="stage_draft_service.regenerate_slide_text"
+            )
+
+            if result:
+                project.slides[slide_index].text = SlideText(
+                    title=result.get("title") if project.include_titles else None,
+                    body=result.get(
+                        "body", project.slides[slide_index].text.body
+                    ),
+                )
 
         return project
 
@@ -323,9 +304,19 @@ class StageDraftService(BaseStageService):
     ) -> AsyncGenerator[str, None]:
         """Stream plain-text body content for single-slide regeneration.
 
-        Yields text chunks as they arrive. Saves nothing — the caller is
-        responsible for persisting the final text (e.g., via update_slide_text).
+        Yields accumulated text chunks as they arrive, followed by a final
+        ``{"done": True}`` sentinel after persisting the completed text.
+
+        The caller (route handler) is only responsible for wrapping each
+        yielded chunk in the SSE ``data:`` envelope.
+
+        NOTE: This method cannot use ``_project_ctx()`` because it is an async
+        generator — Python's ``async with`` exits after the first ``yield``,
+        so the context manager would close (and auto-save) before subsequent
+        chunks are produced.  Persistence is delegated to the ``update_slide_text``
+        call at the end of the stream.
         """
+        set_project_context(project_id)
         project = await self.project_manager.get_project(project_id)
         if not self._valid_slide(project, slide_index):
             return
@@ -349,8 +340,20 @@ class StageDraftService(BaseStageService):
             f"No titles, no labels, no JSON — just the text content."
         )
 
+        full_text = ""
         async for chunk in self.gemini_service.generate_text_stream(prompt):
-            yield chunk
+            full_text += chunk
+            yield full_text
+
+        # Persist the final text once streaming completes
+        try:
+            await self.update_slide_text(project_id, slide_index, body=full_text)
+        except Exception:
+            logger.exception(
+                "Failed to persist streamed slide text for project %s slide %d",
+                project_id,
+                slide_index,
+            )
 
     async def update_slide_text(
         self,
@@ -360,15 +363,14 @@ class StageDraftService(BaseStageService):
         body: Optional[str] = None,
     ) -> Optional[ProjectState]:
         """Manually update a slide's text."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        slide = project.slides[slide_index]
-        if title is not None:
-            slide.text.title = title
-        if body is not None:
-            slide.text.body = body
+            slide = project.slides[slide_index]
+            if title is not None:
+                slide.text.title = title
+            if body is not None:
+                slide.text.body = body
 
-        await self.project_manager.update_project(project)
         return project

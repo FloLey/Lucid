@@ -36,6 +36,7 @@ Lucid packs several advanced technical implementations to make the pipeline robu
 *   **Debounced Sync & Render Loop:** The frontend `useDebouncedRender` hook eliminates React state race conditions. It ensures rapid keystrokes trigger a single, synchronous database save followed by a PIL background render, using monotonic request IDs to silently drop stale in-flight responses.
 *   **Hot-Swappable, Validated Prompts:** LLM system instructions live in version-controlled `.prompt` files (e.g., `slide_generation.prompt`), editable directly via the UI. The backend runs AST-style validation to ensure required `{variables}` aren't accidentally deleted by the user.
 *   **Concurrency & Rate Limiting:** Outbound AI calls use `bounded_gather()` — a thin wrapper around `asyncio.Semaphore` — to strictly limit concurrent LLM text and image requests, preventing `429 Too Many Requests` API limits.
+*   **Concept Matrix Generator:** A standalone side-feature that produces n×n visual concept grids. Accepts a **theme** (AI picks diagonal concepts and per-concept axes) or a **description** of a cross-axis relationship (a single LLM call derives both axis labels). Results stream via SSE as each cell is generated in parallel.
 ---
 ## Configuration & Customization
 Lucid behavior is highly customizable via the **Templates** editor (Templates button on the home screen) or the `config.json` file.
@@ -211,4 +212,6 @@ The FastAPI backend exposes a clean REST API. Here are the core architectural ro
 | `/api/stage-draft/regenerate-stream` | `POST` | Regenerate a single slide's text via SSE streaming. |
 | `/api/export/zip` | `POST` | Archive project metadata and final composited images. |
 | `/api/prompts/validate` | `POST` | Dry-run validation of `.prompt` template edits. |
+| `/api/matrix/` | `POST` | Start a new Concept Matrix generation job (theme or description mode). |
+| `/api/matrix/{id}/generate-images` | `POST` | Bulk-generate background images for an existing matrix. |
 *Local Dev Note: If running without Docker, utilize the provided `install-deps.sh` script to install Node/Python requirements and trigger the `download_fonts.py` hook.*

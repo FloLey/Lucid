@@ -1,7 +1,7 @@
 """Stage Typography service - Typography/layout rendering."""
 
 from __future__ import annotations
-import asyncio
+import asyncio  # still needed for to_thread (rendering_service calls)
 import logging
 from typing import Optional, Dict, Any, TYPE_CHECKING
 
@@ -37,22 +37,20 @@ class StageTypographyService(BaseStageService):
     async def apply_text_to_all_images(
         self,
         project_id: str,
+        concurrency_limit: int = 4,
         use_ai_suggestions: bool = True,
     ) -> Optional[ProjectState]:
-        """Apply text styling to all slide images."""
+        """Apply text styling to all slide images concurrently."""
         project = await self.project_manager.get_project(project_id)
         if not project or not project.slides:
             return None
 
-        for slide in project.slides:
+        async def _render_slide(slide: Any) -> None:
             if not slide.background_image_url:
-                continue
-
+                return
             # Delete existing final_image file if it is a distinct stored file
             if slide.final_image_url and slide.final_image_url != slide.background_image_url:
-                await asyncio.to_thread(
-                    self.storage_service.delete_image, slide.final_image_url
-                )
+                await self.storage_service.delete_image(slide.final_image_url)
 
             if slide.text.title or slide.text.body.strip():
                 # Offload CPU-bound PIL rendering to a thread so the event loop
@@ -64,11 +62,14 @@ class StageTypographyService(BaseStageService):
                     title=slide.text.title,
                     body=slide.text.body,
                 )
-                slide.final_image_url = await asyncio.to_thread(
-                    self.storage_service.save_image_to_disk, rendered_b64
-                )
+                slide.final_image_url = await self.storage_service.save_image_to_disk(rendered_b64)
             else:
                 slide.final_image_url = slide.background_image_url
+
+        await self._batch(
+            [_render_slide(slide) for slide in project.slides],
+            limit=concurrency_limit,
+        )
 
         # Update thumbnail to the first slide's final rendered image
         first_slide = project.slides[0]
@@ -85,35 +86,30 @@ class StageTypographyService(BaseStageService):
         slide_index: int,
     ) -> Optional[ProjectState]:
         """Apply text styling to a single slide image."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        slide = project.slides[slide_index]
-        if not slide.background_image_url:
-            return project
+            slide = project.slides[slide_index]
+            if not slide.background_image_url:
+                return project
 
-        # Delete existing final_image file if it is a distinct stored file
-        if slide.final_image_url and slide.final_image_url != slide.background_image_url:
-            await asyncio.to_thread(
-                self.storage_service.delete_image, slide.final_image_url
-            )
+            # Delete existing final_image file if it is a distinct stored file
+            if slide.final_image_url and slide.final_image_url != slide.background_image_url:
+                await self.storage_service.delete_image(slide.final_image_url)
 
-        if slide.text.title or slide.text.body.strip():
-            rendered_b64 = await asyncio.to_thread(
-                self.rendering_service.render_text_on_image,
-                background_base64=slide.background_image_url,
-                style=slide.style,
-                title=slide.text.title,
-                body=slide.text.body,
-            )
-            slide.final_image_url = await asyncio.to_thread(
-                self.storage_service.save_image_to_disk, rendered_b64
-            )
-        else:
-            slide.final_image_url = slide.background_image_url
+            if slide.text.title or slide.text.body.strip():
+                rendered_b64 = await asyncio.to_thread(
+                    self.rendering_service.render_text_on_image,
+                    background_base64=slide.background_image_url,
+                    style=slide.style,
+                    title=slide.text.title,
+                    body=slide.text.body,
+                )
+                slide.final_image_url = await self.storage_service.save_image_to_disk(rendered_b64)
+            else:
+                slide.final_image_url = slide.background_image_url
 
-        await self.project_manager.update_project(project)
         return project
 
     def _deep_merge_style(self, style: TextStyle, updates: Dict[str, Any]) -> TextStyle:
@@ -137,14 +133,14 @@ class StageTypographyService(BaseStageService):
         style_updates: Dict[str, Any],
     ) -> Optional[ProjectState]:
         """Update style properties for a slide."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        slide = project.slides[slide_index]
-        slide.style = self._deep_merge_style(slide.style, style_updates)
+            project.slides[slide_index].style = self._deep_merge_style(
+                project.slides[slide_index].style, style_updates
+            )
 
-        await self.project_manager.update_project(project)
         return project
 
     async def apply_style_to_all(
@@ -153,14 +149,13 @@ class StageTypographyService(BaseStageService):
         style_updates: Dict[str, Any],
     ) -> Optional[ProjectState]:
         """Apply style updates to all slides."""
-        project = await self.project_manager.get_project(project_id)
-        if not project or not project.slides:
-            return None
+        async with self._project_ctx(project_id) as project:
+            if project is None or not project.slides:
+                return None
 
-        for slide in project.slides:
-            slide.style = self._deep_merge_style(slide.style, style_updates)
+            for slide in project.slides:
+                slide.style = self._deep_merge_style(slide.style, style_updates)
 
-        await self.project_manager.update_project(project)
         return project
 
     async def suggest_style(
@@ -169,18 +164,17 @@ class StageTypographyService(BaseStageService):
         slide_index: int,
     ) -> Optional[ProjectState]:
         """Use image analysis to suggest optimal style for a slide."""
-        project = await self.project_manager.get_project(project_id)
-        if not self._valid_slide(project, slide_index):
-            return None
+        async with self._project_ctx(project_id) as project:
+            if not self._valid_slide(project, slide_index):
+                return None
 
-        slide = project.slides[slide_index]
-        if slide.background_image_url:
-            suggested = await asyncio.to_thread(
-                self.rendering_service.suggest_style,
-                slide.background_image_url,
-                slide.text.body,
-            )
-            slide.style = suggested
-            await self.project_manager.update_project(project)
+            slide = project.slides[slide_index]
+            if slide.background_image_url:
+                suggested = await asyncio.to_thread(
+                    self.rendering_service.suggest_style,
+                    slide.background_image_url,
+                    slide.text.body,
+                )
+                slide.style = suggested
 
         return project

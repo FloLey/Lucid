@@ -24,7 +24,6 @@ def sample_image_base64():
 @pytest.fixture
 def project_with_images(sample_image_base64):
     """Create a project with background images."""
-    run_async(project_manager.clear_all())
     project = run_async(project_manager.create_project())
     project.slides = [
         Slide(
@@ -205,7 +204,6 @@ class TestStage4Service:
 
     def test_apply_text_no_project(self):
         """Test applying text with no project."""
-        run_async(project_manager.clear_all())
         project = run_async(
             stage4_service.apply_text_to_all_images(project_id="nonexistent")
         )

@@ -2,8 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { MatrixProject, MatrixCell, MatrixSSEEvent } from '../types';
 import { getMatrixStreamUrl } from '../services/api';
 import { getErrorMessage } from '../utils/error';
-
-const SSE_DATA_PREFIX = 'data: ';
+import { parseSSELine } from '../utils/sse';
 
 interface UseMatrixStreamOptions {
   onUpdate: (updater: (prev: MatrixProject) => MatrixProject) => void;
@@ -79,23 +78,18 @@ export function useMatrixStream({
           buffer = chunks.pop() ?? '';
 
           for (const chunk of chunks) {
-            const line = chunk.trim();
-            if (!line.startsWith(SSE_DATA_PREFIX)) continue;
-            try {
-              const event = JSON.parse(line.slice(SSE_DATA_PREFIX.length)) as MatrixSSEEvent;
-              handleEvent(event);
-              if (event.type === 'done') {
-                setIsStreaming(false);
-                onCompleteRef.current();
-                return;
-              }
-              if (event.type === 'error') {
-                setIsStreaming(false);
-                onErrorRef.current(event.message);
-                return;
-              }
-            } catch (e) {
-              console.warn('Failed to parse SSE message:', line, e);
+            const event = parseSSELine<MatrixSSEEvent>(chunk.trim());
+            if (event === null) continue;
+            handleEvent(event);
+            if (event.type === 'done') {
+              setIsStreaming(false);
+              onCompleteRef.current();
+              return;
+            }
+            if (event.type === 'error') {
+              setIsStreaming(false);
+              onErrorRef.current(event.message);
+              return;
             }
           }
         }

@@ -1,12 +1,13 @@
 """Configuration API routes."""
 
 from typing import Optional, Dict
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.models.config import AppConfig
 from app.dependencies import get_config_manager
 from app.services.config_manager import ConfigManager
+from app.routes.utils import execute_config_action
 
 router = APIRouter()
 
@@ -72,11 +73,7 @@ class ValidatePromptsResponse(BaseModel):
 
 @router.get("", response_model=ConfigResponse)
 def get_config(config_manager: ConfigManager = Depends(get_config_manager)):
-    """Get complete configuration.
-
-    Returns:
-        ConfigResponse: Current configuration
-    """
+    """Get complete configuration."""
     return ConfigResponse(config=config_manager.get_config())
 
 
@@ -87,20 +84,11 @@ def update_config(
     """Replace entire configuration.
 
     Note: This does NOT include prompts. Use /api/prompts to edit prompt files.
-
-    Args:
-        config: New configuration
-
-    Returns:
-        ConfigResponse: Updated configuration
     """
-    try:
-        updated_config = config_manager.update_config(config)
-        return ConfigResponse(config=updated_config)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return execute_config_action(
+        lambda: ConfigResponse(config=config_manager.update_config(config)),
+        "Failed to update config",
+    )
 
 
 # Prompts are now managed via /api/prompts endpoints (edit .prompt files directly)
@@ -111,23 +99,15 @@ def update_stage_instructions(
     request: UpdateStageInstructionsRequest,
     config_manager: ConfigManager = Depends(get_config_manager),
 ):
-    """Update instructions for a specific stage.
-
-    Args:
-        request: Stage and instructions
-
-    Returns:
-        ConfigResponse: Updated configuration
-    """
-    try:
-        updated_config = config_manager.update_stage_instructions(
-            request.stage, request.instructions
-        )
-        return ConfigResponse(config=updated_config)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Update instructions for a specific stage."""
+    return execute_config_action(
+        lambda: ConfigResponse(
+            config=config_manager.update_stage_instructions(
+                request.stage, request.instructions
+            )
+        ),
+        "Failed to update stage instructions",
+    )
 
 
 @router.patch("/global-defaults", response_model=ConfigResponse)
@@ -135,21 +115,12 @@ def update_global_defaults(
     request: UpdateGlobalDefaultsRequest,
     config_manager: ConfigManager = Depends(get_config_manager),
 ):
-    """Update global default parameters.
-
-    Args:
-        request: Global defaults to update
-
-    Returns:
-        ConfigResponse: Updated configuration
-    """
-    try:
-        # Only include non-None values
-        updates = {k: v for k, v in request.model_dump().items() if v is not None}
-        updated_config = config_manager.update_global_defaults(**updates)
-        return ConfigResponse(config=updated_config)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    """Update global default parameters."""
+    updates = {k: v for k, v in request.model_dump().items() if v is not None}
+    return execute_config_action(
+        lambda: ConfigResponse(config=config_manager.update_global_defaults(**updates)),
+        "Failed to update global defaults",
+    )
 
 
 @router.patch("/image", response_model=ConfigResponse)
@@ -157,21 +128,12 @@ def update_image_config(
     request: UpdateImageConfigRequest,
     config_manager: ConfigManager = Depends(get_config_manager),
 ):
-    """Update image configuration.
-
-    Args:
-        request: Image config to update
-
-    Returns:
-        ConfigResponse: Updated configuration
-    """
-    try:
-        # Only include non-None values
-        updates = {k: v for k, v in request.model_dump().items() if v is not None}
-        updated_config = config_manager.update_image_config(**updates)
-        return ConfigResponse(config=updated_config)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    """Update image configuration."""
+    updates = {k: v for k, v in request.model_dump().items() if v is not None}
+    return execute_config_action(
+        lambda: ConfigResponse(config=config_manager.update_image_config(**updates)),
+        "Failed to update image config",
+    )
 
 
 @router.patch("/style", response_model=ConfigResponse)
@@ -179,35 +141,21 @@ def update_style_config(
     request: UpdateStyleConfigRequest,
     config_manager: ConfigManager = Depends(get_config_manager),
 ):
-    """Update style configuration.
-
-    Args:
-        request: Style config to update
-
-    Returns:
-        ConfigResponse: Updated configuration
-    """
-    try:
-        # Only include non-None values
-        updates = {k: v for k, v in request.model_dump().items() if v is not None}
-        updated_config = config_manager.update_style_config(**updates)
-        return ConfigResponse(config=updated_config)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    """Update style configuration."""
+    updates = {k: v for k, v in request.model_dump().items() if v is not None}
+    return execute_config_action(
+        lambda: ConfigResponse(config=config_manager.update_style_config(**updates)),
+        "Failed to update style config",
+    )
 
 
 @router.post("/reset", response_model=ConfigResponse)
 def reset_config(config_manager: ConfigManager = Depends(get_config_manager)):
-    """Reset entire configuration to defaults.
-
-    Returns:
-        ConfigResponse: Reset configuration
-    """
-    try:
-        updated_config = config_manager.reset_to_defaults()
-        return ConfigResponse(config=updated_config)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Reset entire configuration to defaults."""
+    return execute_config_action(
+        lambda: ConfigResponse(config=config_manager.reset_to_defaults()),
+        "Failed to reset config",
+    )
 
 
 # Prompt validation moved to /api/prompts/validate

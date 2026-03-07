@@ -4,26 +4,10 @@ import pytest
 from unittest.mock import patch
 
 from app.dependencies import container
-from app.models.slide import Slide, SlideText
 from tests.conftest import run_async
 
 project_manager = container.project_manager
 stage_style_service = container.stage_style
-
-
-@pytest.fixture
-def project_with_slides():
-    """Create a project with slides."""
-    run_async(project_manager.clear_all())
-    project = run_async(project_manager.create_project())
-    project.draft_text = "Test draft content"
-    project.slides = [
-        Slide(index=0, text=SlideText(title="Slide 1", body="Content 1")),
-        Slide(index=1, text=SlideText(title="Slide 2", body="Content 2")),
-        Slide(index=2, text=SlideText(title="Slide 3", body="Content 3")),
-    ]
-    run_async(project_manager.update_project(project))
-    return project
 
 
 @pytest.fixture
@@ -51,7 +35,7 @@ def mock_gemini_and_image():
     async def mock_generate_image(prompt, *args, **kwargs):
         return "iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAFUlEQVR42mNk+M9Qz0AEYBxVSF+FABJADq3/"
 
-    def mock_save_image_to_disk(base64_data):
+    async def mock_save_image_to_disk(base64_data):
         return "/images/mock-preview.png"
 
     with (
@@ -86,7 +70,6 @@ class TestStageStyleService:
 
     def test_generate_proposals_no_project(self, mock_gemini_and_image):
         """Test generating proposals with no project."""
-        run_async(project_manager.clear_all())
         project = run_async(
             stage_style_service.generate_proposals("nonexistent")
         )
@@ -116,11 +99,28 @@ class TestStageStyleService:
 
     def test_select_proposal_no_project(self):
         """Test selecting proposal with no project."""
-        run_async(project_manager.clear_all())
         project = run_async(
             stage_style_service.select_proposal("nonexistent", 0)
         )
         assert project is None
+
+    def test_generate_proposals_gemini_failure_does_not_persist(self, project_with_slides):
+        """If Gemini raises during proposal generation, style_proposals are not overwritten."""
+        assert len(project_with_slides.style_proposals) == 0
+
+        async def mock_generate_json_fail(*args, **kwargs):
+            raise Exception("Gemini down")
+
+        with patch.object(stage_style_service, "gemini_service") as mock_gemini:
+            mock_gemini.generate_json = mock_generate_json_fail
+            with pytest.raises(Exception, match="Gemini down"):
+                run_async(
+                    stage_style_service.generate_proposals(project_with_slides.project_id)
+                )
+
+        reloaded = run_async(project_manager.get_project(project_with_slides.project_id))
+        assert reloaded is not None
+        assert len(reloaded.style_proposals) == 0
 
 
 class TestStageStyleRoutes:

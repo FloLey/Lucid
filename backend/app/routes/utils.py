@@ -1,7 +1,7 @@
 """Shared route handler utilities to reduce boilerplate."""
 
 import logging
-from typing import Awaitable, Callable, Optional
+from typing import Awaitable, Callable, Optional, TypeVar
 
 from fastapi import HTTPException
 
@@ -9,6 +9,8 @@ from app.models.project import ProjectResponse, ProjectState
 from app.services.gemini_service import GeminiError
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 async def execute_service_action(
@@ -38,3 +40,19 @@ async def execute_service_action(
     if not project:
         raise HTTPException(status_code=404, detail=error_message)
     return ProjectResponse(project=project)
+
+
+def execute_config_action(action: Callable[[], T], error_message: str = "Config error") -> T:
+    """Execute a synchronous config service action with standard error handling.
+
+    Maps ValueError → 400, all other exceptions → 500.
+    """
+    try:
+        return action()
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"{error_message}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,0 +1,12 @@
+Task: Create an image generation prompt for a background asset for ONE slide.
+Slide content: {slide_text}
+All slides context: {context}
+{instruction_text}
+Visual Art Direction: "{shared_theme}"
+{style_instructions_text}
+Create a highly specific image prompt for this slide.
+CRITICAL COMPOSITIONAL RULES:
+- The image is purely a background. It MUST have clean negative space or smooth areas where text can be easily read.
+- Push any abstract shapes or elements to the edges.
+- NEVER include any text, UI elements, borders, letters, or watermarks.
+Respond with JSON: {response_format}

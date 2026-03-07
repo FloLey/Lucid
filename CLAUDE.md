@@ -24,11 +24,11 @@ Lucid/
 │   │   ├── config.py            # App-level config
 │   │   ├── dependencies.py      # ServiceContainer (dependency injection wiring)
 │   │   ├── models/              # Pydantic data models (session, slide, style, config)
-│   │   ├── routes/              # 12 API routers under /api prefix
-│   │   └── services/            # 20+ service modules (business logic)
-│   ├── prompts/                 # LLM prompt templates (.prompt files)
+│   │   ├── routes/              # 14 routers under /api prefix (13 route files; matrix.py registers 2)
+│   │   └── services/            # 24 service modules (business logic)
+│   ├── prompts/                 # LLM prompt templates (.prompt files); carousel/ and painting/ subdirs override per template
 │   ├── fonts/                   # Downloaded TTF font files (gitignored)
-│   └── tests/                   # pytest test suite (14 test files)
+│   └── tests/                   # pytest test suite (19 test files)
 └── frontend/                    # React + TypeScript + Vite
     ├── Dockerfile               # Node 22 Alpine
     ├── package.json             # Scripts: dev, build, lint, preview
@@ -39,10 +39,10 @@ Lucid/
         ├── App.tsx              # Root component
         ├── main.tsx             # React entry point
         ├── components/          # Stage components + shared UI
-        ├── hooks/               # Custom hooks: useStyleManager, useApiAction, useDebouncedRender, useDragResize, useDarkMode, useMatrixStream, useStreamingText
+        ├── hooks/               # Custom hooks: useStyleManager, useApiAction, useDebouncedRender, useDragResize, useDarkMode, useMatrixStream, useStreamingText, usePerSlideLoading, useRegenInstruction, useTemplateManager
         ├── services/            # Axios API client (api.ts)
         ├── types/               # TypeScript interfaces (index.ts) — exports Alignment, CellStatus, Corner named types
-        └── utils/               # Shared utilities: error handling (errors.ts), date formatting (date.ts)
+        └── utils/               # Shared utilities: error handling (error.ts), date formatting (date.ts), SSE parsing (sse.ts), matrix utilities (matrix.ts)
 ```
 
 ## Quick Reference — Commands
@@ -96,7 +96,7 @@ npm run build          # tsc type-check + vite production build
 
 ### Backend (FastAPI)
 
-**Entry point:** `backend/app/main.py` — registers 12 routers under `/api`, configures CORS (restricted methods/headers), registers an in-memory sliding-window rate limiter (120 req/min/IP), handles `GeminiError` globally.
+**Entry point:** `backend/app/main.py` — registers 14 routers under `/api`, configures CORS (restricted methods/headers), registers an in-memory sliding-window rate limiter (120 req/min/IP), handles `GeminiError` globally.
 
 **Layers:**
 - **Routes** (`app/routes/`): HTTP endpoints, request validation, delegate to services
@@ -121,10 +121,15 @@ npm run build          # tsc type-check + vite production build
 | `config_manager.py` | Configuration CRUD |
 | `template_manager.py` | Template CRUD and default seeding |
 | `storage_service.py` | Disk-based image read/write/delete |
+| `image_service.py` | Gemini image generation wrapper (produces PNG from a prompt) |
+| `matrix_db.py` | SQLite CRUD layer for Concept Matrix projects and cells |
+| `matrix_generator.py` | Stateless LLM pipeline for matrix generation; accepts an `emit` callback for SSE events |
+| `matrix_service.py` | Matrix orchestrator: starts/cancels per-project asyncio tasks, manages SSE fan-out queues |
+| `matrix_settings_manager.py` | JSON-file persistence for matrix configuration (`matrix_settings.json`) |
 | `async_utils.py` | `bounded_gather()` — concurrent async operations with a concurrency limit |
-| `base_stage_service.py` | Base class for stage services with `_require()` dependency validation |
-| `llm_logger.py` | Structured JSONL logging of all LLM calls |
-| `prompt_loader.py` | Loads `.prompt` files with template-aware fallback |
+| `base_stage_service.py` | Base class for stage services: `_require()` validation, `_project_ctx()` async context manager (fetch + auto-save, used by all stage methods except `regenerate_slide_text_stream` which is an async generator), `_batch()` concurrency helper, `_style_from_config()` |
+| `llm_logger.py` | Structured JSONL logging of all LLM calls; `log_llm_method` decorator auto-logs async/sync methods |
+| `prompt_loader.py` | Loads `.prompt` files with per-template fallback (carousel/, painting/ override shared defaults) |
 | `prompt_validator.py` | Validates prompt variable substitution at startup |
 
 **API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`). Notable endpoints added in recent sessions: `POST /api/projects/{id}/reorder` (slide reordering), `POST /api/stage-draft/regenerate-stream` (SSE streaming text regeneration), and `POST /api/matrix/{id}/generate-images` (bulk image generation for an existing matrix that was created without images).
@@ -133,7 +138,7 @@ npm run build          # tsc type-check + vite production build
 - `"theme"` (default): user provides a theme string; LLM picks n diagonal concepts and invents per-concept axes
 - `"description"`: user describes a cross-axis relationship (e.g. "feels like a generation but is actually from one"); a single LLM call to `matrix_description_axes.prompt` derives both axis labels and n shared labels for both axes
 
-**Prompt templates:** Stored as `.prompt` files in `backend/prompts/`. These are the system/user prompts sent to Gemini. Edit these to change LLM behavior.
+**Prompt templates:** Stored as `.prompt` files in `backend/prompts/`. Subdirectories `prompts/carousel/` and `prompts/painting/` contain template-specific overrides; missing overrides fall back to the root prompt file. Edit `.prompt` files to change LLM behaviour without code changes.
 
 ### Frontend (React + TypeScript + Vite)
 
@@ -171,13 +176,13 @@ npm run build          # tsc type-check + vite production build
 - **Strict mode** enabled in `tsconfig.json` (`strict: true`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`)
 - **Zero ESLint warnings** enforced (`--max-warnings 0`)
 - **React functional components** with hooks (no class components)
-- **Axios** for all HTTP calls; exception: `StageDraft.tsx` uses native `fetch` + `ReadableStream` for SSE streaming from `/api/stage-draft/regenerate-stream`
+- **Axios** for all HTTP calls; exception: SSE streaming uses native `fetch` + `ReadableStream`. `useStreamingText` and `useMatrixStream` hooks share the `parseSSELine` utility from `utils/sse.ts`
 - **Tailwind CSS** for styling (no CSS modules or styled-components)
 
 ### General
 - **No CI/CD pipelines** configured — tests and lint run manually
 - **Docker-first development** — `docker-compose up --build` is the standard workflow
-- **Docker health check** — the backend service has a health check at `/api/health`; `docker ps` shows `(healthy)` when ready
+- **Docker health check** — the backend service has a health check at `/health`; `docker ps` shows `(healthy)` when ready
 - **Config over code**: App behavior is configurable via `config.json` and `.prompt` files without code changes
 - **Session persistence**: `sessions_db.json` stores sessions to survive Docker hot-reloads (file is gitignored)
 
@@ -188,6 +193,8 @@ npm run build          # tsc type-check + vite production build
 | `GOOGLE_API_KEY` | For AI features | (none) | Google Gemini API key. Without it, images are gradient placeholders and text generation is unavailable. |
 | `VITE_API_TARGET` | No | `http://backend:8000` (Docker) / `http://localhost:8000` (local) | Backend URL for the Vite proxy |
 | `CORS_ALLOWED_ORIGINS` | No | `http://localhost:3000,http://localhost:5173` | Comma-separated allowed origins |
+| `RATE_LIMIT_MAX_CALLS` | No | `120` | Max `/api/*` requests per IP per rate-limit window |
+| `RATE_LIMIT_WINDOW_SECONDS` | No | `60` | Sliding-window size for the rate limiter (seconds) |
 
 ## Testing Patterns
 

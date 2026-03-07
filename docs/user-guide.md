@@ -276,3 +276,28 @@ Click **Save Changes** to apply. Use **Reset All to Defaults** (red button) to r
 - **Edit prompts before generating images.** Image generation is the most expensive step. Spend time in Stage 4 to get prompts right before triggering Stage 5.
 - **Use "Apply to All Slides" early.** Style one slide to your liking in Stage 6, then apply to all before fine-tuning individual slides.
 - **No API key?** The app still works — images will be gradient placeholders, and you can test the typography/layout stage with your own content.
+
+---
+
+## Concept Matrix Generator
+
+The Concept Matrix Generator is a standalone feature — separate from the 6-stage carousel pipeline — that creates an n×n grid of visual concept cells. Each cell represents the intersection of two axes and gets its own AI-generated image.
+
+### Accessing the Matrix
+
+Click **Matrix** in the top navigation header to switch to the Matrix workspace.
+
+### Creating a matrix
+
+Click **New Matrix** and choose a generation mode:
+
+| Mode | Description |
+| :--- | :--- |
+| **Theme** | Enter a theme string (e.g. *"nostalgia"*). The AI picks n diagonal concepts and invents a unique pair of axes for each concept, then populates the entire grid. |
+| **Description** | Describe a cross-axis relationship (e.g. *"feels like a generation but is actually from one"*). A single LLM call derives both axis labels and n shared labels, producing a rectangular grid. |
+
+Choose the grid size (n) and click **Generate**. Cells stream in as they complete — you don't need to wait for the full grid before reviewing results.
+
+### Adding images
+
+Once generation is complete, click **Generate Images** to trigger parallel AI background generation for every cell in the grid. Individual cells can be regenerated via their **Regen** button.
