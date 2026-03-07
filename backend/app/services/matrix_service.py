@@ -343,12 +343,14 @@ class MatrixService:
             # Step 3 — Cell generation.
             # Description mode: all n_rows × n_cols cells generated equally.
             # Theme mode: only off-diagonal cells (diagonal pre-populated in steps 1+2).
-            # Both modes use the same corner-first order: cells farthest from the
-            # grid centre are generated first (corners → edges → centre).  Within
-            # each distance ring the tie-break is diagonal-sum ascending then higher
-            # row first, giving a consistent deterministic sweep.
-            # Sequential execution ensures each cell sees all prior concepts in
-            # already_used_labels, making duplicate prevention reliable.
+            #
+            # Generation order: corners first, centre last (decreasing Manhattan
+            # distance from the grid centre).  Cells at the same distance form a
+            # "ring" and are generated concurrently via bounded_gather so they
+            # don't slow each other down; rings are processed one at a time so
+            # each ring's cells see all concepts from prior (farther) rings in
+            # already_used_labels, providing strong duplicate prevention across
+            # the most conceptually similar positions while keeping parallelism.
             all_positions = [
                 (r, c)
                 for r in range(n_rows)
@@ -356,16 +358,29 @@ class MatrixService:
                 if req.input_mode == "description" or r != c
             ]
             _cr, _cc = (n_rows - 1) / 2, (n_cols - 1) / 2
-            cells_to_generate = sorted(
+
+            def _dist(r: int, c: int) -> float:
+                return abs(r - _cr) + abs(c - _cc)
+
+            all_positions_sorted = sorted(
                 all_positions,
-                key=lambda rc: (-(abs(rc[0] - _cr) + abs(rc[1] - _cc)), rc[0] + rc[1], -rc[0]),
+                key=lambda rc: (-_dist(rc[0], rc[1]), rc[0] + rc[1], -rc[0]),
             )
+
+            # Group into rings (consecutive positions with the same distance).
+            rings: list[list[tuple[int, int]]] = []
+            for pos in all_positions_sorted:
+                if rings and _dist(*rings[-1][-1]) == _dist(*pos):
+                    rings[-1].append(pos)
+                else:
+                    rings.append([pos])
 
             if req.input_mode == "description":
                 all_labels = [c["label"] for c in row_concepts] + [c["label"] for c in col_concepts]
             else:
                 all_labels = [c["label"] for c in concepts]
             used_labels: List[str] = list(all_labels)
+            labels_lock = asyncio.Lock()
 
             async def _gen_one_cell(row: int, col: int) -> None:
                 if req.input_mode == "description":
@@ -386,6 +401,8 @@ class MatrixService:
                     cell_status="generating",
                 )
                 try:
+                    async with labels_lock:
+                        snapshot = list(used_labels)
                     result = await self._gen.generate_cell(
                         project_id=project_id,
                         row=row,
@@ -394,13 +411,14 @@ class MatrixService:
                         col_concept=col_concept,
                         row_descriptor=row_descriptor,
                         col_descriptor=col_descriptor,
-                        already_used_labels=list(used_labels),
+                        already_used_labels=snapshot,
                         theme=theme,
                         style_mode=style_mode,
                         settings=settings,
                         emit=self._emit,
                     )
-                    used_labels.append(result["concept"])
+                    async with labels_lock:
+                        used_labels.append(result["concept"])
                     await self._db.upsert_cell(
                         project_id, row, col,
                         concept=result["concept"],
@@ -413,7 +431,7 @@ class MatrixService:
                             "type": "progress",
                             "project_id": project_id,
                             "generated": completed,
-                            "total": len(cells_to_generate),
+                            "total": len(all_positions),
                         }
                     )
                 except Exception as exc:
@@ -433,8 +451,11 @@ class MatrixService:
                         }
                     )
 
-            for r, c in cells_to_generate:
-                await _gen_one_cell(r, c)
+            for ring in rings:
+                await bounded_gather(
+                    [_gen_one_cell(r, c) for r, c in ring],
+                    limit=settings.max_concurrency,
+                )
 
             # Step 4 — Validate + targeted retry
             for attempt in range(settings.max_retries + 1):

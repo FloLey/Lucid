@@ -1704,11 +1704,13 @@ class TestDescriptionModePipeline:
     def test_description_mode_cells_generated_corners_first(self, monkeypatch):
         """Cells farthest from the grid centre are generated first (corners → centre).
 
-        For a 3×3 grid the expected sequence is:
-        corners (0,0),(2,0),(0,2),(2,2) → edges (1,0),(0,1),(2,1),(1,2) → centre (1,1)
+        For a 3×3 grid, all four corner cells must complete before any edge cell
+        starts, and the centre must be last.  Within each ring cells run
+        concurrently so exact intra-ring order is non-deterministic.
         """
         n = 3
-        generated_positions: list[tuple[int, int]] = []
+        # Record (position, index) so we can verify ring-level ordering.
+        call_order: list[tuple[int, int]] = []
 
         async def _run():
             async def _fake_from_description(project_id, description, n_rows, n_cols,
@@ -1723,7 +1725,7 @@ class TestDescriptionModePipeline:
             async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
                                           row_descriptor, col_descriptor, already_used_labels,
                                           theme, style_mode, settings, emit, extra_instructions=""):
-                generated_positions.append((row, col))
+                call_order.append((row, col))
                 return {"concept": f"C-{row}-{col}", "explanation": ""}
 
             async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
@@ -1751,25 +1753,35 @@ class TestDescriptionModePipeline:
 
         run_async(_run())
 
-        cr, cc = (n - 1) / 2, (n - 1) / 2
-        expected_order = sorted(
-            [(r, c) for r in range(n) for c in range(n)],
-            key=lambda rc: (-(abs(rc[0] - cr) + abs(rc[1] - cc)), rc[0] + rc[1], -rc[0]),
-        )
-        # Sanity-check: first four positions are the four corners
-        assert set(expected_order[:4]) == {(0, 0), (0, n - 1), (n - 1, 0), (n - 1, n - 1)}
-        # Last position is the centre
-        assert expected_order[-1] == (n // 2, n // 2)
-        assert generated_positions == expected_order
+        corners = {(0, 0), (0, n - 1), (n - 1, 0), (n - 1, n - 1)}
+        edges = {(0, 1), (1, 0), (1, n - 1), (n - 1, 1)}
+        centre = {(n // 2, n // 2)}
+
+        # Assign each generated position to its ring index (0 = corners, 1 = edges, 2 = centre)
+        def ring_index(pos):
+            if pos in corners:
+                return 0
+            if pos in edges:
+                return 1
+            return 2
+
+        ring_indices = [ring_index(p) for p in call_order]
+        # Ring indices must be non-decreasing: corners always before edges, edges before centre
+        assert ring_indices == sorted(ring_indices)
+        # All cells generated
+        assert set(call_order) == {(r, c) for r in range(n) for c in range(n)}
+        # Centre is last
+        assert call_order[-1] in centre
 
     def test_theme_mode_off_diagonal_cells_generated_corners_first(self, monkeypatch):
         """Theme mode: off-diagonal cells generated corners-first (farthest from centre).
 
-        For a 3×3 grid (diagonal pre-seeded) the expected off-diagonal sequence is:
-        (2,0),(0,2) → (1,0),(0,1),(2,1),(1,2)
+        For a 3×3 grid, the two anti-diagonal corners (2,0) and (0,2) must both
+        complete before any edge cell starts.  Within each ring cells run
+        concurrently so exact intra-ring order is non-deterministic.
         """
         n = 3
-        generated_positions: list[tuple[int, int]] = []
+        call_order: list[tuple[int, int]] = []
 
         async def _run():
             async def _fake_diagonal(project_id, theme, n, language, style_mode, settings, emit):
@@ -1793,7 +1805,7 @@ class TestDescriptionModePipeline:
             async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
                                           row_descriptor, col_descriptor, already_used_labels,
                                           theme, style_mode, settings, emit, extra_instructions=""):
-                generated_positions.append((row, col))
+                call_order.append((row, col))
                 return {"concept": f"C-{row}-{col}", "explanation": ""}
 
             async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
@@ -1818,15 +1830,16 @@ class TestDescriptionModePipeline:
 
         run_async(_run())
 
-        cr, cc = (n - 1) / 2, (n - 1) / 2
-        off_diagonal = [(r, c) for r in range(n) for c in range(n) if r != c]
-        expected_order = sorted(
-            off_diagonal,
-            key=lambda rc: (-(abs(rc[0] - cr) + abs(rc[1] - cc)), rc[0] + rc[1], -rc[0]),
-        )
-        # The two anti-diagonal corners should be generated first
-        assert expected_order[:2] == [(2, 0), (0, 2)]
-        assert generated_positions == expected_order
+        # For a 3×3, off-diagonal anti-corners are the only ring-0 cells
+        anti_corners = {(2, 0), (0, 2)}
+        edge_off_diag = {(0, 1), (1, 0), (2, 1), (1, 2)}
+
+        def ring_index(pos):
+            return 0 if pos in anti_corners else 1
+
+        ring_indices = [ring_index(p) for p in call_order]
+        assert ring_indices == sorted(ring_indices)
+        assert set(call_order) == anti_corners | edge_off_diag
 
     def test_generate_images_for_project_includes_description_mode_diagonal_cells(
         self, monkeypatch
