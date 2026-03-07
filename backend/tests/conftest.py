@@ -49,17 +49,27 @@ def setup_test_env():
     run_async(_setup())
 
 
-@pytest.fixture
-def client():
-    """Create a test client for the FastAPI app.
+@pytest.fixture(autouse=True)
+def clean_db():
+    """Clear all projects before every test for full isolation.
 
-    Clears all projects before each test to ensure isolation.
-    Resets the rate limiter so the full test suite never gets throttled.
+    Autouse=True means this runs regardless of whether the test uses ``client``
+    or calls service methods directly — removing the need for per-test
+    ``run_async(project_manager.clear_all())`` boilerplate.
     """
     from app.dependencies import container
 
-    _limiter._hits.clear()
     run_async(container.project_manager.clear_all())
+
+
+@pytest.fixture
+def client(clean_db):
+    """Create a test client for the FastAPI app.
+
+    Depends on ``clean_db`` so pytest deduplicates the clear; also resets
+    the rate limiter so the full test suite never gets throttled.
+    """
+    _limiter._hits.clear()
     return TestClient(app)
 
 
@@ -91,7 +101,6 @@ def make_project_with_slides():
         draft_text: str = "Test draft content",
         shared_prompt_prefix: Optional[str] = None,
     ):
-        run_async(project_manager.clear_all())
         project = run_async(project_manager.create_project())
 
         if slides is None:

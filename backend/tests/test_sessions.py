@@ -19,14 +19,12 @@ class TestProjectManager:
 
     def test_create_project(self):
         """Test creating a new project."""
-        run_async(project_manager.clear_all())
         project = run_async(project_manager.create_project())
         assert project.project_id is not None
         assert project.current_stage == 1
 
     def test_create_project_single_slide(self):
         """Test creating a single-slide project."""
-        run_async(project_manager.clear_all())
         project = run_async(
             project_manager.create_project(slide_count=1)
         )
@@ -34,7 +32,6 @@ class TestProjectManager:
 
     def test_get_project(self):
         """Test getting a project."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(project_manager.get_project(created.project_id))
         assert project is not None
@@ -42,25 +39,21 @@ class TestProjectManager:
 
     def test_get_nonexistent_project(self):
         """Test getting a project that doesn't exist."""
-        run_async(project_manager.clear_all())
         project = run_async(project_manager.get_project("nonexistent"))
         assert project is None
 
     def test_delete_project(self):
         """Test deleting a project."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         assert run_async(project_manager.delete_project(created.project_id)) is True
         assert run_async(project_manager.get_project(created.project_id)) is None
 
     def test_delete_nonexistent_project(self):
         """Test deleting a nonexistent project."""
-        run_async(project_manager.clear_all())
         assert run_async(project_manager.delete_project("nonexistent")) is False
 
     def test_advance_stage(self):
         """Test advancing to next stage."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(project_manager.advance_stage(created.project_id))
         assert project.current_stage == 2
@@ -69,7 +62,6 @@ class TestProjectManager:
 
     def test_advance_stage_max(self):
         """Test advancing past max stage (MAX_STAGES=6)."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.current_stage = 6
         run_async(project_manager.update_project(created))
@@ -78,14 +70,12 @@ class TestProjectManager:
 
     def test_go_to_stage(self):
         """Test going to a specific stage."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(project_manager.go_to_stage(created.project_id, 3))
         assert project.current_stage == 3
 
     def test_list_projects(self):
         """Test listing projects."""
-        run_async(project_manager.clear_all())
         run_async(project_manager.create_project())
         run_async(project_manager.create_project())
         projects = run_async(project_manager.list_projects())
@@ -93,7 +83,6 @@ class TestProjectManager:
 
     def test_rename_project(self):
         """Test renaming a project."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             project_manager.rename_project(created.project_id, "New Name")

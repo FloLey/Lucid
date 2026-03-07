@@ -48,7 +48,6 @@ class TestStageResearchService:
 
     def test_send_message_appends_both_turns(self, mock_gemini_chat):
         """send_message adds a user turn and a model turn to chat_history."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
 
         project = run_async(
@@ -67,7 +66,6 @@ class TestStageResearchService:
 
     def test_send_message_accumulates_history(self, mock_gemini_chat):
         """Repeated send_message calls extend chat_history without overwriting it."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
 
         run_async(research_service.send_message(created.project_id, "First question."))
@@ -87,7 +85,6 @@ class TestStageResearchService:
 
     def test_send_message_rolls_back_user_turn_on_failure(self):
         """If Gemini raises, the user turn is removed and the error is re-raised."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
 
         async def _fail(*args, **kwargs):
@@ -112,7 +109,6 @@ class TestStageResearchService:
 
     def test_send_message_persists_to_db(self, mock_gemini_chat):
         """chat_history is persisted so it survives a fresh DB read."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
 
         run_async(research_service.send_message(created.project_id, "Persist me."))
@@ -122,7 +118,6 @@ class TestStageResearchService:
 
     def test_extract_draft_sets_draft_text(self, mock_gemini_text):
         """extract_draft populates project.draft_text with the generated text."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         # Seed some history so there is something to summarise
         created.chat_history = [
@@ -140,7 +135,6 @@ class TestStageResearchService:
 
     def test_extract_draft_does_not_advance_stage(self, mock_gemini_text):
         """extract_draft does NOT advance the stage — the user must proceed manually."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         assert created.current_stage == 1
 
@@ -153,7 +147,6 @@ class TestStageResearchService:
 
     def test_extract_draft_does_not_lower_stage(self, mock_gemini_text):
         """extract_draft does not reset stage if the project is already past stage 1."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         created.current_stage = 3
         run_async(project_manager.update_project(created))
@@ -166,7 +159,6 @@ class TestStageResearchService:
 
     def test_extract_draft_saves_research_instructions(self, mock_gemini_text):
         """research_instructions passed to extract_draft are stored on the project."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
 
         project = run_async(

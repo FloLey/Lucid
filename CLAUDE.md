@@ -26,9 +26,9 @@ Lucid/
 │   │   ├── models/              # Pydantic data models (session, slide, style, config)
 │   │   ├── routes/              # 12 API routers under /api prefix
 │   │   └── services/            # 20+ service modules (business logic)
-│   ├── prompts/                 # LLM prompt templates (.prompt files)
+│   ├── prompts/                 # LLM prompt templates (.prompt files); carousel/ and painting/ subdirs override per template
 │   ├── fonts/                   # Downloaded TTF font files (gitignored)
-│   └── tests/                   # pytest test suite (14 test files)
+│   └── tests/                   # pytest test suite (20 test files)
 └── frontend/                    # React + TypeScript + Vite
     ├── Dockerfile               # Node 22 Alpine
     ├── package.json             # Scripts: dev, build, lint, preview
@@ -39,10 +39,10 @@ Lucid/
         ├── App.tsx              # Root component
         ├── main.tsx             # React entry point
         ├── components/          # Stage components + shared UI
-        ├── hooks/               # Custom hooks: useStyleManager, useApiAction, useDebouncedRender, useDragResize, useDarkMode, useMatrixStream, useStreamingText
+        ├── hooks/               # Custom hooks: useStyleManager, useApiAction, useDebouncedRender, useDragResize, useDarkMode, useMatrixStream, useStreamingText, usePerSlideLoading, useRegenInstruction, useTemplateManager
         ├── services/            # Axios API client (api.ts)
         ├── types/               # TypeScript interfaces (index.ts) — exports Alignment, CellStatus, Corner named types
-        └── utils/               # Shared utilities: error handling (errors.ts), date formatting (date.ts)
+        └── utils/               # Shared utilities: error handling (errors.ts), date formatting (date.ts), SSE parsing (sse.ts)
 ```
 
 ## Quick Reference — Commands
@@ -122,9 +122,9 @@ npm run build          # tsc type-check + vite production build
 | `template_manager.py` | Template CRUD and default seeding |
 | `storage_service.py` | Disk-based image read/write/delete |
 | `async_utils.py` | `bounded_gather()` — concurrent async operations with a concurrency limit |
-| `base_stage_service.py` | Base class for stage services with `_require()` dependency validation |
-| `llm_logger.py` | Structured JSONL logging of all LLM calls |
-| `prompt_loader.py` | Loads `.prompt` files with template-aware fallback |
+| `base_stage_service.py` | Base class for stage services: `_require()` validation, `_project_ctx()` async context manager (fetch + auto-save), `_batch()` concurrency helper, `_style_from_config()` |
+| `llm_logger.py` | Structured JSONL logging of all LLM calls; `log_llm_method` decorator auto-logs async/sync methods |
+| `prompt_loader.py` | Loads `.prompt` files with per-template fallback (carousel/, painting/ override shared defaults) |
 | `prompt_validator.py` | Validates prompt variable substitution at startup |
 
 **API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`). Notable endpoints added in recent sessions: `POST /api/projects/{id}/reorder` (slide reordering), `POST /api/stage-draft/regenerate-stream` (SSE streaming text regeneration), and `POST /api/matrix/{id}/generate-images` (bulk image generation for an existing matrix that was created without images).
@@ -133,7 +133,7 @@ npm run build          # tsc type-check + vite production build
 - `"theme"` (default): user provides a theme string; LLM picks n diagonal concepts and invents per-concept axes
 - `"description"`: user describes a cross-axis relationship (e.g. "feels like a generation but is actually from one"); a single LLM call to `matrix_description_axes.prompt` derives both axis labels and n shared labels for both axes
 
-**Prompt templates:** Stored as `.prompt` files in `backend/prompts/`. These are the system/user prompts sent to Gemini. Edit these to change LLM behavior.
+**Prompt templates:** Stored as `.prompt` files in `backend/prompts/`. Subdirectories `prompts/carousel/` and `prompts/painting/` contain template-specific overrides; missing overrides fall back to the root prompt file. Edit `.prompt` files to change LLM behaviour without code changes.
 
 ### Frontend (React + TypeScript + Vite)
 
@@ -171,7 +171,7 @@ npm run build          # tsc type-check + vite production build
 - **Strict mode** enabled in `tsconfig.json` (`strict: true`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`)
 - **Zero ESLint warnings** enforced (`--max-warnings 0`)
 - **React functional components** with hooks (no class components)
-- **Axios** for all HTTP calls; exception: `StageDraft.tsx` uses native `fetch` + `ReadableStream` for SSE streaming from `/api/stage-draft/regenerate-stream`
+- **Axios** for all HTTP calls; exception: SSE streaming uses native `fetch` + `ReadableStream`. `useStreamingText` and `useMatrixStream` hooks share the `parseSSELine` utility from `utils/sse.ts`
 - **Tailwind CSS** for styling (no CSS modules or styled-components)
 
 ### General

@@ -278,6 +278,13 @@ def _build_log_params(
     return log_method_name, effective_model, input_data, config_summary
 
 
+async def _invoke(func: Callable, args: tuple, kwargs: dict) -> Any:
+    """Call *func* with *args*/*kwargs*, awaiting it when it is a coroutine function."""
+    if inspect.iscoroutinefunction(func):
+        return await func(*args, **kwargs)
+    return func(*args, **kwargs)
+
+
 def log_llm_method(
     method_name: Optional[str] = None,
     model: Optional[str] = None,
@@ -286,21 +293,24 @@ def log_llm_method(
     config_params: Optional[list] = None,
     caller: Optional[str] = None,
 ):
-    """
-    Decorator for LLM service methods that automatically logs calls.
+    """Decorator for LLM service methods that automatically logs calls.
+
+    Works for both ``async def`` and plain ``def`` functions.  Sync functions
+    wrapped by this decorator are exposed as ``async def`` — this is safe
+    because all current LLM service methods are already async.
 
     Args:
-        method_name: Override method name in logs (defaults to function name)
-        model: Fixed model name to use (overrides model_param extraction)
-        model_param: Name of the parameter containing model name (if model not provided)
-        input_params: List of parameter names to extract as input data
-        config_params: List of parameter names to extract as config summary
-        caller: Explicit caller identifier (e.g. "stage1_service.generate_slide_texts")
+        method_name: Override method name in logs (defaults to function name).
+        model: Fixed model name to use (overrides model_param extraction).
+        model_param: Name of the parameter containing the model name.
+        input_params: Parameter names to capture as input data in the log.
+        config_params: Parameter names to capture as config summary in the log.
+        caller: Explicit caller label (e.g. ``"stage1_service.generate_slide_texts"``).
     """
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs):
             log_method_name, effective_model, input_data, config_summary = (
                 _build_log_params(
                     func, args, kwargs, method_name, model, model_param,
@@ -311,7 +321,7 @@ def log_llm_method(
             error = None
             output_data = None
             try:
-                result = await func(*args, **kwargs)
+                result = await _invoke(func, args, kwargs)
                 output_data = result
                 return result
             except Exception as e:
@@ -329,40 +339,7 @@ def log_llm_method(
                     config_summary=config_summary if config_summary else None,
                 )
 
-        @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            log_method_name, effective_model, input_data, config_summary = (
-                _build_log_params(
-                    func, args, kwargs, method_name, model, model_param,
-                    input_params, config_params,
-                )
-            )
-            start = timer()
-            error = None
-            output_data = None
-            try:
-                result = func(*args, **kwargs)
-                output_data = result
-                return result
-            except Exception as e:
-                error = str(e)
-                raise
-            finally:
-                log_llm_call(
-                    method=log_method_name,
-                    model=effective_model,
-                    caller=caller,
-                    input_data=input_data if input_data else None,
-                    output_data=output_data,
-                    duration_ms=elapsed_ms(start),
-                    error=error,
-                    config_summary=config_summary if config_summary else None,
-                )
-
-        # Return appropriate wrapper based on function type
-        if inspect.iscoroutinefunction(func):
-            return async_wrapper
-        return sync_wrapper
+        return wrapper
 
     return decorator
 

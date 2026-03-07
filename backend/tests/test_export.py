@@ -24,7 +24,6 @@ def sample_image_base64():
 @pytest.fixture
 def project_with_final_images(sample_image_base64):
     """Create a project with final images."""
-    run_async(project_manager.clear_all())
     project = run_async(project_manager.create_project())
     project.draft_text = "This is my test draft for export"
     project.slides = [
@@ -126,7 +125,6 @@ class TestExportService:
 
     def test_export_project_no_project(self):
         """Test export with no project."""
-        run_async(project_manager.clear_all())
         zip_buffer = run_async(export_service.export_project("nonexistent"))
         assert zip_buffer is None
 
@@ -144,7 +142,6 @@ class TestExportService:
 
     def test_export_project_no_images(self):
         """Export of a project with no generated images produces a valid ZIP."""
-        run_async(project_manager.clear_all())
         project = run_async(project_manager.create_project())
         # Slides have text but no images
         project.slides = [
@@ -275,7 +272,6 @@ class TestExportEdgeCases:
 
     def test_export_project_partial_images_still_returns_zip(self, sample_image_base64):
         """If some slides lack images, the ZIP is still produced with only the slides that have images."""
-        run_async(project_manager.clear_all())
         from app.models.slide import Slide, SlideText
 
         project = run_async(project_manager.create_project())

@@ -70,7 +70,6 @@ class TestStageStyleService:
 
     def test_generate_proposals_no_project(self, mock_gemini_and_image):
         """Test generating proposals with no project."""
-        run_async(project_manager.clear_all())
         project = run_async(
             stage_style_service.generate_proposals("nonexistent")
         )
@@ -100,7 +99,6 @@ class TestStageStyleService:
 
     def test_select_proposal_no_project(self):
         """Test selecting proposal with no project."""
-        run_async(project_manager.clear_all())
         project = run_async(
             stage_style_service.select_proposal("nonexistent", 0)
         )

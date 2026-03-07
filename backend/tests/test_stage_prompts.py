@@ -41,7 +41,6 @@ class TestStage2Service:
 
     def test_generate_prompts_no_project(self, mock_gemini):
         """Test generating prompts with no project."""
-        run_async(project_manager.clear_all())
         project = run_async(
             stage2_service.generate_all_prompts(project_id="nonexistent")
         )
@@ -49,7 +48,6 @@ class TestStage2Service:
 
     def test_generate_prompts_no_slides(self, mock_gemini):
         """Test generating prompts with no slides."""
-        run_async(project_manager.clear_all())
         created = run_async(project_manager.create_project())
         project = run_async(
             stage2_service.generate_all_prompts(project_id=created.project_id)
@@ -124,7 +122,6 @@ class TestStage2Service:
 
     def test_update_style_no_project(self):
         """Test updating style with no project."""
-        run_async(project_manager.clear_all())
         project = run_async(
             stage2_service.update_style_instructions(
                 project_id="nonexistent",

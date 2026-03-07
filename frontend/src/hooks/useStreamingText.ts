@@ -1,9 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import * as api from '../services/api';
 import { getErrorMessage } from '../utils/error';
+import { parseSSELine } from '../utils/sse';
 import type { Project } from '../types';
-
-const SSE_DATA_PREFIX = 'data: ';
 
 interface UseStreamingTextOptions {
   projectId: string;
@@ -66,24 +65,19 @@ export function useStreamingText({
           buffer = lines.pop() ?? '';
 
           for (const line of lines) {
-            if (line.startsWith(SSE_DATA_PREFIX)) {
-              try {
-                const data = JSON.parse(line.slice(SSE_DATA_PREFIX.length)) as { text?: string; done?: boolean };
-                if (typeof data.text === 'string') {
-                  setStreamingTexts((prev) => new Map(prev).set(index, data.text!));
-                }
-                if (data.done) {
-                  const refreshed = await api.getProject(projectId);
-                  onProjectUpdate(refreshed);
-                  setStreamingTexts((prev) => {
-                    const next = new Map(prev);
-                    next.delete(index);
-                    return next;
-                  });
-                }
-              } catch (e) {
-                console.warn('Failed to parse SSE message:', line, e);
-              }
+            const data = parseSSELine<{ text?: string; done?: boolean }>(line);
+            if (data === null) continue;
+            if (typeof data.text === 'string') {
+              setStreamingTexts((prev) => new Map(prev).set(index, data.text!));
+            }
+            if (data.done) {
+              const refreshed = await api.getProject(projectId);
+              onProjectUpdate(refreshed);
+              setStreamingTexts((prev) => {
+                const next = new Map(prev);
+                next.delete(index);
+                return next;
+              });
             }
           }
         }
