@@ -116,8 +116,12 @@ class MatrixService:
 
         coros = []
         for cell in project.cells:
-            concept = cell.label if cell.row == cell.col else cell.concept
-            context = cell.definition if cell.row == cell.col else cell.explanation
+            if cell.row == cell.col and project.input_mode != "description":
+                concept = cell.label
+                context = cell.definition
+            else:
+                concept = cell.concept
+                context = cell.explanation
             if concept:
                 coros.append(_gen_one(cell.row, cell.col, concept or "", context or ""))
 
@@ -339,18 +343,38 @@ class MatrixService:
             # Step 3 — Cell generation.
             # Description mode: all n_rows × n_cols cells generated equally.
             # Theme mode: only off-diagonal cells (diagonal pre-populated in steps 1+2).
-            if req.input_mode == "description":
-                cells_to_generate = [
-                    (r, c) for r in range(n_rows) for c in range(n_cols)
-                ]
-            else:
-                cells_to_generate = sorted(
-                    [(r, c) for r in range(n) for c in range(n) if r != c],
-                    key=lambda rc: (abs(rc[0] - rc[1]), rc[0], rc[1]),
-                )
+            #
+            # Generation order: corners first, centre last (decreasing Manhattan
+            # distance from the grid centre).  Cells at the same distance form a
+            # "ring" and are generated concurrently via bounded_gather so they
+            # don't slow each other down; rings are processed one at a time so
+            # each ring's cells see all concepts from prior (farther) rings in
+            # already_used_labels, providing strong duplicate prevention across
+            # the most conceptually similar positions while keeping parallelism.
+            all_positions = [
+                (r, c)
+                for r in range(n_rows)
+                for c in range(n_cols)
+                if req.input_mode == "description" or r != c
+            ]
+            _cr, _cc = (n_rows - 1) / 2, (n_cols - 1) / 2
 
-            # Collect all labels to avoid duplicates across cells.
-            # A lock ensures concurrent coroutines take consistent snapshots.
+            def _dist(r: int, c: int) -> float:
+                return abs(r - _cr) + abs(c - _cc)
+
+            all_positions_sorted = sorted(
+                all_positions,
+                key=lambda rc: (-_dist(rc[0], rc[1]), rc[0] + rc[1], -rc[0]),
+            )
+
+            # Group into rings (consecutive positions with the same distance).
+            rings: list[list[tuple[int, int]]] = []
+            for pos in all_positions_sorted:
+                if rings and _dist(*rings[-1][-1]) == _dist(*pos):
+                    rings[-1].append(pos)
+                else:
+                    rings.append([pos])
+
             if req.input_mode == "description":
                 all_labels = [c["label"] for c in row_concepts] + [c["label"] for c in col_concepts]
             else:
@@ -407,7 +431,7 @@ class MatrixService:
                             "type": "progress",
                             "project_id": project_id,
                             "generated": completed,
-                            "total": len(cells_to_generate),
+                            "total": len(all_positions),
                         }
                     )
                 except Exception as exc:
@@ -427,10 +451,11 @@ class MatrixService:
                         }
                     )
 
-            await bounded_gather(
-                [_gen_one_cell(r, c) for r, c in cells_to_generate],
-                limit=settings.max_concurrency,
-            )
+            for ring in rings:
+                await bounded_gather(
+                    [_gen_one_cell(r, c) for r, c in ring],
+                    limit=settings.max_concurrency,
+                )
 
             # Step 4 — Validate + targeted retry
             for attempt in range(settings.max_retries + 1):
