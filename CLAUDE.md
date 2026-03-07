@@ -25,7 +25,7 @@ Lucid/
 │   │   ├── dependencies.py      # ServiceContainer (dependency injection wiring)
 │   │   ├── models/              # Pydantic data models (session, slide, style, config)
 │   │   ├── routes/              # 14 routers under /api prefix (13 route files; matrix.py registers 2)
-│   │   └── services/            # 25 service modules (business logic)
+│   │   └── services/            # 24 service modules (business logic)
 │   ├── prompts/                 # LLM prompt templates (.prompt files); carousel/ and painting/ subdirs override per template
 │   ├── fonts/                   # Downloaded TTF font files (gitignored)
 │   └── tests/                   # pytest test suite (19 test files)
@@ -195,7 +195,6 @@ npm run build          # tsc type-check + vite production build
 | `CORS_ALLOWED_ORIGINS` | No | `http://localhost:3000,http://localhost:5173` | Comma-separated allowed origins |
 | `RATE_LIMIT_MAX_CALLS` | No | `120` | Max `/api/*` requests per IP per rate-limit window |
 | `RATE_LIMIT_WINDOW_SECONDS` | No | `60` | Sliding-window size for the rate limiter (seconds) |
-| `LLM_DEBUG_LOG` | No | (none) | If set, writes a JSONL log of all LLM calls to this path |
 
 ## Testing Patterns
 
