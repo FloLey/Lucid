@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from app.models.project import MAX_STAGES, ProjectState
 from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
-from app.services.llm_logger import set_project_context  # used in send_message (not migrated due to rollback logic)
+
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -50,35 +50,34 @@ class StageResearchService(BaseStageService):
         ``{"role": "user"|"model", "content": "..."}`` dicts inside
         ``project.chat_history``.
         """
-        set_project_context(project_id)
-        project = await self.project_manager.get_project(project_id)
-        if not project:
-            return None
+        async with self._project_ctx(project_id) as project:
+            if project is None:
+                return None
 
-        # Append user turn first
-        user_turn: Dict[str, Any] = {"role": "user", "content": message}
-        project.chat_history.append(user_turn)
+            # Append user turn first
+            user_turn: Dict[str, Any] = {"role": "user", "content": message}
+            project.chat_history.append(user_turn)
 
-        # Pass the history *before* the new message (the service appends it)
-        history_so_far: List[Dict[str, Any]] = project.chat_history[:-1]
+            # Pass the history *before* the new message (the service appends it)
+            history_so_far: List[Dict[str, Any]] = project.chat_history[:-1]
 
-        try:
-            reply, grounded = await self.gemini_service.generate_chat_response(
-                history=history_so_far,
-                message=message,
-                system_instruction=_RESEARCH_SYSTEM_PROMPT,
-                use_search_grounding=True,
-            )
-        except Exception as exc:
-            logger.error("Research chat generation failed: %s", exc, exc_info=True)
-            # Remove the user turn we already appended so the state stays consistent
-            project.chat_history.pop()
-            raise
+            try:
+                reply, grounded = await self.gemini_service.generate_chat_response(
+                    history=history_so_far,
+                    message=message,
+                    system_instruction=_RESEARCH_SYSTEM_PROMPT,
+                    use_search_grounding=True,
+                )
+            except Exception as exc:
+                logger.error("Research chat generation failed: %s", exc, exc_info=True)
+                # Remove the user turn we already appended so the state stays consistent,
+                # then re-raise so _project_ctx skips the auto-save.
+                project.chat_history.pop()
+                raise
 
-        model_turn: Dict[str, Any] = {"role": "model", "content": reply, "grounded": grounded}
-        project.chat_history.append(model_turn)
+            model_turn: Dict[str, Any] = {"role": "model", "content": reply, "grounded": grounded}
+            project.chat_history.append(model_turn)
 
-        await self.project_manager.update_project(project)
         return project
 
     # ------------------------------------------------------------------

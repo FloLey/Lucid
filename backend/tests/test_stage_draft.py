@@ -168,6 +168,32 @@ class TestStage1Service:
         )
         assert result is None
 
+    def test_generate_slide_texts_gemini_failure_does_not_persist(self):
+        """If Gemini raises during slide generation, the original slides are not overwritten."""
+        created = run_async(project_manager.create_project())
+        from app.models.slide import Slide, SlideText
+        created.slides = [Slide(index=0, text=SlideText(body="Original content"))]
+        run_async(project_manager.update_project(created))
+
+        async def mock_generate_json_fail(*args, **kwargs):
+            raise Exception("Gemini down")
+
+        with patch("app.dependencies.container.stage_draft.gemini_service") as mock:
+            mock.generate_json = mock_generate_json_fail
+            with pytest.raises(Exception, match="Gemini down"):
+                run_async(
+                    stage1_service.generate_slide_texts(
+                        project_id=created.project_id,
+                        draft_text="A draft that triggers an error",
+                    )
+                )
+
+        # Project state should be unchanged in the DB
+        reloaded = run_async(project_manager.get_project(created.project_id))
+        assert reloaded is not None
+        assert len(reloaded.slides) == 1
+        assert reloaded.slides[0].text.body == "Original content"
+
 
 class TestStage1Routes:
     """Tests for Stage 1 API routes."""

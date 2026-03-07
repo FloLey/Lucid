@@ -7,7 +7,6 @@ from typing import Optional, TYPE_CHECKING
 from app.models.project import ProjectState
 from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
-from app.services.llm_logger import set_project_context  # used in generate_all_prompts (not yet migrated)
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -78,33 +77,31 @@ class StagePromptsService(BaseStageService):
         concurrency_limit: int = 10,
     ) -> Optional[ProjectState]:
         """Generate image prompts for all slides in parallel."""
-        set_project_context(project_id)
-        project = await self.project_manager.get_project(project_id)
-        if not project or not project.slides:
-            return None
+        async with self._project_ctx(project_id) as project:
+            if project is None or not project.slides:
+                return None
 
-        if image_style_instructions:
-            project.image_style_instructions = image_style_instructions
+            if image_style_instructions:
+                project.image_style_instructions = image_style_instructions
 
-        async def generate_single_prompt(slide_index: int) -> str:
-            prompt = self._build_slide_prompt(project, slide_index)
-            result = await self.gemini_service.generate_json(
-                prompt, caller="stage_prompts_service.generate_single_prompt"
+            async def generate_single_prompt(slide_index: int) -> str:
+                prompt = self._build_slide_prompt(project, slide_index)
+                result = await self.gemini_service.generate_json(
+                    prompt, caller="stage_prompts_service.generate_single_prompt"
+                )
+                return result.get(
+                    "prompt",
+                    f"Abstract professional background for: {project.slides[slide_index].text.body[:50]}",
+                )
+
+            prompts = await self._batch(
+                [generate_single_prompt(i) for i in range(len(project.slides))],
+                limit=concurrency_limit,
             )
-            return result.get(
-                "prompt",
-                f"Abstract professional background for: {project.slides[slide_index].text.body[:50]}",
-            )
 
-        prompts = await self._batch(
-            [generate_single_prompt(i) for i in range(len(project.slides))],
-            limit=concurrency_limit,
-        )
+            for i, prompt in enumerate(prompts):
+                project.slides[i].image_prompt = prompt
 
-        for i, prompt in enumerate(prompts):
-            project.slides[i].image_prompt = prompt
-
-        await self.project_manager.update_project(project)
         return project
 
     async def regenerate_prompt(

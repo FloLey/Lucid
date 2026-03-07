@@ -9,7 +9,7 @@ from app.models.style_proposal import StyleProposal
 from app.services.base_stage_service import BaseStageService
 from app.services.prompt_loader import PromptLoader
 from app.services.storage_service import StorageService
-from app.services.llm_logger import set_project_context
+
 
 if TYPE_CHECKING:
     from app.services.project_manager import ProjectManager
@@ -49,74 +49,74 @@ class StageStyleService(BaseStageService):
         concurrency_limit: int = 5,
     ) -> Optional[ProjectState]:
         """Generate style proposals with preview images."""
-        set_project_context(project_id)
-        project = await self.project_manager.get_project(project_id)
-        if not project or not project.slides:
-            return None
+        old_proposals: list = []
+        async with self._project_ctx(project_id) as project:
+            if project is None or not project.slides:
+                return None
 
-        slides_text = "\n".join(
-            [
-                f"Slide {i + 1}: {slide.text.get_full_text()}"
-                for i, slide in enumerate(project.slides)
-            ]
-        )
-
-        extra = (
-            f"Additional instructions: {additional_instructions}"
-            if additional_instructions
-            else ""
-        )
-
-        prompt_template = self.prompt_loader.resolve_prompt(project, "style_proposal")
-
-        response_format = (
-            """{{\n    "proposals": [\n        {{\n"""
-            """            "description": "your image generation prompt here"\n"""
-            """        }}\n    ]\n}}"""
-        )
-
-        prompt = prompt_template.format(
-            num_proposals=num_proposals,
-            slides_text=slides_text,
-            additional_instructions=extra,
-            response_format=response_format,
-        )
-
-        result = await self.gemini_service.generate_json(
-            prompt, caller="stage_style_service.generate_proposals"
-        )
-
-        raw_proposals = result.get("proposals", [])
-
-        async def generate_preview(i: int, proposal_data: dict) -> StyleProposal:
-            common_flow = proposal_data.get("description", "")
-            preview_path: Optional[str] = None
-            try:
-                b64 = await self.image_service.generate_image(common_flow)
-                preview_path = await self.storage_service.save_image_to_disk(b64)
-            except Exception as e:
-                logger.warning("Failed to generate preview for proposal %d: %s", i, e, exc_info=True)
-
-            return StyleProposal(
-                index=i,
-                description=common_flow,
-                preview_image=preview_path,
+            slides_text = "\n".join(
+                [
+                    f"Slide {i + 1}: {slide.text.get_full_text()}"
+                    for i, slide in enumerate(project.slides)
+                ]
             )
 
-        proposals = await self._batch(
-            [generate_preview(i, p) for i, p in enumerate(raw_proposals)],
-            limit=concurrency_limit,
-        )
+            extra = (
+                f"Additional instructions: {additional_instructions}"
+                if additional_instructions
+                else ""
+            )
 
-        old_proposals = project.style_proposals
-        project.style_proposals = list(proposals)
-        project.selected_style_proposal_index = None
-        # Use the first proposal's preview as the initial thumbnail
-        if proposals and proposals[0].preview_image:
-            project.thumbnail_url = proposals[0].preview_image
-        # Persist before deleting old images — if the DB write fails, old images
-        # remain reachable from the DB record (no orphaned/missing files).
-        await self.project_manager.update_project(project)
+            prompt_template = self.prompt_loader.resolve_prompt(project, "style_proposal")
+
+            response_format = (
+                """{{\n    "proposals": [\n        {{\n"""
+                """            "description": "your image generation prompt here"\n"""
+                """        }}\n    ]\n}}"""
+            )
+
+            prompt = prompt_template.format(
+                num_proposals=num_proposals,
+                slides_text=slides_text,
+                additional_instructions=extra,
+                response_format=response_format,
+            )
+
+            result = await self.gemini_service.generate_json(
+                prompt, caller="stage_style_service.generate_proposals"
+            )
+
+            raw_proposals = result.get("proposals", [])
+
+            async def generate_preview(i: int, proposal_data: dict) -> StyleProposal:
+                common_flow = proposal_data.get("description", "")
+                preview_path: Optional[str] = None
+                try:
+                    b64 = await self.image_service.generate_image(common_flow)
+                    preview_path = await self.storage_service.save_image_to_disk(b64)
+                except Exception as e:
+                    logger.warning("Failed to generate preview for proposal %d: %s", i, e, exc_info=True)
+
+                return StyleProposal(
+                    index=i,
+                    description=common_flow,
+                    preview_image=preview_path,
+                )
+
+            proposals = await self._batch(
+                [generate_preview(i, p) for i, p in enumerate(raw_proposals)],
+                limit=concurrency_limit,
+            )
+
+            old_proposals = project.style_proposals
+            project.style_proposals = list(proposals)
+            project.selected_style_proposal_index = None
+            # Use the first proposal's preview as the initial thumbnail
+            if proposals and proposals[0].preview_image:
+                project.thumbnail_url = proposals[0].preview_image
+
+        # Delete old preview images after the DB save — if the save fails the old
+        # images are still referenced by the DB record (no orphaned/missing files).
         for old in old_proposals:
             await self.storage_service.delete_image(old.preview_image)
         return project

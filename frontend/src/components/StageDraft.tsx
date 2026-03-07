@@ -299,15 +299,7 @@ export default function StageDraft() {
                         {editingSlide === index ? 'Cancel' : 'Edit'}
                       </button>
                       <button
-                        onClick={() => {
-                          if (regenInstructionSlide === index) {
-                            setRegenInstructionSlide(null);
-                            setRegenInstruction('');
-                          } else {
-                            setRegenInstructionSlide(index);
-                            setRegenInstruction('');
-                          }
-                        }}
+                        onClick={() => toggleRegenSlide(index)}
                         disabled={streamingTexts.has(index)}
                         className="text-xs text-lucid-600 hover:text-lucid-700"
                       >
@@ -321,7 +313,7 @@ export default function StageDraft() {
                       value={regenInstruction}
                       onChange={setRegenInstruction}
                       onSubmit={() => handleRegenerateSlide(index, regenInstruction)}
-                      onCancel={() => { setRegenInstructionSlide(null); setRegenInstruction(''); }}
+                      onCancel={resetRegen}
                     />
                   )}
 

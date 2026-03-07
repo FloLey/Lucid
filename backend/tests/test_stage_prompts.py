@@ -130,6 +130,28 @@ class TestStage2Service:
         )
         assert project is None
 
+    def test_generate_all_prompts_gemini_failure_does_not_persist(self, project_with_slides):
+        """If Gemini raises during prompt generation, image_prompt fields stay unchanged."""
+        for slide in project_with_slides.slides:
+            assert slide.image_prompt is None
+
+        async def mock_generate_json_fail(*args, **kwargs):
+            raise Exception("Gemini down")
+
+        with patch("app.dependencies.container.stage_prompts.gemini_service") as mock:
+            mock.generate_json = mock_generate_json_fail
+            with pytest.raises(Exception, match="Gemini down"):
+                run_async(
+                    stage2_service.generate_all_prompts(
+                        project_id=project_with_slides.project_id
+                    )
+                )
+
+        reloaded = run_async(project_manager.get_project(project_with_slides.project_id))
+        assert reloaded is not None
+        for slide in reloaded.slides:
+            assert slide.image_prompt is None
+
 
 class TestStage2Routes:
     """Tests for Stage 2 API routes."""

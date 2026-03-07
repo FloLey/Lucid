@@ -104,6 +104,24 @@ class TestStageStyleService:
         )
         assert project is None
 
+    def test_generate_proposals_gemini_failure_does_not_persist(self, project_with_slides):
+        """If Gemini raises during proposal generation, style_proposals are not overwritten."""
+        assert len(project_with_slides.style_proposals) == 0
+
+        async def mock_generate_json_fail(*args, **kwargs):
+            raise Exception("Gemini down")
+
+        with patch.object(stage_style_service, "gemini_service") as mock_gemini:
+            mock_gemini.generate_json = mock_generate_json_fail
+            with pytest.raises(Exception, match="Gemini down"):
+                run_async(
+                    stage_style_service.generate_proposals(project_with_slides.project_id)
+                )
+
+        reloaded = run_async(project_manager.get_project(project_with_slides.project_id))
+        assert reloaded is not None
+        assert len(reloaded.style_proposals) == 0
+
 
 class TestStageStyleRoutes:
     """Tests for Stage Style API routes."""

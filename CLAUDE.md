@@ -28,7 +28,7 @@ Lucid/
 │   │   └── services/            # 20+ service modules (business logic)
 │   ├── prompts/                 # LLM prompt templates (.prompt files); carousel/ and painting/ subdirs override per template
 │   ├── fonts/                   # Downloaded TTF font files (gitignored)
-│   └── tests/                   # pytest test suite (20 test files)
+│   └── tests/                   # pytest test suite (18 test files)
 └── frontend/                    # React + TypeScript + Vite
     ├── Dockerfile               # Node 22 Alpine
     ├── package.json             # Scripts: dev, build, lint, preview
@@ -122,7 +122,7 @@ npm run build          # tsc type-check + vite production build
 | `template_manager.py` | Template CRUD and default seeding |
 | `storage_service.py` | Disk-based image read/write/delete |
 | `async_utils.py` | `bounded_gather()` — concurrent async operations with a concurrency limit |
-| `base_stage_service.py` | Base class for stage services: `_require()` validation, `_project_ctx()` async context manager (fetch + auto-save), `_batch()` concurrency helper, `_style_from_config()` |
+| `base_stage_service.py` | Base class for stage services: `_require()` validation, `_project_ctx()` async context manager (fetch + auto-save, used by all stage methods except `regenerate_slide_text_stream` which is an async generator), `_batch()` concurrency helper, `_style_from_config()` |
 | `llm_logger.py` | Structured JSONL logging of all LLM calls; `log_llm_method` decorator auto-logs async/sync methods |
 | `prompt_loader.py` | Loads `.prompt` files with per-template fallback (carousel/, painting/ override shared defaults) |
 | `prompt_validator.py` | Validates prompt variable substitution at startup |
