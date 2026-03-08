@@ -15,6 +15,7 @@ from app.models.matrix import (
     MatrixProjectResponse,
     MatrixSettingsResponse,
     RegenerateCellRequest,
+    RevalidateRequest,
     UpdateMatrixSettingsRequest,
 )
 from app.dependencies import (
@@ -133,6 +134,23 @@ async def regenerate_cell(
     if updated is None:
         raise HTTPException(status_code=500, detail="Failed to fetch regenerated matrix")
     return MatrixProjectResponse(matrix=updated)
+
+
+@router.post("/{project_id}/revalidate")
+async def revalidate_matrix(
+    project_id: str,
+    req: RevalidateRequest,
+    service: MatrixService = Depends(get_matrix_service),
+    db: MatrixDB = Depends(get_matrix_db),
+) -> dict:
+    """Trigger a validation-only pass for a complete matrix, with optional user comment."""
+    project = await db.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Matrix not found")
+    if service.is_generating(project_id):
+        raise HTTPException(status_code=400, detail="Generation already in progress")
+    await service.revalidate_matrix(project_id, req.user_comment)
+    return {"started": True}
 
 
 # ── SSE Stream ────────────────────────────────────────────────────────────

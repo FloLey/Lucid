@@ -419,6 +419,10 @@ export const generateMatrixImages = async (projectId: string): Promise<void> => 
   await api.post(`/matrix/${projectId}/generate-images`);
 };
 
+export const revalidateMatrix = async (projectId: string, userComment: string): Promise<void> => {
+  await api.post(`/matrix/${projectId}/revalidate`, { user_comment: userComment });
+};
+
 export const regenerateMatrixCell = async (
   projectId: string,
   row: number,

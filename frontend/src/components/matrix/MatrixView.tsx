@@ -28,6 +28,8 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
   const [regenLoading, setRegenLoading] = useState(false);
   const [imgGenLoading, setImgGenLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
+  const [revalidateComment, setRevalidateComment] = useState('');
+  const [revalidateLoading, setRevalidateLoading] = useState(false);
 
   const handleUpdate = useCallback(
     (updater: (prev: MatrixProject) => MatrixProject) => {
@@ -40,7 +42,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
     [updateMatrix],
   );
 
-  const { isStreaming, startStream } = useMatrixStream({
+  const { isStreaming, isValidating, startStream } = useMatrixStream({
     onUpdate: handleUpdate,
     onComplete: () => {
       api.getMatrix(matrix.id).then((m) => {
@@ -138,6 +140,18 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
     }
   };
 
+  const handleRevalidate = async () => {
+    setRevalidateLoading(true);
+    try {
+      await api.revalidateMatrix(matrix.id, revalidateComment);
+      startStream(matrix.id);
+    } catch (err) {
+      setStreamError(getErrorMessage(err, 'Failed to start re-validation'));
+    } finally {
+      setRevalidateLoading(false);
+    }
+  };
+
   const handleGenerateAllImages = async () => {
     setImgGenLoading(true);
     try {
@@ -172,7 +186,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Generating…
+              {isValidating ? 'Validating…' : 'Generating…'}
             </div>
           )}
           {matrix.status === 'complete' && !isStreaming &&
@@ -215,7 +229,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
       {(isStreaming || matrix.status === 'generating') && (
         <div className="shrink-0">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>Generating cells…</span>
+            <span>{isValidating ? 'Validating matrix…' : 'Generating cells…'}</span>
             <span>{completedCells} / {totalCells}</span>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
@@ -237,6 +251,26 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
       {/* Alternate views */}
       {viewMode === 'reveal' && <MatrixRevealView matrix={matrix} />}
       {viewMode === 'poster' && <MatrixPosterView matrix={matrix} />}
+
+      {/* Re-validate panel */}
+      {matrix.status === 'complete' && !isStreaming && viewMode === 'edit' && (
+        <div className="shrink-0 border-t border-gray-200 dark:border-gray-700 pt-3 flex gap-2 items-start">
+          <textarea
+            value={revalidateComment}
+            onChange={(e) => setRevalidateComment(e.target.value)}
+            placeholder="Add feedback for re-validation (optional)…"
+            rows={2}
+            className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-lucid-500 resize-none"
+          />
+          <button
+            onClick={handleRevalidate}
+            disabled={revalidateLoading}
+            className="px-3 py-1.5 bg-lucid-600 text-white text-xs font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+          >
+            {revalidateLoading ? 'Starting…' : 'Re-validate'}
+          </button>
+        </div>
+      )}
 
       {/* Grid + detail panel (edit view) */}
       <div className={`flex gap-4 min-h-0 flex-1 ${viewMode !== 'edit' ? 'hidden' : ''}`}>
