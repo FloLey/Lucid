@@ -295,76 +295,114 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
         {/* Detail panel */}
         {selectedCell && (
           <div className="w-72 shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 overflow-y-auto flex flex-col gap-3">
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
+            {/* Header with close button */}
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-gray-900 dark:text-white leading-snug">
                 {selectedIsDiagonal ? selectedCell.label : selectedCell.concept}
               </h3>
-              {selectedIsDiagonal ? (
-                <>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                    {selectedCell.definition}
-                  </p>
-                  {selectedCell.row_descriptor && (
-                    <div className="mt-2 text-xs text-gray-400 dark:text-gray-400">
-                      <span className="font-medium">Row axis:</span> {selectedCell.row_descriptor}
-                    </div>
-                  )}
-                  {selectedCell.col_descriptor && (
-                    <div className="text-xs text-gray-400 dark:text-gray-400">
-                      <span className="font-medium">Col axis:</span> {selectedCell.col_descriptor}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                    {selectedCell.explanation}
-                  </p>
-                  <div className="mt-3 space-y-1 text-xs text-gray-400 dark:text-gray-400">
-                    {(() => {
-                      if (isDescriptionMode) {
-                        const rowLabel = matrix.row_labels?.[selectedCell.row];
-                        const colLabel = matrix.col_labels?.[selectedCell.col];
-                        return (
-                          <>
-                            {rowLabel && (
-                              <div>
-                                <span className="font-medium text-gray-500 dark:text-gray-400">Row:</span>{' '}
-                                {rowLabel}
-                              </div>
-                            )}
-                            {colLabel && (
-                              <div>
-                                <span className="font-medium text-gray-500 dark:text-gray-400">Col:</span>{' '}
-                                {colLabel}
-                              </div>
-                            )}
-                          </>
-                        );
-                      }
-                      const rowDiag = getDiagCell(selectedCell.row);
-                      const colDiag = getDiagCell(selectedCell.col);
+              <button
+                onClick={() => setSelectedCell(null)}
+                className="shrink-0 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                aria-label="Close"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {selectedIsDiagonal ? (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-300 -mt-1">
+                  {selectedCell.definition}
+                </p>
+                {selectedCell.row_descriptor && (
+                  <div className="text-xs text-gray-400 dark:text-gray-400">
+                    <span className="font-medium">Row axis:</span> {selectedCell.row_descriptor}
+                  </div>
+                )}
+                {selectedCell.col_descriptor && (
+                  <div className="text-xs text-gray-400 dark:text-gray-400">
+                    <span className="font-medium">Col axis:</span> {selectedCell.col_descriptor}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Axis position — row & col with their quality descriptors */}
+                <div className="space-y-1 text-xs bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2.5">
+                  {(() => {
+                    if (isDescriptionMode) {
+                      const rowLabel = matrix.row_labels?.[selectedCell.row];
+                      const colLabel = matrix.col_labels?.[selectedCell.col];
                       return (
                         <>
-                          {rowDiag && (
-                            <div>
-                              <span className="font-medium text-gray-500 dark:text-gray-400">Row:</span>{' '}
-                              {rowDiag.label}{rowDiag.row_descriptor ? ` — ${rowDiag.row_descriptor}` : ''}
+                          {rowLabel && (
+                            <div className="text-gray-500 dark:text-gray-400">
+                              <span className="font-medium text-gray-600 dark:text-gray-300">Row:</span>{' '}
+                              {rowLabel}
+                              {selectedCell.row_descriptor && (
+                                <span className="text-gray-400 dark:text-gray-500"> — {selectedCell.row_descriptor}</span>
+                              )}
                             </div>
                           )}
-                          {colDiag && (
-                            <div>
-                              <span className="font-medium text-gray-500 dark:text-gray-400">Col:</span>{' '}
-                              {colDiag.label}{colDiag.col_descriptor ? ` — ${colDiag.col_descriptor}` : ''}
+                          {colLabel && (
+                            <div className="text-gray-500 dark:text-gray-400">
+                              <span className="font-medium text-gray-600 dark:text-gray-300">Col:</span>{' '}
+                              {colLabel}
+                              {selectedCell.col_descriptor && (
+                                <span className="text-gray-400 dark:text-gray-500"> — {selectedCell.col_descriptor}</span>
+                              )}
                             </div>
                           )}
                         </>
                       );
-                    })()}
+                    }
+                    const rowDiag = getDiagCell(selectedCell.row);
+                    const colDiag = getDiagCell(selectedCell.col);
+                    return (
+                      <>
+                        {rowDiag && (
+                          <div className="text-gray-500 dark:text-gray-400">
+                            <span className="font-medium text-gray-600 dark:text-gray-300">Row:</span>{' '}
+                            {rowDiag.label}
+                            {(selectedCell.row_descriptor || rowDiag.row_descriptor) && (
+                              <span className="text-gray-400 dark:text-gray-500"> — {selectedCell.row_descriptor || rowDiag.row_descriptor}</span>
+                            )}
+                          </div>
+                        )}
+                        {colDiag && (
+                          <div className="text-gray-500 dark:text-gray-400">
+                            <span className="font-medium text-gray-600 dark:text-gray-300">Col:</span>{' '}
+                            {colDiag.label}
+                            {(selectedCell.col_descriptor || colDiag.col_descriptor) && (
+                              <span className="text-gray-400 dark:text-gray-500"> — {selectedCell.col_descriptor || colDiag.col_descriptor}</span>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {/* Reasoning — why this concept fits this position */}
+                {selectedCell.explanation && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Reasoning</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      {selectedCell.explanation}
+                    </p>
                   </div>
-                </>
-              )}
-            </div>
+                )}
+
+                {/* Cell error */}
+                {selectedCell.cell_error && (
+                  <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-2">
+                    <span className="font-medium">Error:</span> {selectedCell.cell_error}
+                  </div>
+                )}
+              </>
+            )}
 
             {selectedCell.image_url && (
               <img
