@@ -29,6 +29,7 @@ function makeCell(row: number, col: number, overrides: Partial<MatrixCell> = {})
 function makeMatrix(
   n: number,
   cellOverrides: Record<string, Partial<MatrixCell>> = {},
+  matrixOverrides: Partial<MatrixProject> = {},
 ): MatrixProject {
   const cells: MatrixCell[] = [];
   for (let r = 0; r < n; r++) {
@@ -55,6 +56,7 @@ function makeMatrix(
     cells,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
+    ...matrixOverrides,
   };
 }
 
@@ -92,14 +94,14 @@ describe('MatrixRevealView — initial hidden state', () => {
 });
 
 describe('MatrixRevealView — diagonal cell reveal cycle', () => {
-  it('first tap reveals the label text', () => {
+  it('first tap reveals the label text (name stage)', () => {
     render(<MatrixRevealView matrix={makeMatrix(2)} />);
     fireEvent.click(screen.getAllByTitle('Tap to reveal')[0]); // (0,0)
     expect(screen.getByText('Label0')).toBeInTheDocument();
     expect(screen.getAllByTitle('Tap to reveal')).toHaveLength(3);
   });
 
-  it('second tap reveals the definition text and hides the label', () => {
+  it('second tap reveals the definition text (definition stage)', () => {
     render(<MatrixRevealView matrix={makeMatrix(2)} />);
     fireEvent.click(screen.getAllByTitle('Tap to reveal')[0]);
     fireEvent.click(screen.getByText('Label0'));
@@ -116,59 +118,110 @@ describe('MatrixRevealView — diagonal cell reveal cycle', () => {
     expect(screen.getAllByTitle('Tap to reveal')).toHaveLength(4);
   });
 
-  it('skips definition stage and returns to hidden when definition is null', () => {
+  it('skips definition stage and hides when definition is null (and no explanation/image)', () => {
+    // Diagonal cell with no definition, no explanation, no image → name → hidden
     const matrix = makeMatrix(2, { '0-0': { definition: null } });
     render(<MatrixRevealView matrix={matrix} />);
     fireEvent.click(screen.getAllByTitle('Tap to reveal')[0]);
     expect(screen.getByText('Label0')).toBeInTheDocument();
-    // Second tap: no definition → should hide immediately
     fireEvent.click(screen.getByText('Label0'));
     expect(screen.getAllByTitle('Tap to reveal')).toHaveLength(4);
+  });
+
+  it('shows explanation after definition when diagonal cell has both', () => {
+    const matrix = makeMatrix(2, { '0-0': { explanation: 'DiagExp0' } });
+    render(<MatrixRevealView matrix={matrix} />);
+    fireEvent.click(screen.getAllByTitle('Tap to reveal')[0]); // name
+    fireEvent.click(screen.getByText('Label0'));               // definition
+    fireEvent.click(screen.getByText('Def0'));                 // explanation
+    expect(screen.getByText('DiagExp0')).toBeInTheDocument();
+    expect(screen.queryByText('Def0')).not.toBeInTheDocument();
   });
 });
 
 describe('MatrixRevealView — off-diagonal cell reveal cycle (no image)', () => {
-  it('first tap reveals concept text', () => {
+  it('first tap reveals concept text (name stage)', () => {
     render(<MatrixRevealView matrix={makeMatrix(2)} />);
     fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]); // (0,1)
     expect(screen.getByText('Concept0x1')).toBeInTheDocument();
   });
 
-  it('second tap returns to hidden when there is no image', () => {
+  it('second tap reveals explanation text (explanation stage)', () => {
+    render(<MatrixRevealView matrix={makeMatrix(2)} />);
+    fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]); // name
+    fireEvent.click(screen.getByText('Concept0x1'));            // explanation
+    expect(screen.getByText('Exp0x1')).toBeInTheDocument();
+    expect(screen.queryByText('Concept0x1')).not.toBeInTheDocument();
+  });
+
+  it('third tap returns to hidden when there is no image', () => {
     render(<MatrixRevealView matrix={makeMatrix(2)} />);
     fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]);
     fireEvent.click(screen.getByText('Concept0x1'));
-    expect(screen.queryByText('Concept0x1')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Exp0x1'));
+    expect(screen.queryByText('Exp0x1')).not.toBeInTheDocument();
+    expect(screen.getAllByTitle('Tap to reveal')).toHaveLength(4);
+  });
+
+  it('skips explanation and hides on second tap when explanation is null and no image', () => {
+    const matrix = makeMatrix(2, { '0-1': { explanation: null } });
+    render(<MatrixRevealView matrix={matrix} />);
+    fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]);
+    fireEvent.click(screen.getByText('Concept0x1'));
     expect(screen.getAllByTitle('Tap to reveal')).toHaveLength(4);
   });
 });
 
 describe('MatrixRevealView — off-diagonal cell with image', () => {
-  const matrix = makeMatrix(2, { '0-1': { image_url: '/img/test.png' } });
+  const makeMatrixWithImage = () =>
+    makeMatrix(2, { '0-1': { image_url: '/img/test.png' } });
 
-  it('second tap shows the image as cell background', () => {
-    render(<MatrixRevealView matrix={matrix} />);
-    fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]); // first: concept text
+  it('first tap shows concept (name stage)', () => {
+    render(<MatrixRevealView matrix={makeMatrixWithImage()} />);
+    fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]);
     expect(screen.getByText('Concept0x1')).toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByText('Concept0x1')); // second: image state
+  it('second tap shows explanation (explanation stage)', () => {
+    render(<MatrixRevealView matrix={makeMatrixWithImage()} />);
+    fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]);
+    fireEvent.click(screen.getByText('Concept0x1'));
+    expect(screen.getByText('Exp0x1')).toBeInTheDocument();
+  });
+
+  it('third tap shows image with concept overlay (image stage)', () => {
+    render(<MatrixRevealView matrix={makeMatrixWithImage()} />);
+    fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]); // name
+    fireEvent.click(screen.getByText('Concept0x1'));            // explanation
+    fireEvent.click(screen.getByText('Exp0x1'));                // image
     const btn = screen.getByText('Concept0x1').closest('button');
     expect(btn).toHaveStyle({ backgroundImage: 'url(/img/test.png)' });
   });
 
-  it('concept text remains visible as overlay in image state', () => {
-    render(<MatrixRevealView matrix={matrix} />);
+  it('concept text remains visible as overlay in image stage', () => {
+    render(<MatrixRevealView matrix={makeMatrixWithImage()} />);
     fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]);
     fireEvent.click(screen.getByText('Concept0x1'));
+    fireEvent.click(screen.getByText('Exp0x1'));
     expect(screen.getByText('Concept0x1')).toBeInTheDocument();
   });
 
-  it('third tap hides the cell after image state', () => {
-    render(<MatrixRevealView matrix={matrix} />);
+  it('fourth tap hides the cell after image stage', () => {
+    render(<MatrixRevealView matrix={makeMatrixWithImage()} />);
     fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]);
-    fireEvent.click(screen.getByText('Concept0x1')); // image state
-    fireEvent.click(screen.getByText('Concept0x1')); // hidden
+    fireEvent.click(screen.getByText('Concept0x1'));            // explanation
+    fireEvent.click(screen.getByText('Exp0x1'));                // image
+    fireEvent.click(screen.getByText('Concept0x1'));            // hidden
     expect(screen.getAllByTitle('Tap to reveal')).toHaveLength(4);
+  });
+
+  it('skips explanation and goes directly to image when explanation is null', () => {
+    const matrix = makeMatrix(2, { '0-1': { explanation: null, image_url: '/img/test.png' } });
+    render(<MatrixRevealView matrix={matrix} />);
+    fireEvent.click(screen.getAllByTitle('Tap to reveal')[1]); // name
+    fireEvent.click(screen.getByText('Concept0x1'));            // image (no explanation)
+    const btn = screen.getByText('Concept0x1').closest('button');
+    expect(btn).toHaveStyle({ backgroundImage: 'url(/img/test.png)' });
   });
 });
 
@@ -179,13 +232,11 @@ describe('MatrixRevealView — Reveal All / Hide All', () => {
     expect(screen.queryByTitle('Tap to reveal')).not.toBeInTheDocument();
   });
 
-  it('"Reveal all" shows all cell labels and concepts', () => {
+  it('"Reveal all" shows all cell labels and concepts (name stage)', () => {
     render(<MatrixRevealView matrix={makeMatrix(2)} />);
     fireEvent.click(screen.getByText('Reveal all'));
-    // Diagonal cells show label (first stage)
     expect(screen.getByText('Label0')).toBeInTheDocument();
     expect(screen.getByText('Label1')).toBeInTheDocument();
-    // Off-diagonal cells show concept (first stage)
     expect(screen.getByText('Concept0x1')).toBeInTheDocument();
     expect(screen.getByText('Concept1x0')).toBeInTheDocument();
   });
@@ -208,7 +259,6 @@ describe('MatrixRevealView — multiple independent cells', () => {
   it('revealing one cell does not affect others', () => {
     render(<MatrixRevealView matrix={makeMatrix(2)} />);
     fireEvent.click(screen.getAllByTitle('Tap to reveal')[0]); // reveal (0,0)
-    // Three cells still hidden
     expect(screen.getAllByTitle('Tap to reveal')).toHaveLength(3);
     expect(screen.getByText('Label0')).toBeInTheDocument();
     expect(screen.queryByText('Label1')).not.toBeInTheDocument();
@@ -216,8 +266,7 @@ describe('MatrixRevealView — multiple independent cells', () => {
 
   it('reveals two cells independently', () => {
     render(<MatrixRevealView matrix={makeMatrix(2)} />);
-    const hiddenBtns = screen.getAllByTitle('Tap to reveal');
-    fireEvent.click(hiddenBtns[0]); // (0,0) → Label0
+    fireEvent.click(screen.getAllByTitle('Tap to reveal')[0]); // (0,0) → Label0
     fireEvent.click(screen.getAllByTitle('Tap to reveal')[0]); // (0,1) → Concept0x1
     expect(screen.getByText('Label0')).toBeInTheDocument();
     expect(screen.getByText('Concept0x1')).toBeInTheDocument();

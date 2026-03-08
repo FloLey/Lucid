@@ -2,7 +2,7 @@ import { useState, useCallback, Fragment } from 'react';
 import type { MatrixProject, MatrixCell } from '../../types';
 import { getEffectiveDimensions } from '../../utils/matrix';
 
-type CellRevealStage = 'hidden' | 'first' | 'second';
+type CellRevealStage = 'hidden' | 'name' | 'definition' | 'explanation' | 'image';
 
 function cellKey(row: number, col: number) {
   return `${row}-${col}`;
@@ -40,30 +40,46 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
   const getStage = (row: number, col: number): CellRevealStage =>
     revealMap.get(cellKey(row, col)) ?? 'hidden';
 
+  const getNextStage = useCallback(
+    (cell: MatrixCell, isDiagonal: boolean, current: CellRevealStage): CellRevealStage => {
+      const hasDefinition = isDiagonal && Boolean(cell.definition);
+      const hasExplanation = Boolean(cell.explanation);
+      const hasImage = Boolean(cell.image_url);
+
+      if (current === 'hidden') return 'name';
+      if (current === 'name') {
+        if (hasDefinition) return 'definition';
+        if (hasExplanation) return 'explanation';
+        if (hasImage) return 'image';
+        return 'hidden';
+      }
+      if (current === 'definition') {
+        if (hasExplanation) return 'explanation';
+        if (hasImage) return 'image';
+        return 'hidden';
+      }
+      if (current === 'explanation') {
+        return hasImage ? 'image' : 'hidden';
+      }
+      return 'hidden'; // image → hidden
+    },
+    [],
+  );
+
   const handleCellClick = useCallback(
     (cell: MatrixCell) => {
       const isDiagonal = !isDescriptionMode && cell.row === cell.col;
-      const hasSecondary = isDiagonal ? Boolean(cell.definition) : Boolean(cell.image_url);
       const current = revealMap.get(cellKey(cell.row, cell.col)) ?? 'hidden';
-
-      let next: CellRevealStage;
-      if (current === 'hidden') {
-        next = 'first';
-      } else if (current === 'first') {
-        next = hasSecondary ? 'second' : 'hidden';
-      } else {
-        next = 'hidden';
-      }
-
+      const next = getNextStage(cell, isDiagonal, current);
       setRevealMap((prev) => new Map(prev).set(cellKey(cell.row, cell.col), next));
     },
-    [revealMap, isDescriptionMode],
+    [revealMap, isDescriptionMode, getNextStage],
   );
 
   const handleRevealAll = () => {
     const next = new Map<string, CellRevealStage>();
     matrix.cells.forEach((cell) => {
-      next.set(cellKey(cell.row, cell.col), 'first');
+      next.set(cellKey(cell.row, cell.col), 'name');
     });
     setRevealMap(next);
   };
@@ -77,7 +93,7 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
       {/* Controls */}
       <div className="flex items-center gap-2 shrink-0">
         <span className="text-xs text-gray-500 dark:text-gray-400">
-          Tap any cell to reveal • tap again for image/definition • tap again to hide
+          Tap to reveal name • definition • explanation • image • hidden
         </span>
         <div className="ml-auto flex gap-2">
           <button
@@ -179,8 +195,8 @@ function RevealCell({ cell, isDiagonal, stage, onClick }: RevealCellProps) {
     );
   }
 
-  // Second stage for off-diagonal: show image
-  if (stage === 'second' && !isDiagonal && cell.image_url) {
+  // Image stage
+  if (stage === 'image' && cell.image_url) {
     return (
       <button
         onClick={onClick}
@@ -199,15 +215,15 @@ function RevealCell({ cell, isDiagonal, stage, onClick }: RevealCellProps) {
                 '1px 1px 2px black, -1px -1px 2px black, 1px -1px 2px black, -1px 1px 2px black',
             }}
           >
-            {cell.concept}
+            {isDiagonal ? cell.label : cell.concept}
           </span>
         </div>
       </button>
     );
   }
 
-  // Second stage for diagonal: show definition
-  if (stage === 'second' && isDiagonal) {
+  // Definition stage (theme-mode diagonal cells only)
+  if (stage === 'definition') {
     return (
       <button
         onClick={onClick}
@@ -220,7 +236,21 @@ function RevealCell({ cell, isDiagonal, stage, onClick }: RevealCellProps) {
     );
   }
 
-  // First stage: show label / concept
+  // Explanation stage
+  if (stage === 'explanation') {
+    return (
+      <button
+        onClick={onClick}
+        className="aspect-square rounded-lg p-2 cursor-pointer bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center"
+      >
+        <span className="text-xs text-gray-600 dark:text-gray-300 text-center leading-tight line-clamp-4">
+          {cell.explanation}
+        </span>
+      </button>
+    );
+  }
+
+  // Name stage: show label (diagonal) or concept (off-diagonal)
   const text = isDiagonal ? cell.label : cell.concept;
   return (
     <button
