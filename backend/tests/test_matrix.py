@@ -446,6 +446,49 @@ class TestMatrixDB:
         cell = run_async(matrix_db.get_cell("nonexistent", row=0, col=0))
         assert cell is None
 
+    def test_swap_cells_atomically_exchanges_content(self):
+        """swap_cells must exchange concept/explanation for both cells in one transaction."""
+        _clear()
+        p = run_async(matrix_db.create_project(
+            theme="Test", n=2, language="English",
+            style_mode="neutral", include_images=False,
+        ))
+        run_async(matrix_db.upsert_cell(p.id, 0, 1, concept="Alpha", explanation="exp-a"))
+        run_async(matrix_db.upsert_cell(p.id, 1, 0, concept="Beta", explanation="exp-b"))
+
+        cell_a, cell_b = run_async(matrix_db.swap_cells(p.id, 0, 1, 1, 0))
+
+        assert cell_a is not None and cell_b is not None
+        # Returned objects reflect post-swap state
+        assert cell_a.concept == "Beta"
+        assert cell_a.explanation == "exp-b"
+        assert cell_b.concept == "Alpha"
+        assert cell_b.explanation == "exp-a"
+
+        # Verify persistence
+        db_01 = run_async(matrix_db.get_cell(p.id, 0, 1))
+        db_10 = run_async(matrix_db.get_cell(p.id, 1, 0))
+        assert db_01.concept == "Beta"
+        assert db_10.concept == "Alpha"
+
+    def test_swap_cells_returns_none_for_missing_cell(self):
+        """swap_cells must return (None, None) and make no changes if a cell is absent."""
+        _clear()
+        p = run_async(matrix_db.create_project(
+            theme="Test", n=2, language="English",
+            style_mode="neutral", include_images=False,
+        ))
+        run_async(matrix_db.upsert_cell(p.id, 0, 1, concept="Alpha", explanation="exp-a"))
+
+        # (1, 0) exists as a stub but (9, 9) does not
+        cell_a, cell_b = run_async(matrix_db.swap_cells(p.id, 0, 1, 9, 9))
+        assert cell_a is None
+        assert cell_b is None
+
+        # Original cell must be untouched
+        unchanged = run_async(matrix_db.get_cell(p.id, 0, 1))
+        assert unchanged.concept == "Alpha"
+
     def test_create_project_description_mode_stores_fields(self):
         _clear()
         project = run_async(
@@ -1360,7 +1403,7 @@ class TestMatrixGeneratorLLMRobustness:
 
     def test_validate_matrix_falls_back_to_empty_on_list_response(self, generator):
         """validate_matrix catches GeminiError and treats all cells as valid,
-        returning an empty failures list."""
+        returning empty failures and swaps lists."""
         generator._gemini_service.generate_json.side_effect = GeminiError(
             "Expected JSON object from AI, got list"
         )
@@ -1370,7 +1413,7 @@ class TestMatrixGeneratorLLMRobustness:
             [{"concept": "C", "explanation": "c"}, {"concept": "D", "explanation": "d"}],
         ]
         axes = [("row_desc_0", "col_desc_0"), ("row_desc_1", "col_desc_1")]
-        failures = run_async(
+        failures, swaps = run_async(
             generator.validate_matrix(
                 project_id="test",
                 theme="AI Ethics",
@@ -1381,6 +1424,84 @@ class TestMatrixGeneratorLLMRobustness:
             )
         )
         assert failures == []
+        assert swaps == []
+
+    def test_validate_matrix_parses_failures_with_reasons(self, generator):
+        """validate_matrix returns (failures, swaps) where failures include the reason string."""
+        generator._gemini_service.generate_json.return_value = {
+            "failures": [{"row": 0, "col": 1, "reason": "too vague"}],
+            "swaps": [],
+        }
+        settings = MatrixSettings()
+        cells_grid = [
+            [{"concept": "A", "explanation": "a"}, {"concept": "B", "explanation": "b"}],
+            [{"concept": "C", "explanation": "c"}, {"concept": "D", "explanation": "d"}],
+        ]
+        axes = [("row_desc_0", "col_desc_0"), ("row_desc_1", "col_desc_1")]
+        failures, swaps = run_async(
+            generator.validate_matrix(
+                project_id="test",
+                theme="AI Ethics",
+                cells_grid=cells_grid,
+                axes=axes,
+                settings=settings,
+                emit=self._noop_emit,
+            )
+        )
+        assert failures == [(0, 1, "too vague")]
+        assert swaps == []
+
+    def test_validate_matrix_parses_swaps(self, generator):
+        """validate_matrix returns swap pairs as (row_a, col_a, row_b, col_b) tuples."""
+        generator._gemini_service.generate_json.return_value = {
+            "failures": [],
+            "swaps": [{"cell_a": {"row": 0, "col": 1}, "cell_b": {"row": 1, "col": 0}}],
+        }
+        settings = MatrixSettings()
+        cells_grid = [
+            [{"concept": "A", "explanation": "a"}, {"concept": "B", "explanation": "b"}],
+            [{"concept": "C", "explanation": "c"}, {"concept": "D", "explanation": "d"}],
+        ]
+        axes = [("row_desc_0", "col_desc_0"), ("row_desc_1", "col_desc_1")]
+        failures, swaps = run_async(
+            generator.validate_matrix(
+                project_id="test",
+                theme="AI Ethics",
+                cells_grid=cells_grid,
+                axes=axes,
+                settings=settings,
+                emit=self._noop_emit,
+            )
+        )
+        assert failures == []
+        assert swaps == [(0, 1, 1, 0)]
+
+    def test_validate_matrix_logs_and_skips_malformed_swap(self, generator, caplog):
+        """Swaps with missing keys are skipped and a warning is logged."""
+        generator._gemini_service.generate_json.return_value = {
+            "failures": [],
+            "swaps": [{"cell_a": {"row": 0}, "cell_b": {"row": 1, "col": 0}}],  # col missing in cell_a
+        }
+        settings = MatrixSettings()
+        cells_grid = [
+            [{"concept": "A", "explanation": "a"}, {"concept": "B", "explanation": "b"}],
+            [{"concept": "C", "explanation": "c"}, {"concept": "D", "explanation": "d"}],
+        ]
+        axes = [("row_desc_0", "col_desc_0"), ("row_desc_1", "col_desc_1")]
+        import logging
+        with caplog.at_level(logging.WARNING, logger="app.services.matrix_generator"):
+            failures, swaps = run_async(
+                generator.validate_matrix(
+                    project_id="test",
+                    theme="AI Ethics",
+                    cells_grid=cells_grid,
+                    axes=axes,
+                    settings=settings,
+                    emit=self._noop_emit,
+                )
+            )
+        assert swaps == []
+        assert any("Malformed swap" in msg for msg in caplog.messages)
 
 
 # ── 9. generate_from_description ─────────────────────────────────────────
@@ -1664,7 +1785,7 @@ class TestDescriptionModePipeline:
 
             # Stub validate_matrix: no failures
             async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
-                return []
+                return [], []
 
             monkeypatch.setattr(container.matrix_service._gen, "generate_from_description",
                                 _fake_from_description)
@@ -1729,7 +1850,7 @@ class TestDescriptionModePipeline:
                 return {"concept": f"C-{row}-{col}", "explanation": ""}
 
             async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
-                return []
+                return [], []
 
             monkeypatch.setattr(container.matrix_service._gen, "generate_from_description",
                                 _fake_from_description)
@@ -1809,7 +1930,7 @@ class TestDescriptionModePipeline:
                 return {"concept": f"C-{row}-{col}", "explanation": ""}
 
             async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
-                return []
+                return [], []
 
             monkeypatch.setattr(container.matrix_service._gen, "generate_diagonal",
                                 _fake_diagonal)
@@ -1864,7 +1985,7 @@ class TestDescriptionModePipeline:
                 return {"concept": f"C-{row}-{col}", "explanation": "some explanation"}
 
             async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
-                return []
+                return [], []
 
             async def _fake_cell_image(project_id, row, col, concept, context,
                                        settings, emit):
@@ -1968,7 +2089,7 @@ class TestPipelineSSEEventFixes:
                 return {"concept": concept, "explanation": ""}
 
             async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
-                return []
+                return [], []
 
             monkeypatch.setattr(svc._gen, "generate_from_description", _fake_from_description)
             monkeypatch.setattr(svc._gen, "generate_cell", _fake_generate_cell)
@@ -2033,7 +2154,7 @@ class TestPipelineSSEEventFixes:
                 return {"concept": f"C{row}{col}", "explanation": ""}
 
             async def _fake_validate(*args, **kwargs):
-                return []
+                return [], []
 
             monkeypatch.setattr(svc._gen, "generate_from_description", _fake_from_description)
             monkeypatch.setattr(svc._gen, "generate_cell", _fake_generate_cell)
@@ -2108,7 +2229,7 @@ class TestPipelineSSEEventFixes:
                 failures = [{"row": 0, "col": 1, "reason": "test failure"}]
                 await emit({"type": "validation", "project_id": project_id,
                             "failures": failures})
-                return [(0, 1)]
+                return [(0, 1, "test failure")], []
 
             monkeypatch.setattr(svc._gen, "generate_diagonal", _fake_diagonal)
             monkeypatch.setattr(svc._gen, "generate_axes_for_concept", _fake_axes)
@@ -2185,7 +2306,7 @@ class TestPipelineSSEEventFixes:
             # Validator always passes
             async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
                 await emit({"type": "validation", "project_id": project_id, "failures": []})
-                return []
+                return [], []
 
             monkeypatch.setattr(svc._gen, "generate_diagonal", _fake_diagonal)
             monkeypatch.setattr(svc._gen, "generate_axes_for_concept", _fake_axes)
@@ -2224,3 +2345,301 @@ class TestPipelineSSEEventFixes:
         assert cell_events_after_validation == [], (
             "No extra 'cell' events expected after a passing validation"
         )
+
+
+# ── 12. Swap and duplicate-aware retry ────────────────────────────────────
+
+
+class TestValidationSwapAndDuplicateRetry:
+    """Tests for the swap + selective-duplicate retry logic introduced in
+    the validation step.
+
+    Key behaviours under test:
+    - _apply_swap swaps concepts/explanations in the DB and emits cell events.
+    - When the validator returns swaps, the pipeline executes them without any
+      LLM call and emits updated cell events for both swapped positions.
+    - When the validator flags only ONE cell from a duplicate pair (the weaker
+      one), only that cell is regenerated; the better-placed duplicate is kept.
+    - The failure reason is forwarded as extra_instructions to generate_cell.
+    """
+
+    def setup_method(self):
+        _clear()
+
+    def teardown_method(self):
+        _clear()
+        container.matrix_service.load_settings(MatrixSettings())
+
+    def test_apply_swap_exchanges_concepts_in_db(self):
+        """_apply_swap must swap concept/explanation for two cells and persist."""
+        async def _run():
+            svc = container.matrix_service
+            # Create a 2×2 theme project and populate two off-diagonal cells
+            from app.models.matrix import CreateMatrixRequest as CMR
+            req = CMR(theme="Philosophy of Mind", n=2, include_images=False)
+            project = await container.matrix_db.create_project(
+                theme=req.theme, n=req.n, language=req.language,
+                style_mode=req.style_mode, include_images=req.include_images,
+            )
+            pid = project.id
+            await container.matrix_db.upsert_cell(pid, 0, 1, concept="Alpha", explanation="exp-a")
+            await container.matrix_db.upsert_cell(pid, 1, 0, concept="Beta",  explanation="exp-b")
+
+            _queues_ref = {}
+            from app.services import matrix_service as ms_mod
+            ms_mod._queues[pid] = []
+
+            await svc._apply_swap(pid, 0, 1, 1, 0)
+
+            cell_01 = await container.matrix_db.get_cell(pid, 0, 1)
+            cell_10 = await container.matrix_db.get_cell(pid, 1, 0)
+            assert cell_01.concept == "Beta"
+            assert cell_01.explanation == "exp-b"
+            assert cell_10.concept == "Alpha"
+            assert cell_10.explanation == "exp-a"
+
+        run_async(_run())
+
+    def test_apply_swap_emits_cell_events_for_both_positions(self):
+        """_apply_swap must emit a 'cell' SSE event for each swapped position."""
+        emitted: list[dict] = []
+
+        async def _run():
+            svc = container.matrix_service
+            req_args = dict(theme="Sociology", n=2, language="English",
+                            style_mode="neutral", include_images=False)
+            project = await container.matrix_db.create_project(**req_args)
+            pid = project.id
+            await container.matrix_db.upsert_cell(pid, 0, 1, concept="X", explanation="ex")
+            await container.matrix_db.upsert_cell(pid, 1, 0, concept="Y", explanation="ey")
+
+            from app.services import matrix_service as ms_mod
+            ms_mod._queues[pid] = []
+            original_emit = svc._emit
+            async def _capture(event):
+                emitted.append(event)
+                await original_emit(event)
+            svc._emit = _capture
+
+            await svc._apply_swap(pid, 0, 1, 1, 0)
+            svc._emit = original_emit
+
+        run_async(_run())
+
+        cell_events = [e for e in emitted if e["type"] == "cell"]
+        positions = {(e["row"], e["col"]) for e in cell_events}
+        assert (0, 1) in positions
+        assert (1, 0) in positions
+        # After swap: (0,1) should have Y, (1,0) should have X
+        ev_01 = next(e for e in cell_events if e["row"] == 0 and e["col"] == 1)
+        ev_10 = next(e for e in cell_events if e["row"] == 1 and e["col"] == 0)
+        assert ev_01["concept"] == "Y"
+        assert ev_10["concept"] == "X"
+
+    def test_pipeline_applies_swap_without_llm_call(self, monkeypatch):
+        """When the validator returns a swap pair, the pipeline swaps those cells
+        without calling generate_cell for either of them."""
+        generate_cell_calls: list[tuple] = []
+        emitted: list[dict] = []
+
+        async def _run():
+            svc = container.matrix_service
+
+            async def _fake_diagonal(project_id, theme, n, language, style_mode, settings, emit):
+                concepts = [{"label": f"D{i}", "definition": ""} for i in range(n)]
+                for i, c in enumerate(concepts):
+                    await emit({"type": "diagonal", "project_id": project_id, "index": i,
+                                "label": c["label"], "definition": c["definition"]})
+                return concepts
+
+            async def _fake_axes(project_id, diagonal_index, concept, all_concepts, settings, emit):
+                return (f"r{diagonal_index}", f"c{diagonal_index}")
+
+            call_count = {"n": 0}
+
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit, extra_instructions=""):
+                generate_cell_calls.append((row, col))
+                call_count["n"] += 1
+                concept = f"Init-{row}-{col}"
+                await emit({"type": "cell", "project_id": project_id,
+                            "row": row, "col": col, "concept": concept, "explanation": ""})
+                return {"concept": concept, "explanation": ""}
+
+            swap_returned = {"done": False}
+
+            async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
+                if not swap_returned["done"]:
+                    swap_returned["done"] = True
+                    await emit({"type": "validation", "project_id": project_id,
+                                "failures": [], "swaps": [
+                                    {"cell_a": {"row": 0, "col": 1},
+                                     "cell_b": {"row": 1, "col": 0}}
+                                ]})
+                    return [], [(0, 1, 1, 0)]
+                await emit({"type": "validation", "project_id": project_id,
+                            "failures": [], "swaps": []})
+                return [], []
+
+            monkeypatch.setattr(svc._gen, "generate_diagonal", _fake_diagonal)
+            monkeypatch.setattr(svc._gen, "generate_axes_for_concept", _fake_axes)
+            monkeypatch.setattr(svc._gen, "generate_cell", _fake_generate_cell)
+            monkeypatch.setattr(svc._gen, "validate_matrix", _fake_validate)
+
+            svc.load_settings(MatrixSettings(max_retries=1))
+            original_emit = svc._emit
+            async def _capture(event):
+                emitted.append(event)
+                await original_emit(event)
+            monkeypatch.setattr(svc, "_emit", _capture)
+
+            req = CreateMatrixRequest(theme="Philosophy of Mind", n=2, include_images=False)
+            project = await svc.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+        run_async(_run())
+        container.matrix_service.load_settings(MatrixSettings())
+
+        # generate_cell should only be called for the 2 initial off-diagonal cells,
+        # not for the swapped pair (swap is free — no LLM call).
+        initial_calls = len(generate_cell_calls)
+        assert initial_calls == 2, (
+            f"Expected 2 initial generate_cell calls (one per off-diagonal cell), got {initial_calls}"
+        )
+        # Both swapped positions should have emitted cell events
+        swap_cell_events = [
+            e for e in emitted
+            if e["type"] == "cell" and (e["row"], e["col"]) in {(0, 1), (1, 0)}
+        ]
+        assert len(swap_cell_events) >= 2
+
+    def test_pipeline_only_regenerates_weaker_duplicate(self, monkeypatch):
+        """When the validator returns only ONE cell from a duplicate pair in failures
+        (the weaker one), generate_cell is called exactly once for that cell, not both."""
+        regenerated: list[tuple] = []
+
+        async def _run():
+            svc = container.matrix_service
+
+            async def _fake_diagonal(project_id, theme, n, language, style_mode, settings, emit):
+                concepts = [{"label": f"D{i}", "definition": ""} for i in range(n)]
+                for i, c in enumerate(concepts):
+                    await emit({"type": "diagonal", "project_id": project_id, "index": i,
+                                "label": c["label"], "definition": c["definition"]})
+                return concepts
+
+            async def _fake_axes(project_id, diagonal_index, concept, all_concepts, settings, emit):
+                return (f"r{diagonal_index}", f"c{diagonal_index}")
+
+            call_count = {"n": 0}
+
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit, extra_instructions=""):
+                call_count["n"] += 1
+                concept = "Duplicate" if call_count["n"] <= 2 else f"Unique-{row}-{col}"
+                if extra_instructions:
+                    regenerated.append((row, col, extra_instructions))
+                await emit({"type": "cell", "project_id": project_id,
+                            "row": row, "col": col, "concept": concept, "explanation": ""})
+                return {"concept": concept, "explanation": ""}
+
+            flagged_once = {"done": False}
+
+            async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
+                if not flagged_once["done"]:
+                    flagged_once["done"] = True
+                    # Only flag (1, 0) — the weaker duplicate. (0, 1) is kept.
+                    await emit({"type": "validation", "project_id": project_id,
+                                "failures": [{"row": 1, "col": 0, "reason": "duplicate of (0,1)"}]})
+                    return [(1, 0, "duplicate of (0,1)")], []
+                await emit({"type": "validation", "project_id": project_id, "failures": []})
+                return [], []
+
+            monkeypatch.setattr(svc._gen, "generate_diagonal", _fake_diagonal)
+            monkeypatch.setattr(svc._gen, "generate_axes_for_concept", _fake_axes)
+            monkeypatch.setattr(svc._gen, "generate_cell", _fake_generate_cell)
+            monkeypatch.setattr(svc._gen, "validate_matrix", _fake_validate)
+
+            svc.load_settings(MatrixSettings(max_retries=1))
+
+            req = CreateMatrixRequest(theme="Philosophy of Mind", n=2, include_images=False)
+            project = await svc.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+        run_async(_run())
+        container.matrix_service.load_settings(MatrixSettings())
+
+        # Only (1, 0) should have been regenerated; (0, 1) must not appear in regenerated list
+        assert len(regenerated) == 1, f"Expected 1 retry, got {len(regenerated)}: {regenerated}"
+        assert regenerated[0][0] == 1 and regenerated[0][1] == 0
+        # The reason should have been forwarded as extra_instructions
+        assert "duplicate" in regenerated[0][2]
+
+    def test_pipeline_passes_failure_reason_as_extra_instructions(self, monkeypatch):
+        """The reason string from the validator is forwarded to generate_cell
+        as extra_instructions on retry."""
+        received_instructions: list[str] = []
+
+        async def _run():
+            svc = container.matrix_service
+
+            async def _fake_diagonal(project_id, theme, n, language, style_mode, settings, emit):
+                concepts = [{"label": f"D{i}", "definition": ""} for i in range(n)]
+                for i, c in enumerate(concepts):
+                    await emit({"type": "diagonal", "project_id": project_id, "index": i,
+                                "label": c["label"], "definition": c["definition"]})
+                return concepts
+
+            async def _fake_axes(project_id, diagonal_index, concept, all_concepts, settings, emit):
+                return (f"r{diagonal_index}", f"c{diagonal_index}")
+
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit, extra_instructions=""):
+                if extra_instructions:
+                    received_instructions.append(extra_instructions)
+                await emit({"type": "cell", "project_id": project_id,
+                            "row": row, "col": col, "concept": f"C{row}{col}", "explanation": ""})
+                return {"concept": f"C{row}{col}", "explanation": ""}
+
+            flagged_once = {"done": False}
+
+            async def _fake_validate(project_id, theme, cells_grid, settings, emit, **kwargs):
+                if not flagged_once["done"]:
+                    flagged_once["done"] = True
+                    await emit({"type": "validation", "project_id": project_id,
+                                "failures": [{"row": 0, "col": 1, "reason": "concept is too vague"}]})
+                    return [(0, 1, "concept is too vague")], []
+                await emit({"type": "validation", "project_id": project_id, "failures": []})
+                return [], []
+
+            monkeypatch.setattr(svc._gen, "generate_diagonal", _fake_diagonal)
+            monkeypatch.setattr(svc._gen, "generate_axes_for_concept", _fake_axes)
+            monkeypatch.setattr(svc._gen, "generate_cell", _fake_generate_cell)
+            monkeypatch.setattr(svc._gen, "validate_matrix", _fake_validate)
+
+            svc.load_settings(MatrixSettings(max_retries=1))
+
+            req = CreateMatrixRequest(theme="Philosophy of Mind", n=2, include_images=False)
+            project = await svc.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+        run_async(_run())
+        container.matrix_service.load_settings(MatrixSettings())
+
+        assert received_instructions, "Expected extra_instructions to be forwarded on retry"
+        assert any("too vague" in instr for instr in received_instructions)
