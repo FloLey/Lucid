@@ -247,8 +247,11 @@ class MatrixGenerator:
                         "explanation": cells_grid[r][c].get("explanation", ""),
                     }
                 )
+        # Sanitize user input: strip XML-style tags to prevent prompt injection,
+        # then wrap in clear delimiters so the LLM treats it as data, not instructions.
+        safe_comment = user_comment.replace("<", "&lt;").replace(">", "&gt;") if user_comment else ""
         user_comment_section = (
-            f"User feedback to incorporate:\n{user_comment}\n\n" if user_comment else ""
+            f"<user_feedback>\n{safe_comment}\n</user_feedback>\n\n" if safe_comment else ""
         )
         prompt = self._get_prompt("matrix_validator").format(
             theme=theme,

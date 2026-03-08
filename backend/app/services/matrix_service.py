@@ -678,9 +678,8 @@ class MatrixService:
                         await self._apply_swap(project_id, ra, ca, rb, cb)
                     # Combine failure reason with user comment for regeneration
                     for r, c, reason in failures:
-                        extra = reason
-                        if user_comment:
-                            extra = f"{reason}. User feedback: {user_comment}" if reason else f"User feedback: {user_comment}"
+                        parts = [p for p in [reason, f"User feedback: {user_comment}" if user_comment else ""] if p]
+                        extra = ". ".join(parts)
                         await self.regenerate_cell(
                             project_id=project_id,
                             row=r,

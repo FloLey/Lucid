@@ -83,14 +83,10 @@ export function useMatrixStream({
             if (event === null) continue;
             handleEvent(event);
             if (event.type === 'done') {
-              setIsValidating(false);
-              setIsStreaming(false);
               onCompleteRef.current();
               return;
             }
             if (event.type === 'error') {
-              setIsValidating(false);
-              setIsStreaming(false);
               onErrorRef.current(event.message);
               return;
             }
