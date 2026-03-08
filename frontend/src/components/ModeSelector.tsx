@@ -31,7 +31,7 @@ export default function ModeSelector({ onSelect, isDark, onToggleDark }: ModeSel
           >
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-lucid-50 dark:bg-lucid-900/30 rounded-2xl flex items-center justify-center">
-                <svg className="w-8 h-8 text-lucid-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-lucid-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               </div>
@@ -50,7 +50,7 @@ export default function ModeSelector({ onSelect, isDark, onToggleDark }: ModeSel
           >
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-lucid-50 dark:bg-lucid-900/30 rounded-2xl flex items-center justify-center">
-                <svg className="w-8 h-8 text-lucid-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-lucid-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
                 </svg>
               </div>
