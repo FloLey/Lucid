@@ -446,6 +446,49 @@ class TestMatrixDB:
         cell = run_async(matrix_db.get_cell("nonexistent", row=0, col=0))
         assert cell is None
 
+    def test_swap_cells_atomically_exchanges_content(self):
+        """swap_cells must exchange concept/explanation for both cells in one transaction."""
+        _clear()
+        p = run_async(matrix_db.create_project(
+            theme="Test", n=2, language="English",
+            style_mode="neutral", include_images=False,
+        ))
+        run_async(matrix_db.upsert_cell(p.id, 0, 1, concept="Alpha", explanation="exp-a"))
+        run_async(matrix_db.upsert_cell(p.id, 1, 0, concept="Beta", explanation="exp-b"))
+
+        cell_a, cell_b = run_async(matrix_db.swap_cells(p.id, 0, 1, 1, 0))
+
+        assert cell_a is not None and cell_b is not None
+        # Returned objects reflect post-swap state
+        assert cell_a.concept == "Beta"
+        assert cell_a.explanation == "exp-b"
+        assert cell_b.concept == "Alpha"
+        assert cell_b.explanation == "exp-a"
+
+        # Verify persistence
+        db_01 = run_async(matrix_db.get_cell(p.id, 0, 1))
+        db_10 = run_async(matrix_db.get_cell(p.id, 1, 0))
+        assert db_01.concept == "Beta"
+        assert db_10.concept == "Alpha"
+
+    def test_swap_cells_returns_none_for_missing_cell(self):
+        """swap_cells must return (None, None) and make no changes if a cell is absent."""
+        _clear()
+        p = run_async(matrix_db.create_project(
+            theme="Test", n=2, language="English",
+            style_mode="neutral", include_images=False,
+        ))
+        run_async(matrix_db.upsert_cell(p.id, 0, 1, concept="Alpha", explanation="exp-a"))
+
+        # (1, 0) exists as a stub but (9, 9) does not
+        cell_a, cell_b = run_async(matrix_db.swap_cells(p.id, 0, 1, 9, 9))
+        assert cell_a is None
+        assert cell_b is None
+
+        # Original cell must be untouched
+        unchanged = run_async(matrix_db.get_cell(p.id, 0, 1))
+        assert unchanged.concept == "Alpha"
+
     def test_create_project_description_mode_stores_fields(self):
         _clear()
         project = run_async(
@@ -1433,8 +1476,8 @@ class TestMatrixGeneratorLLMRobustness:
         assert failures == []
         assert swaps == [(0, 1, 1, 0)]
 
-    def test_validate_matrix_ignores_malformed_swap(self, generator):
-        """Swaps with missing keys are silently ignored."""
+    def test_validate_matrix_logs_and_skips_malformed_swap(self, generator, caplog):
+        """Swaps with missing keys are skipped and a warning is logged."""
         generator._gemini_service.generate_json.return_value = {
             "failures": [],
             "swaps": [{"cell_a": {"row": 0}, "cell_b": {"row": 1, "col": 0}}],  # col missing in cell_a
@@ -1445,17 +1488,20 @@ class TestMatrixGeneratorLLMRobustness:
             [{"concept": "C", "explanation": "c"}, {"concept": "D", "explanation": "d"}],
         ]
         axes = [("row_desc_0", "col_desc_0"), ("row_desc_1", "col_desc_1")]
-        failures, swaps = run_async(
-            generator.validate_matrix(
-                project_id="test",
-                theme="AI Ethics",
-                cells_grid=cells_grid,
-                axes=axes,
-                settings=settings,
-                emit=self._noop_emit,
+        import logging
+        with caplog.at_level(logging.WARNING, logger="app.services.matrix_generator"):
+            failures, swaps = run_async(
+                generator.validate_matrix(
+                    project_id="test",
+                    theme="AI Ethics",
+                    cells_grid=cells_grid,
+                    axes=axes,
+                    settings=settings,
+                    emit=self._noop_emit,
+                )
             )
-        )
         assert swaps == []
+        assert any("Malformed swap" in msg for msg in caplog.messages)
 
 
 # ── 9. generate_from_description ─────────────────────────────────────────

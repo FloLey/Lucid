@@ -310,6 +310,60 @@ class MatrixDB:
             rows = result.scalars().all()
         return [_row_to_cell(r) for r in rows]
 
+    async def swap_cells(
+        self,
+        project_id: str,
+        row_a: int,
+        col_a: int,
+        row_b: int,
+        col_b: int,
+    ) -> tuple[Optional[MatrixCell], Optional[MatrixCell]]:
+        """Atomically swap concept/explanation of two cells in one transaction.
+
+        Returns the updated (cell_a, cell_b) Pydantic objects, or (None, None)
+        if either cell does not exist (no changes are made in that case).
+        """
+        now = datetime.now(timezone.utc)
+        async with async_session_factory() as session:
+            async with session.begin():
+                res_a = await session.execute(
+                    select(MatrixCellDB).where(
+                        MatrixCellDB.project_id == project_id,
+                        MatrixCellDB.row == row_a,
+                        MatrixCellDB.col == col_a,
+                    )
+                )
+                db_a = res_a.scalar_one_or_none()
+
+                res_b = await session.execute(
+                    select(MatrixCellDB).where(
+                        MatrixCellDB.project_id == project_id,
+                        MatrixCellDB.row == row_b,
+                        MatrixCellDB.col == col_b,
+                    )
+                )
+                db_b = res_b.scalar_one_or_none()
+
+                if db_a is None or db_b is None:
+                    return None, None
+
+                # Swap in-place within the same transaction
+                db_a.concept, db_b.concept = db_b.concept, db_a.concept
+                db_a.explanation, db_b.explanation = db_b.explanation, db_a.explanation
+
+                await session.execute(
+                    update(MatrixProjectDB)
+                    .where(MatrixProjectDB.id == project_id)
+                    .values(updated_at=now)
+                )
+
+                # Flush so the ORM objects reflect final state before we snapshot
+                await session.flush()
+                cell_a = _row_to_cell(db_a)
+                cell_b = _row_to_cell(db_b)
+
+        return cell_a, cell_b
+
     async def clear_all(self) -> None:
         """Delete all matrix projects and cells. For tests only."""
         async with async_session_factory() as session:

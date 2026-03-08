@@ -617,39 +617,30 @@ class MatrixService:
         regeneration (e.g. two concepts that are each better suited to the
         other's position).
         """
-        cell_a = await self._db.get_cell(project_id, row_a, col_a)
-        cell_b = await self._db.get_cell(project_id, row_b, col_b)
+        cell_a, cell_b = await self._db.swap_cells(
+            project_id, row_a, col_a, row_b, col_b
+        )
         if cell_a is None or cell_b is None:
             logger.warning(
                 "Swap skipped: missing cell (%d,%d) or (%d,%d)",
                 row_a, col_a, row_b, col_b,
             )
             return
-        await self._db.upsert_cell(
-            project_id, row_a, col_a,
-            concept=cell_b.concept,
-            explanation=cell_b.explanation,
-        )
-        await self._db.upsert_cell(
-            project_id, row_b, col_b,
-            concept=cell_a.concept,
-            explanation=cell_a.explanation,
-        )
         await self._emit({
             "type": "cell",
             "project_id": project_id,
             "row": row_a,
             "col": col_a,
-            "concept": cell_b.concept or "",
-            "explanation": cell_b.explanation or "",
+            "concept": cell_a.concept or "",
+            "explanation": cell_a.explanation or "",
         })
         await self._emit({
             "type": "cell",
             "project_id": project_id,
             "row": row_b,
             "col": col_b,
-            "concept": cell_a.concept or "",
-            "explanation": cell_a.explanation or "",
+            "concept": cell_b.concept or "",
+            "explanation": cell_b.explanation or "",
         })
 
     # ── Event broadcasting ────────────────────────────────────────────────

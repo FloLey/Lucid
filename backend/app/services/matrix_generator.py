@@ -268,18 +268,19 @@ class MatrixGenerator:
             for f in failures_raw
             if "row" in f and "col" in f
         ]
-        swaps: List[Tuple[int, int, int, int]] = [
-            (
-                s["cell_a"]["row"],
-                s["cell_a"]["col"],
-                s["cell_b"]["row"],
-                s["cell_b"]["col"],
-            )
-            for s in swaps_raw
-            if "cell_a" in s and "cell_b" in s
-            and "row" in s["cell_a"] and "col" in s["cell_a"]
-            and "row" in s["cell_b"] and "col" in s["cell_b"]
-        ]
+        swaps: List[Tuple[int, int, int, int]] = []
+        for s in swaps_raw:
+            try:
+                swaps.append(
+                    (
+                        s["cell_a"]["row"],
+                        s["cell_a"]["col"],
+                        s["cell_b"]["row"],
+                        s["cell_b"]["col"],
+                    )
+                )
+            except (KeyError, TypeError):
+                logger.warning("Malformed swap object from validator, skipping: %s", s)
         await emit(
             {
                 "type": "validation",
