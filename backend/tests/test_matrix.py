@@ -2024,8 +2024,10 @@ class TestPipelineSSEEventFixes:
                 ]
                 return row_concepts, col_concepts, ["ra0", "ra1", "ra2"], ["ca0", "ca1"]
 
-            async def _fake_generate_cell(project_id, row, col, *args, **kwargs):
-                emit = kwargs.get("emit") or args[10]
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit,
+                                          extra_instructions=""):
                 await emit({"type": "cell", "project_id": project_id,
                             "row": row, "col": col, "concept": f"C{row}{col}", "explanation": ""})
                 return {"concept": f"C{row}{col}", "explanation": ""}
@@ -2092,11 +2094,13 @@ class TestPipelineSSEEventFixes:
                             "col_descriptor": f"c{diagonal_index}"})
                 return (f"r{diagonal_index}", f"c{diagonal_index}")
 
-            async def _fake_generate_cell(project_id, row, col, *args, **kwargs):
-                emit_fn = kwargs.get("emit") or args[10]
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit,
+                                          extra_instructions=""):
                 concept = f"C{row}{col}"
-                await emit_fn({"type": "cell", "project_id": project_id,
-                               "row": row, "col": col, "concept": concept, "explanation": "exp"})
+                await emit({"type": "cell", "project_id": project_id,
+                            "row": row, "col": col, "concept": concept, "explanation": "exp"})
                 return {"concept": concept, "explanation": "exp"}
 
             # Validator always reports (0,1) as failing — simulates persistent failure
@@ -2169,11 +2173,13 @@ class TestPipelineSSEEventFixes:
             async def _fake_axes(project_id, diagonal_index, concept, all_concepts, settings, emit):
                 return (f"r{diagonal_index}", f"c{diagonal_index}")
 
-            async def _fake_generate_cell(project_id, row, col, *args, **kwargs):
-                emit_fn = kwargs.get("emit") or args[10]
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit,
+                                          extra_instructions=""):
                 concept = f"C{row}{col}"
-                await emit_fn({"type": "cell", "project_id": project_id,
-                               "row": row, "col": col, "concept": concept, "explanation": "exp"})
+                await emit({"type": "cell", "project_id": project_id,
+                            "row": row, "col": col, "concept": concept, "explanation": "exp"})
                 return {"concept": concept, "explanation": "exp"}
 
             # Validator always passes
