@@ -256,27 +256,28 @@ describe('MatrixView — Re-validate panel', () => {
 describe('MatrixView — mobile-responsive layout', () => {
   it('toolbar uses flex-wrap so buttons wrap on small screens', () => {
     const { container } = render(<MatrixView matrix={makeMatrix()} />);
-    // The outermost toolbar div must contain flex-wrap
-    const toolbar = container.querySelector('.flex-wrap');
-    expect(toolbar).toBeInTheDocument();
+    // The toolbar div is the immediate child of the outer flex container; it must have flex-wrap
+    const toolbar = container.firstElementChild?.children[0];
+    expect(toolbar?.className).toMatch(/flex-wrap/);
   });
 
-  it('revalidate panel stacks vertically on mobile (flex-col)', () => {
+  it('revalidate panel wrapping textarea+button has flex-col for mobile stacking', () => {
     const { container } = render(<MatrixView matrix={makeMatrix({ status: 'complete' })} />);
-    // The revalidate panel wraps textarea + button; it must have flex-col for mobile stacking
-    const panel = container.querySelector('.flex-col');
-    expect(panel).toBeInTheDocument();
+    // Find the revalidate textarea, then assert its parent panel has flex-col
+    const textarea = screen.getByPlaceholderText(/Add feedback for re-validation/i);
+    expect(textarea.parentElement?.className).toMatch(/flex-col/);
   });
 
   it('outer container uses smaller padding on mobile (p-2)', () => {
     const { container } = render(<MatrixView matrix={makeMatrix()} />);
-    const outer = container.querySelector('.p-2');
-    expect(outer).toBeInTheDocument();
+    // The outermost div wrapping the whole view must carry p-2
+    expect(container.firstElementChild?.className).toMatch(/\bp-2\b/);
   });
 
-  it('title uses smaller text on mobile (text-base)', () => {
-    const { container } = render(<MatrixView matrix={makeMatrix()} />);
-    const title = container.querySelector('.text-base');
-    expect(title).toBeInTheDocument();
+  it('title heading uses smaller base font on mobile (text-base)', () => {
+    render(<MatrixView matrix={makeMatrix()} />);
+    // The matrix name is rendered as an h2; it should carry text-base for mobile
+    const heading = screen.getByRole('heading', { name: 'Test Matrix' });
+    expect(heading.className).toMatch(/text-base/);
   });
 });

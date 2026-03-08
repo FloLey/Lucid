@@ -127,7 +127,7 @@ class TestValidatorPromptWording:
 
     def test_prompt_relaxes_selectivity_when_feedback_present(self):
         """Prompt must lower the threshold when user feedback is present."""
-        assert "lower your threshold" in self._VALIDATOR_PROMPT or "lower" in self._VALIDATOR_PROMPT, (
+        assert "lower your threshold" in self._VALIDATOR_PROMPT, (
             "Validator prompt must mention lowering the threshold when user feedback is provided"
         )
 
