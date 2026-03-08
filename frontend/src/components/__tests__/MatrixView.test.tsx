@@ -250,3 +250,34 @@ describe('MatrixView — Re-validate panel', () => {
     });
   });
 });
+
+// ── Mobile layout ──────────────────────────────────────────────────────────────
+
+describe('MatrixView — mobile-responsive layout', () => {
+  it('toolbar uses flex-wrap so buttons wrap on small screens', () => {
+    const { container } = render(<MatrixView matrix={makeMatrix()} />);
+    // The toolbar div is the immediate child of the outer flex container; it must have flex-wrap
+    const toolbar = container.firstElementChild?.children[0];
+    expect(toolbar?.className).toMatch(/flex-wrap/);
+  });
+
+  it('revalidate panel wrapping textarea+button has flex-col for mobile stacking', () => {
+    const { container } = render(<MatrixView matrix={makeMatrix({ status: 'complete' })} />);
+    // Find the revalidate textarea, then assert its parent panel has flex-col
+    const textarea = screen.getByPlaceholderText(/Add feedback for re-validation/i);
+    expect(textarea.parentElement?.className).toMatch(/flex-col/);
+  });
+
+  it('outer container uses smaller padding on mobile (p-2)', () => {
+    const { container } = render(<MatrixView matrix={makeMatrix()} />);
+    // The outermost div wrapping the whole view must carry p-2
+    expect(container.firstElementChild?.className).toMatch(/\bp-2\b/);
+  });
+
+  it('title heading uses smaller base font on mobile (text-base)', () => {
+    render(<MatrixView matrix={makeMatrix()} />);
+    // The matrix name is rendered as an h2; it should carry text-base for mobile
+    const heading = screen.getByRole('heading', { name: 'Test Matrix' });
+    expect(heading.className).toMatch(/text-base/);
+  });
+});

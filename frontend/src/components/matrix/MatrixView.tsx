@@ -170,16 +170,16 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
     : false;
 
   return (
-    <div className="flex flex-col gap-4 h-full p-4">
+    <div className="flex flex-col gap-3 sm:gap-4 h-full p-2 sm:p-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+      <div className="flex flex-wrap gap-2 items-start justify-between shrink-0">
+        <div className="min-w-0">
+          <h2 className="text-base sm:text-xl font-bold text-gray-900 dark:text-white leading-tight">
             {matrix.name}
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{matrix.theme}</p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{matrix.theme}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {isStreaming && (
             <div className="flex items-center gap-1.5 text-sm text-lucid-600 dark:text-lucid-400">
               <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -254,7 +254,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
 
       {/* Re-validate panel */}
       {matrix.status === 'complete' && !isStreaming && viewMode === 'edit' && (
-        <div className="shrink-0 border-t border-gray-200 dark:border-gray-700 pt-3 flex gap-2 items-start">
+        <div className="shrink-0 border-t border-gray-200 dark:border-gray-700 pt-3 flex flex-col sm:flex-row gap-2">
           <textarea
             value={revalidateComment}
             onChange={(e) => setRevalidateComment(e.target.value)}
@@ -265,7 +265,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
           <button
             onClick={handleRevalidate}
             disabled={revalidateLoading}
-            className="px-3 py-1.5 bg-lucid-600 text-white text-xs font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+            className="px-3 py-1.5 bg-lucid-600 text-white text-xs font-medium rounded-lg hover:bg-lucid-700 disabled:opacity-50 transition-colors sm:whitespace-nowrap self-stretch sm:self-start"
           >
             {revalidateLoading ? 'Starting…' : 'Re-validate'}
           </button>
