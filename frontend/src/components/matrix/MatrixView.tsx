@@ -312,104 +312,27 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
             </div>
 
             {selectedIsDiagonal ? (
-              <>
+              selectedCell.definition && (
                 <p className="text-sm text-gray-600 dark:text-gray-300 -mt-1">
                   {selectedCell.definition}
                 </p>
-                {selectedCell.row_descriptor && (
-                  <div className="text-xs text-gray-400 dark:text-gray-400">
-                    <span className="font-medium">Row axis:</span> {selectedCell.row_descriptor}
-                  </div>
-                )}
-                {selectedCell.col_descriptor && (
-                  <div className="text-xs text-gray-400 dark:text-gray-400">
-                    <span className="font-medium">Col axis:</span> {selectedCell.col_descriptor}
-                  </div>
-                )}
-                {isDescriptionMode && selectedCell.explanation && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Reasoning</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      {selectedCell.explanation}
-                    </p>
-                  </div>
-                )}
-              </>
+              )
             ) : (
-              <>
-                {/* Axis position — row & col with their quality descriptors */}
-                <div className="space-y-1 text-xs bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2.5">
-                  {(() => {
-                    if (isDescriptionMode) {
-                      const rowLabel = matrix.row_labels?.[selectedCell.row];
-                      const colLabel = matrix.col_labels?.[selectedCell.col];
-                      return (
-                        <>
-                          {rowLabel && (
-                            <div className="text-gray-500 dark:text-gray-400">
-                              <span className="font-medium text-gray-600 dark:text-gray-300">Row:</span>{' '}
-                              {rowLabel}
-                              {selectedCell.row_descriptor && (
-                                <span className="text-gray-400 dark:text-gray-500"> — {selectedCell.row_descriptor}</span>
-                              )}
-                            </div>
-                          )}
-                          {colLabel && (
-                            <div className="text-gray-500 dark:text-gray-400">
-                              <span className="font-medium text-gray-600 dark:text-gray-300">Col:</span>{' '}
-                              {colLabel}
-                              {selectedCell.col_descriptor && (
-                                <span className="text-gray-400 dark:text-gray-500"> — {selectedCell.col_descriptor}</span>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      );
-                    }
-                    const rowDiag = getDiagCell(selectedCell.row);
-                    const colDiag = getDiagCell(selectedCell.col);
-                    return (
-                      <>
-                        {rowDiag && (
-                          <div className="text-gray-500 dark:text-gray-400">
-                            <span className="font-medium text-gray-600 dark:text-gray-300">Row:</span>{' '}
-                            {rowDiag.label}
-                            {(selectedCell.row_descriptor || rowDiag.row_descriptor) && (
-                              <span className="text-gray-400 dark:text-gray-500"> — {selectedCell.row_descriptor || rowDiag.row_descriptor}</span>
-                            )}
-                          </div>
-                        )}
-                        {colDiag && (
-                          <div className="text-gray-500 dark:text-gray-400">
-                            <span className="font-medium text-gray-600 dark:text-gray-300">Col:</span>{' '}
-                            {colDiag.label}
-                            {(selectedCell.col_descriptor || colDiag.col_descriptor) && (
-                              <span className="text-gray-400 dark:text-gray-500"> — {selectedCell.col_descriptor || colDiag.col_descriptor}</span>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
+              selectedCell.explanation && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">About</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {selectedCell.explanation}
+                  </p>
                 </div>
+              )
+            )}
 
-                {/* Reasoning — why this concept fits this position */}
-                {selectedCell.explanation && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Reasoning</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      {selectedCell.explanation}
-                    </p>
-                  </div>
-                )}
-
-                {/* Cell error */}
-                {selectedCell.cell_error && (
-                  <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-2">
-                    <span className="font-medium">Error:</span> {selectedCell.cell_error}
-                  </div>
-                )}
-              </>
+            {/* Cell error */}
+            {selectedCell.cell_error && (
+              <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-2">
+                <span className="font-medium">Error:</span> {selectedCell.cell_error}
+              </div>
             )}
 
             {selectedCell.image_url && (

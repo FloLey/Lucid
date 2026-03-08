@@ -250,7 +250,7 @@ function drawPoster(
       } else {
         // Off-diagonal or description-mode diagonal
         const img = imageMap.get(`${row}-${col}`);
-        const concept = isDiagonal ? (cell?.label ?? '') : (cell?.concept ?? '');
+        const concept = cell?.concept ?? '';
 
         if (img) {
           // Draw image background (cover)
