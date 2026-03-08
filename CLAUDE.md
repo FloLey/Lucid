@@ -2,9 +2,11 @@
 
 ## Project Overview
 
-Lucid transforms rough drafts into polished social media carousels (4:5 aspect ratio, 1080x1350px) for Instagram and similar platforms. It is a containerized monorepo with a Python/FastAPI backend and a React/TypeScript frontend, orchestrated via Docker Compose.
+Lucid is an AI-powered content creation tool with two modes: **Slide Generation** and **Matrix Generation**. It is a containerized monorepo with a Python/FastAPI backend and a React/TypeScript frontend, orchestrated via Docker Compose.
 
-The app follows a 6-stage pipeline: **Research → Draft → Style → Image Prompts → Images → Typography/Design**.
+**Slide Generation** transforms rough drafts into polished social media carousels (4:5 aspect ratio, 1080x1350px) for Instagram and similar platforms, following a 6-stage pipeline: **Research → Draft → Style → Image Prompts → Images → Typography/Design**.
+
+**Matrix Generation** produces AI-generated concept matrices — 2D grids exploring the intersection of axes or themes — with optional per-cell background images.
 
 ## Repository Structure
 
