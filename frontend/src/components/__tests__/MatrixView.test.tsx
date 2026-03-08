@@ -262,7 +262,7 @@ describe('MatrixView — mobile-responsive layout', () => {
   });
 
   it('revalidate panel wrapping textarea+button has flex-col for mobile stacking', () => {
-    const { container } = render(<MatrixView matrix={makeMatrix({ status: 'complete' })} />);
+    render(<MatrixView matrix={makeMatrix({ status: 'complete' })} />);
     // Find the revalidate textarea, then assert its parent panel has flex-col
     const textarea = screen.getByPlaceholderText(/Add feedback for re-validation/i);
     expect(textarea.parentElement?.className).toMatch(/flex-col/);
