@@ -260,14 +260,8 @@ describe('MatrixPosterView — description mode diagonal cells', () => {
     );
     render(<MatrixPosterView matrix={matrix} />);
     await waitFor(() => screen.getByText('2×2 matrix poster'));
-    // Blue-accent fill '#dbeafe' must not appear in any fillStyle call
-    const fillStyles: string[] = [];
-    mockCtx.fillRect.mock.calls.forEach((_, i) => {
-      // fillStyle is set before fillRect; collect all fillStyle values set on mockCtx
-    });
-    // The simplest way: check that the blue-accent concept text path was not used.
-    // Blue-accent path sets fillStyle to '#1e40af' then calls fillText with label.
-    // We confirm no fillText was called with 'Label0' or 'Label1'.
+    // Blue-accent path sets fillStyle to '#1e40af' then calls fillText with the diagonal label.
+    // We confirm no fillText was called with 'Label0' or 'Label1' in description mode.
     const texts = mockCtx.fillText.mock.calls.map((args) => args[0] as string);
     expect(texts).not.toContain('Label0');
     expect(texts).not.toContain('Label1');
