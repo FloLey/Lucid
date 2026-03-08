@@ -392,7 +392,7 @@ class MatrixService:
             used_labels: List[str] = list(all_labels)
             labels_lock = asyncio.Lock()
 
-            async def _gen_one_cell(row: int, col: int) -> None:
+            async def _gen_one_cell(row: int, col: int, extra_instructions: str = "") -> None:
                 if req.input_mode == "description":
                     row_concept = row_concepts[row]
                     col_concept = col_concepts[col]
@@ -426,6 +426,7 @@ class MatrixService:
                         style_mode=style_mode,
                         settings=settings,
                         emit=self._emit,
+                        extra_instructions=extra_instructions,
                     )
                     async with labels_lock:
                         used_labels.append(result["concept"])
@@ -468,11 +469,13 @@ class MatrixService:
                 )
 
             # Step 4 — Validate + targeted retry
+            failures: List[Tuple[int, int, str]] = []
+            swaps: List[Tuple[int, int, int, int]] = []
             for attempt in range(settings.max_retries + 1):
                 all_cells = await self._db.get_all_cells(project_id)
                 cells_grid = _build_grid(all_cells, n_rows, n_cols)
                 if req.input_mode == "description":
-                    failures = await self._gen.validate_matrix(
+                    failures, swaps = await self._gen.validate_matrix(
                         project_id=project_id,
                         theme=theme,
                         cells_grid=cells_grid,
@@ -482,7 +485,7 @@ class MatrixService:
                         col_axes=col_axes,
                     )
                 else:
-                    failures = await self._gen.validate_matrix(
+                    failures, swaps = await self._gen.validate_matrix(
                         project_id=project_id,
                         theme=theme,
                         cells_grid=cells_grid,
@@ -490,16 +493,24 @@ class MatrixService:
                         emit=self._emit,
                         axes=axes_results,
                     )
-                if not failures:
+                if not failures and not swaps:
                     break
                 if attempt < settings.max_retries:
                     logger.info(
-                        "Matrix %s: retrying %d cells (attempt %d)",
-                        project_id[:8], len(failures), attempt + 1,
+                        "Matrix %s: swapping %d cell pair(s), retrying %d cell(s) (attempt %d)",
+                        project_id[:8], len(swaps), len(failures), attempt + 1,
                     )
                     await MatrixGenerator._backoff(attempt)
+                    # Apply swaps first — zero LLM calls, just repositions concepts
+                    for ra, ca, rb, cb in swaps:
+                        await self._apply_swap(project_id, ra, ca, rb, cb)
+                    # Regenerate only the cells the validator flagged for regeneration.
+                    # For duplicate pairs the validator only includes the weaker cell,
+                    # so the better-placed duplicate is preserved untouched.
+                    # Pass the failure reason as extra_instructions so the LLM knows
+                    # why the previous attempt was rejected.
                     await bounded_gather(
-                        [_gen_one_cell(r, c) for r, c in failures],
+                        [_gen_one_cell(r, c, reason) for r, c, reason in failures],
                         limit=settings.max_concurrency,
                     )
 
@@ -507,7 +518,7 @@ class MatrixService:
             # shows those cells as "generating" (from the last validation event).
             # Emit cell events to restore them to "complete" so the UI isn't stuck.
             if failures:
-                for r, c in failures:
+                for r, c, _ in failures:
                     cell = await self._db.get_cell(project_id, r, c)
                     if cell:
                         concept = cell.concept or cell.label or ""
@@ -589,6 +600,57 @@ class MatrixService:
             # Small delay so clients can receive the final event before cleanup
             await asyncio.sleep(2)
             _queues.pop(project_id, None)
+
+    # ── Swap helper ───────────────────────────────────────────────────────
+
+    async def _apply_swap(
+        self,
+        project_id: str,
+        row_a: int,
+        col_a: int,
+        row_b: int,
+        col_b: int,
+    ) -> None:
+        """Swap the concept/explanation of two cells without any LLM call.
+
+        Used when the validator determines that repositioning is cheaper than
+        regeneration (e.g. two concepts that are each better suited to the
+        other's position).
+        """
+        cell_a = await self._db.get_cell(project_id, row_a, col_a)
+        cell_b = await self._db.get_cell(project_id, row_b, col_b)
+        if cell_a is None or cell_b is None:
+            logger.warning(
+                "Swap skipped: missing cell (%d,%d) or (%d,%d)",
+                row_a, col_a, row_b, col_b,
+            )
+            return
+        await self._db.upsert_cell(
+            project_id, row_a, col_a,
+            concept=cell_b.concept,
+            explanation=cell_b.explanation,
+        )
+        await self._db.upsert_cell(
+            project_id, row_b, col_b,
+            concept=cell_a.concept,
+            explanation=cell_a.explanation,
+        )
+        await self._emit({
+            "type": "cell",
+            "project_id": project_id,
+            "row": row_a,
+            "col": col_a,
+            "concept": cell_b.concept or "",
+            "explanation": cell_b.explanation or "",
+        })
+        await self._emit({
+            "type": "cell",
+            "project_id": project_id,
+            "row": row_b,
+            "col": col_b,
+            "concept": cell_a.concept or "",
+            "explanation": cell_a.explanation or "",
+        })
 
     # ── Event broadcasting ────────────────────────────────────────────────
 

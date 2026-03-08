@@ -5,16 +5,21 @@ Theme: "{theme}"
 Matrix data (JSON):
 {matrix_json}
 
-Review each off-diagonal cell (where row != col). Flag a cell as FAILING if ANY of these apply:
+Review each cell. Flag a cell as FAILING if ANY of these apply:
 1. The concept is not a specific, named real thing — it is a vague description, abstract concept, or category
 2. The concept does not genuinely have BOTH the row quality (row_descriptor) AND the column quality (col_descriptor)
 3. The explanation does not justify the placement with explicit reference to both qualities
 4. The concept does not belong to the theme "{theme}"
 5. The concept duplicates another cell's concept
 
-Return ONLY cells that need regeneration. If all cells are valid, return an empty failures list.
+For duplicate concepts (criterion 5), choose the best resolution:
+- If swapping the two cells' concepts would make BOTH fit better in their respective positions, add them to "swaps" instead of "failures" — no regeneration needed, just a reposition.
+- Otherwise, include only the weaker cell (the one whose concept fits its row/col axes less well) in "failures". Do NOT include both duplicates — the better-placed one should be kept.
+
+Return ONLY cells that truly need regeneration in "failures", and cells to be swapped in "swaps".
+If all cells are valid, return empty lists for both.
 
 Respond with JSON only:
-{{"failures": [{{"row": 0, "col": 1, "reason": "brief reason why this cell fails"}}]}}
+{{"failures": [{{"row": 0, "col": 1, "reason": "brief reason why this cell needs regeneration"}}], "swaps": [{{"cell_a": {{"row": 1, "col": 2}}, "cell_b": {{"row": 2, "col": 1}}}}]}}
 
 Be selective — only flag genuinely problematic cells, not cells that are merely "not perfect".

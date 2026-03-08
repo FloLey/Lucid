@@ -201,10 +201,17 @@ class MatrixGenerator:
         axes: Optional[List[Tuple[str, str]]] = None,
         row_axes: Optional[List[str]] = None,
         col_axes: Optional[List[str]] = None,
-    ) -> List[Tuple[int, int]]:
+    ) -> Tuple[List[Tuple[int, int, str]], List[Tuple[int, int, int, int]]]:
         """
         Validate all cells (off-diagonal only in theme mode; all in description mode).
-        Returns [(row, col), ...] of failing cells.
+
+        Returns a tuple of:
+        - failures: [(row, col, reason), ...] — cells that need regeneration.
+          For duplicate pairs the validator only returns the weaker cell, so
+          the better-placed duplicate is preserved without regeneration.
+        - swaps: [(row_a, col_a, row_b, col_b), ...] — pairs whose concepts
+          should be swapped to resolve a positional mismatch (no LLM call needed).
+
         Emits one 'validation' event.
 
         For theme mode: pass ``axes`` (List[Tuple[row_desc, col_desc]]).
@@ -250,19 +257,41 @@ class MatrixGenerator:
                 caller="matrix_validator",
             )
             failures_raw = raw.get("failures", [])
+            swaps_raw = raw.get("swaps", [])
         except GeminiError:
             logger.warning("Validation call failed; treating all cells as valid")
             failures_raw = []
+            swaps_raw = []
 
-        failures = [(f["row"], f["col"]) for f in failures_raw if "row" in f and "col" in f]
+        failures: List[Tuple[int, int, str]] = [
+            (f["row"], f["col"], f.get("reason", ""))
+            for f in failures_raw
+            if "row" in f and "col" in f
+        ]
+        swaps: List[Tuple[int, int, int, int]] = [
+            (
+                s["cell_a"]["row"],
+                s["cell_a"]["col"],
+                s["cell_b"]["row"],
+                s["cell_b"]["col"],
+            )
+            for s in swaps_raw
+            if "cell_a" in s and "cell_b" in s
+            and "row" in s["cell_a"] and "col" in s["cell_a"]
+            and "row" in s["cell_b"] and "col" in s["cell_b"]
+        ]
         await emit(
             {
                 "type": "validation",
                 "project_id": project_id,
-                "failures": [{"row": r, "col": c} for r, c in failures],
+                "failures": [{"row": r, "col": c} for r, c, _ in failures],
+                "swaps": [
+                    {"cell_a": {"row": ra, "col": ca}, "cell_b": {"row": rb, "col": cb}}
+                    for ra, ca, rb, cb in swaps
+                ],
             }
         )
-        return failures
+        return failures, swaps
 
     # ── Step 5: Image per cell (optional) ────────────────────────────────
 
