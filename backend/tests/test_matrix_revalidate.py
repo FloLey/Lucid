@@ -107,6 +107,41 @@ class TestRevalidateRoute:
 # ── Validator prompt injection tests ──────────────────────────────────────
 
 
+class TestValidatorPromptWording:
+    """Verify the validator prompt gives user feedback high priority."""
+
+    _VALIDATOR_PROMPT = open("prompts/matrix_validator.prompt").read()
+
+    def test_prompt_instructs_high_priority_user_feedback(self):
+        """Prompt must tell the LLM to treat user feedback as high-priority, not just additional."""
+        assert "high-priority" in self._VALIDATOR_PROMPT, (
+            "Validator prompt must instruct the LLM to treat user feedback as high-priority criteria"
+        )
+
+    def test_prompt_requires_flagging_challenged_cells(self):
+        """Prompt must instruct the LLM to flag cells the user explicitly challenges."""
+        prompt_lower = self._VALIDATOR_PROMPT.lower()
+        assert "must flag" in prompt_lower or "you must" in prompt_lower, (
+            "Validator prompt must use mandatory language (MUST) for user-challenged cells"
+        )
+
+    def test_prompt_relaxes_selectivity_when_feedback_present(self):
+        """Prompt must lower the threshold when user feedback is present."""
+        assert "lower your threshold" in self._VALIDATOR_PROMPT or "lower" in self._VALIDATOR_PROMPT, (
+            "Validator prompt must mention lowering the threshold when user feedback is provided"
+        )
+
+    def test_prompt_still_formats_with_user_comment_section(self):
+        """Prompt must still format cleanly with user_comment_section kwarg."""
+        user_section = "<user_feedback>\nJapan has great food\n</user_feedback>\n\n"
+        result = self._VALIDATOR_PROMPT.format(
+            theme="Countries",
+            matrix_json="[]",
+            user_comment_section=user_section,
+        )
+        assert "Japan has great food" in result
+
+
 class TestValidatorUserComment:
     """Unit tests for user_comment injection into validate_matrix()."""
 

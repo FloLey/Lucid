@@ -250,3 +250,33 @@ describe('MatrixView — Re-validate panel', () => {
     });
   });
 });
+
+// ── Mobile layout ──────────────────────────────────────────────────────────────
+
+describe('MatrixView — mobile-responsive layout', () => {
+  it('toolbar uses flex-wrap so buttons wrap on small screens', () => {
+    const { container } = render(<MatrixView matrix={makeMatrix()} />);
+    // The outermost toolbar div must contain flex-wrap
+    const toolbar = container.querySelector('.flex-wrap');
+    expect(toolbar).toBeInTheDocument();
+  });
+
+  it('revalidate panel stacks vertically on mobile (flex-col)', () => {
+    const { container } = render(<MatrixView matrix={makeMatrix({ status: 'complete' })} />);
+    // The revalidate panel wraps textarea + button; it must have flex-col for mobile stacking
+    const panel = container.querySelector('.flex-col');
+    expect(panel).toBeInTheDocument();
+  });
+
+  it('outer container uses smaller padding on mobile (p-2)', () => {
+    const { container } = render(<MatrixView matrix={makeMatrix()} />);
+    const outer = container.querySelector('.p-2');
+    expect(outer).toBeInTheDocument();
+  });
+
+  it('title uses smaller text on mobile (text-base)', () => {
+    const { container } = render(<MatrixView matrix={makeMatrix()} />);
+    const title = container.querySelector('.text-base');
+    expect(title).toBeInTheDocument();
+  });
+});
