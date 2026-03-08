@@ -13,6 +13,7 @@ import StageIndicator from './components/StageIndicator';
 import ProjectHome from './components/ProjectHome';
 import NewProjectModal from './components/NewProjectModal';
 import TemplatesPage from './components/TemplatesPage';
+import ModeSelector from './components/ModeSelector';
 import MatrixHome from './components/matrix/MatrixHome';
 import MatrixView from './components/matrix/MatrixView';
 import MatrixSettingsPage from './components/matrix/MatrixSettings';
@@ -51,7 +52,7 @@ class ErrorBoundary extends Component<
   }
 }
 
-type ActiveSection = 'carousel' | 'matrix';
+type ActiveSection = 'home' | 'carousel' | 'matrix';
 
 function MatrixSection({ onBack, isDark, onToggleDark }: { onBack: () => void; isDark: boolean; onToggleDark: () => void }) {
   const { currentMatrix, closeMatrix } = useMatrix();
@@ -104,7 +105,13 @@ function MatrixSection({ onBack, isDark, onToggleDark }: { onBack: () => void; i
   );
 }
 
-function AppContent() {
+interface AppContentProps {
+  onGoHome: () => void;
+  isDark: boolean;
+  onToggleDark: () => void;
+}
+
+function AppContent({ onGoHome, isDark, onToggleDark }: AppContentProps) {
   const {
     projects,
     projectsLoading,
@@ -120,8 +127,6 @@ function AppContent() {
     generateProjectTitle,
   } = useProject();
 
-  const { isDark, toggle: toggleDark } = useDarkMode();
-  const [activeSection, setActiveSection] = useState<ActiveSection>('carousel');
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showTemplatesPage, setShowTemplatesPage] = useState(false);
   const [isGeneratingName, setIsGeneratingName] = useState(false);
@@ -150,26 +155,14 @@ function AppContent() {
     }
   };
 
-  if (activeSection === 'matrix') {
-    return (
-      <MatrixProvider>
-        <MatrixSection
-          onBack={() => setActiveSection('carousel')}
-          isDark={isDark}
-          onToggleDark={toggleDark}
-        />
-      </MatrixProvider>
-    );
-  }
-
   return (
     <>
       <div className="h-screen flex flex-col overflow-hidden">
         <Header
           projectName={currentProject?.name ?? null}
-          onBack={currentProject ? closeProject : null}
+          onBack={currentProject ? closeProject : onGoHome}
           isDark={isDark}
-          onToggleDark={toggleDark}
+          onToggleDark={onToggleDark}
           onRename={currentProject ? renameCurrentProject : undefined}
           onGenerateName={currentProject ? handleGenerateName : undefined}
           canGenerateName={hasSlides}
@@ -207,7 +200,6 @@ function AppContent() {
               onNewProject={() => setShowNewProjectModal(true)}
               onDelete={deleteProject}
               onTemplates={() => setShowTemplatesPage(true)}
-              onMatrix={() => setActiveSection('matrix')}
             />
           )}
         </main>
@@ -231,10 +223,43 @@ function AppContent() {
 }
 
 function App() {
+  const [activeSection, setActiveSection] = useState<ActiveSection>('home');
+  const { isDark, toggle: toggleDark } = useDarkMode();
+
+  if (activeSection === 'home') {
+    return (
+      <ErrorBoundary>
+        <ModeSelector
+          onSelect={setActiveSection}
+          isDark={isDark}
+          onToggleDark={toggleDark}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  if (activeSection === 'matrix') {
+    return (
+      <ErrorBoundary>
+        <MatrixProvider>
+          <MatrixSection
+            onBack={() => setActiveSection('home')}
+            isDark={isDark}
+            onToggleDark={toggleDark}
+          />
+        </MatrixProvider>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <ProjectProvider>
-        <AppContent />
+        <AppContent
+          onGoHome={() => setActiveSection('home')}
+          isDark={isDark}
+          onToggleDark={toggleDark}
+        />
       </ProjectProvider>
     </ErrorBoundary>
   );

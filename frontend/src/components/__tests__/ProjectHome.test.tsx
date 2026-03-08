@@ -31,7 +31,6 @@ const defaultProps = {
   onNewProject: vi.fn(),
   onDelete: vi.fn(),
   onTemplates: vi.fn(),
-  onMatrix: vi.fn(),
 };
 
 beforeEach(() => {
