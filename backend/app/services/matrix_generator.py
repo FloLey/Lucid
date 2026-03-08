@@ -201,6 +201,7 @@ class MatrixGenerator:
         axes: Optional[List[Tuple[str, str]]] = None,
         row_axes: Optional[List[str]] = None,
         col_axes: Optional[List[str]] = None,
+        user_comment: str = "",
     ) -> Tuple[List[Tuple[int, int, str]], List[Tuple[int, int, int, int]]]:
         """
         Validate all cells (off-diagonal only in theme mode; all in description mode).
@@ -246,9 +247,16 @@ class MatrixGenerator:
                         "explanation": cells_grid[r][c].get("explanation", ""),
                     }
                 )
+        # Sanitize user input: strip XML-style tags to prevent prompt injection,
+        # then wrap in clear delimiters so the LLM treats it as data, not instructions.
+        safe_comment = user_comment.replace("<", "&lt;").replace(">", "&gt;") if user_comment else ""
+        user_comment_section = (
+            f"<user_feedback>\n{safe_comment}\n</user_feedback>\n\n" if safe_comment else ""
+        )
         prompt = self._get_prompt("matrix_validator").format(
             theme=theme,
             matrix_json=json.dumps(matrix_data, ensure_ascii=False),
+            user_comment_section=user_comment_section,
         )
         try:
             raw = await self._gemini_service.generate_json(

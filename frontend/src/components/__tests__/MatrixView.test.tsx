@@ -16,13 +16,16 @@ const mockStartStream = vi.fn();
 vi.mock('../../hooks/useMatrixStream', () => ({
   useMatrixStream: () => ({
     isStreaming: false,
+    isValidating: false,
     startStream: mockStartStream,
   }),
 }));
 
 const mockGenerateMatrixImages = vi.fn();
+const mockRevalidateMatrix = vi.fn();
 vi.mock('../../services/api', () => ({
   generateMatrixImages: (...args: unknown[]) => mockGenerateMatrixImages(...args),
+  revalidateMatrix: (...args: unknown[]) => mockRevalidateMatrix(...args),
   getMatrix: vi.fn(),
   regenerateMatrixCell: vi.fn(),
 }));
@@ -88,6 +91,7 @@ function makeMatrix(overrides: Partial<MatrixProject> = {}): MatrixProject {
 beforeEach(() => {
   vi.clearAllMocks();
   mockGenerateMatrixImages.mockResolvedValue(undefined);
+  mockRevalidateMatrix.mockResolvedValue(undefined);
 });
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -202,5 +206,47 @@ describe('MatrixView — detail panel shows name and description', () => {
     // Detail panel renders an <img> with the cell's image_url (alt="" → decorative)
     const img = container.querySelector('img[src="/img/cell.jpg"]');
     expect(img).toBeInTheDocument();
+  });
+});
+
+// ── Re-validate UI ─────────────────────────────────────────────────────────────
+
+describe('MatrixView — Re-validate panel', () => {
+  it('shows Re-validate button when matrix is complete and not streaming', () => {
+    render(<MatrixView matrix={makeMatrix({ status: 'complete' })} />);
+    expect(screen.getByRole('button', { name: /Re-validate/i })).toBeInTheDocument();
+  });
+
+  it('hides Re-validate button when matrix is still generating', () => {
+    render(<MatrixView matrix={makeMatrix({ status: 'generating' })} />);
+    expect(screen.queryByRole('button', { name: /Re-validate/i })).not.toBeInTheDocument();
+  });
+
+  it('calls revalidateMatrix and startStream when Re-validate is clicked', async () => {
+    render(<MatrixView matrix={makeMatrix({ status: 'complete' })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Re-validate/i }));
+    await waitFor(() => {
+      expect(mockRevalidateMatrix).toHaveBeenCalledWith('proj-1', '');
+      expect(mockStartStream).toHaveBeenCalledWith('proj-1');
+    });
+  });
+
+  it('passes user comment to revalidateMatrix', async () => {
+    render(<MatrixView matrix={makeMatrix({ status: 'complete' })} />);
+    const textarea = screen.getByPlaceholderText(/Add feedback for re-validation/i);
+    fireEvent.change(textarea, { target: { value: 'Only films from the 1980s' } });
+    fireEvent.click(screen.getByRole('button', { name: /Re-validate/i }));
+    await waitFor(() => {
+      expect(mockRevalidateMatrix).toHaveBeenCalledWith('proj-1', 'Only films from the 1980s');
+    });
+  });
+
+  it('shows error when revalidateMatrix rejects', async () => {
+    mockRevalidateMatrix.mockRejectedValue(new Error('server error'));
+    render(<MatrixView matrix={makeMatrix({ status: 'complete' })} />);
+    fireEvent.click(screen.getByRole('button', { name: /Re-validate/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/server error/i)).toBeInTheDocument();
+    });
   });
 });

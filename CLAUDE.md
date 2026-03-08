@@ -134,7 +134,7 @@ npm run build          # tsc type-check + vite production build
 | `prompt_loader.py` | Loads `.prompt` files with per-template fallback (carousel/, painting/ override shared defaults) |
 | `prompt_validator.py` | Validates prompt variable substitution at startup |
 
-**API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`). Notable endpoints added in recent sessions: `POST /api/projects/{id}/reorder` (slide reordering), `POST /api/stage-draft/regenerate-stream` (SSE streaming text regeneration), and `POST /api/matrix/{id}/generate-images` (bulk image generation for an existing matrix that was created without images).
+**API prefix:** All routes are under `/api` (e.g., `/api/projects`, `/api/stage-research`, `/api/stage-draft`). Notable endpoints added in recent sessions: `POST /api/projects/{id}/reorder` (slide reordering), `POST /api/stage-draft/regenerate-stream` (SSE streaming text regeneration), `POST /api/matrix/{id}/generate-images` (bulk image generation for an existing matrix that was created without images), and `POST /api/matrix/{id}/revalidate` (runs a validation-only pass on a completed matrix; accepts `{"user_comment": "..."}` body that is injected into the validator prompt and used as extra instructions when regenerating failed cells; streams progress via the existing SSE endpoint).
 
 **Matrix generator input modes:** `POST /api/matrix/` accepts two modes via `input_mode` field:
 - `"theme"` (default): user provides a theme string; LLM picks n diagonal concepts and invents per-concept axes

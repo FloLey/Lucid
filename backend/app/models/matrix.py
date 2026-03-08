@@ -140,6 +140,10 @@ class RegenerateCellRequest(BaseModel):
     image_only: bool = False
 
 
+class RevalidateRequest(BaseModel):
+    user_comment: str = ""
+
+
 class MatrixProjectResponse(BaseModel):
     matrix: MatrixProject
 

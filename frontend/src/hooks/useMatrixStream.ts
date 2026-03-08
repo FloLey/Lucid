@@ -30,6 +30,7 @@ export function useMatrixStream({
   onError,
 }: UseMatrixStreamOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // Keep callback refs current so startStream always calls the latest versions
@@ -82,12 +83,10 @@ export function useMatrixStream({
             if (event === null) continue;
             handleEvent(event);
             if (event.type === 'done') {
-              setIsStreaming(false);
               onCompleteRef.current();
               return;
             }
             if (event.type === 'error') {
-              setIsStreaming(false);
               onErrorRef.current(event.message);
               return;
             }
@@ -97,6 +96,7 @@ export function useMatrixStream({
         if (err instanceof Error && err.name === 'AbortError') return;
         onErrorRef.current(getErrorMessage(err, 'Stream connection failed'));
       } finally {
+        setIsValidating(false);
         setIsStreaming(false);
       }
     },
@@ -163,6 +163,7 @@ export function useMatrixStream({
         break;
 
       case 'validation':
+        setIsValidating(true);
         // Mark cells being retried as 'generating'
         onUpdateRef.current((prev) => {
           let updated = prev;
@@ -190,8 +191,9 @@ export function useMatrixStream({
 
   const stopStream = useCallback(() => {
     abortRef.current?.abort();
+    setIsValidating(false);
     setIsStreaming(false);
   }, []);
 
-  return { isStreaming, startStream, stopStream };
+  return { isStreaming, isValidating, startStream, stopStream };
 }

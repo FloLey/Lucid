@@ -601,6 +601,127 @@ class MatrixService:
             await asyncio.sleep(2)
             _queues.pop(project_id, None)
 
+    # ── Re-validation (user-comment-driven) ──────────────────────────────
+
+    async def revalidate_matrix(self, project_id: str, user_comment: str) -> None:
+        """Start a background validation-only pass, incorporating optional user comment."""
+        if self.is_generating(project_id):
+            raise ValueError("Already generating")
+        project = await self._db.get_project(project_id)
+        if project is None:
+            raise ValueError("Project not found")
+        _queues.setdefault(project_id, [])
+        await self._db.update_project_status(project_id, "generating")
+        task = asyncio.create_task(self._run_revalidation(project_id, user_comment))
+        _tasks[project_id] = task
+
+    async def _run_revalidation(self, project_id: str, user_comment: str) -> None:
+        """Validation-only background task: validate → swap → retry, then mark complete."""
+        settings = self._settings
+        try:
+            project = await self._db.get_project(project_id)
+            if project is None:
+                raise ValueError("Project not found")
+
+            all_cells = await self._db.get_all_cells(project_id)
+            theme = project.theme
+            input_mode = project.input_mode
+
+            n_rows = project.effective_n_rows
+            n_cols = project.effective_n_cols
+            cells_grid = _build_grid(all_cells, n_rows, n_cols)
+
+            # Reconstruct axes from stored cell descriptors
+            if input_mode == "description":
+                # row_axes[r] = row_descriptor from any cell in that row
+                row_axes: List[str] = [""] * n_rows
+                col_axes: List[str] = [""] * n_cols
+                for cell in all_cells:
+                    if cell.row_descriptor and not row_axes[cell.row]:
+                        row_axes[cell.row] = cell.row_descriptor
+                    if cell.col_descriptor and not col_axes[cell.col]:
+                        col_axes[cell.col] = cell.col_descriptor
+                axes_kw: Dict[str, Any] = {"row_axes": row_axes, "col_axes": col_axes}
+            else:
+                diag = {c.row: c for c in all_cells if c.row == c.col}
+                axes_list: List[Tuple[str, str]] = [
+                    (diag[i].row_descriptor or "", diag[i].col_descriptor or "")
+                    if i in diag else ("", "")
+                    for i in range(n_rows)
+                ]
+                axes_kw = {"axes": axes_list}
+
+            failures: List[Tuple[int, int, str]] = []
+            swaps: List[Tuple[int, int, int, int]] = []
+
+            for attempt in range(settings.max_retries + 1):
+                all_cells = await self._db.get_all_cells(project_id)
+                cells_grid = _build_grid(all_cells, n_rows, n_cols)
+                failures, swaps = await self._gen.validate_matrix(
+                    project_id=project_id,
+                    theme=theme,
+                    cells_grid=cells_grid,
+                    settings=settings,
+                    emit=self._emit,
+                    user_comment=user_comment,
+                    **axes_kw,
+                )
+                if not failures and not swaps:
+                    break
+                if attempt < settings.max_retries:
+                    logger.info(
+                        "Revalidation %s: swapping %d pair(s), retrying %d cell(s) (attempt %d)",
+                        project_id[:8], len(swaps), len(failures), attempt + 1,
+                    )
+                    await MatrixGenerator._backoff(attempt)
+                    for ra, ca, rb, cb in swaps:
+                        await self._apply_swap(project_id, ra, ca, rb, cb)
+                    # Combine failure reason with user comment for regeneration
+                    for r, c, reason in failures:
+                        parts = [p for p in [reason, f"User feedback: {user_comment}" if user_comment else ""] if p]
+                        extra = ". ".join(parts)
+                        await self.regenerate_cell(
+                            project_id=project_id,
+                            row=r,
+                            col=c,
+                            extra_instructions=extra,
+                        )
+
+            # Restore any cells still shown as "generating" after exhausting retries
+            if failures:
+                for r, c, _ in failures:
+                    cell = await self._db.get_cell(project_id, r, c)
+                    if cell:
+                        concept = cell.concept or cell.label or ""
+                        explanation = cell.explanation or cell.definition or ""
+                        if concept:
+                            await self._emit({
+                                "type": "cell",
+                                "project_id": project_id,
+                                "row": r,
+                                "col": c,
+                                "concept": concept,
+                                "explanation": explanation,
+                            })
+
+            await self._db.update_project_status(project_id, "complete")
+            await self._emit({"type": "done", "project_id": project_id})
+
+        except asyncio.CancelledError:
+            raise
+        except GeminiError as exc:
+            logger.error("Revalidation %s GeminiError: %s", project_id[:8], exc)
+            await self._db.update_project_status(project_id, "failed", str(exc))
+            await self._emit({"type": "error", "project_id": project_id, "message": str(exc)})
+        except Exception as exc:
+            logger.exception("Revalidation %s unexpected error", project_id[:8])
+            await self._db.update_project_status(project_id, "failed", str(exc))
+            await self._emit({"type": "error", "project_id": project_id, "message": str(exc)})
+        finally:
+            _tasks.pop(project_id, None)
+            await asyncio.sleep(2)
+            _queues.pop(project_id, None)
+
     # ── Swap helper ───────────────────────────────────────────────────────
 
     async def _apply_swap(

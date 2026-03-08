@@ -1210,7 +1210,7 @@ class TestMatrixPromptFormatting:
         ),
         (
             "matrix_validator",
-            {"theme": "Cooking Techniques", "matrix_json": '[{"row": 0, "col": 1, "concept": "Kimchi"}]'},
+            {"theme": "Cooking Techniques", "matrix_json": '[{"row": 0, "col": 1, "concept": "Kimchi"}]', "user_comment_section": ""},
             "Cooking Techniques",
         ),
         (
