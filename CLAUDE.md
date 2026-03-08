@@ -157,6 +157,7 @@ npm run build          # tsc type-check + vite production build
 - `StagePrompts.tsx` — Image prompt viewing and regeneration (Stage 4)
 - `StageImages.tsx` — Image generation and review (Stage 5)
 - `StageTypography.tsx` — Typography preview, style editing, and export (Stage 6)
+- `ModeSelector.tsx` — Landing screen with two equal-prominence mode cards (Slide Generation / Matrix Generation); shown on every fresh page load before any section is chosen
 - `ConfigSettings.tsx` — Configuration UI
 - `Header.tsx` — Project and navigation management
 - `StageIndicator.tsx` — Visual stage progress
