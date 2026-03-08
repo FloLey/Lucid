@@ -20,12 +20,33 @@ vi.mock('./components/TemplatesPage', () => ({ default: ({ onClose }: { onClose:
     <button onClick={onClose}>Close Templates</button>
   </div>
 )}));
+vi.mock('./components/ModeSelector', () => ({
+  default: ({ onSelect }: { onSelect: (mode: 'carousel' | 'matrix') => void }) => (
+    <div>
+      <span>Mode Selector</span>
+      <button onClick={() => onSelect('carousel')}>Slide Generation</button>
+      <button onClick={() => onSelect('matrix')}>Matrix Generation</button>
+    </div>
+  ),
+}));
+vi.mock('./components/matrix/MatrixHome', () => ({ default: () => <div>Matrix Home</div> }));
+vi.mock('./contexts/MatrixContext', () => ({
+  MatrixProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useMatrix: () => ({
+    currentMatrix: null,
+    closeMatrix: vi.fn(),
+  }),
+}));
 
 // Mock useProject to control app state
 const mockUseProject = vi.fn();
 vi.mock('./contexts/ProjectContext', () => ({
   ProjectProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useProject: () => mockUseProject(),
+}));
+
+vi.mock('./services/api', () => ({
+  getInfo: vi.fn().mockResolvedValue(null),
 }));
 
 const makeSessionState = (overrides = {}) => ({
@@ -44,6 +65,8 @@ const makeSessionState = (overrides = {}) => ({
   advanceStage: vi.fn(),
   previousStage: vi.fn(),
   goToStage: vi.fn(),
+  renameCurrentProject: vi.fn(),
+  generateProjectTitle: vi.fn(),
   ...overrides,
 });
 
@@ -76,8 +99,21 @@ beforeEach(() => {
 });
 
 describe('App routing', () => {
-  it('shows ProjectHome when no project is open', () => {
+  it('shows ModeSelector on fresh load', () => {
     render(<App />);
+    expect(screen.getByText('Mode Selector')).toBeInTheDocument();
+    expect(screen.queryByText('Your Projects')).not.toBeInTheDocument();
+  });
+
+  it('shows Matrix Home when Matrix Generation is selected', () => {
+    render(<App />);
+    fireEvent.click(screen.getByText('Matrix Generation'));
+    expect(screen.getByText('Matrix Home')).toBeInTheDocument();
+  });
+
+  it('shows ProjectHome when Slide Generation is selected and no project is open', () => {
+    render(<App />);
+    fireEvent.click(screen.getByText('Slide Generation'));
     expect(screen.getByText('Your Projects')).toBeInTheDocument();
   });
 
@@ -93,6 +129,7 @@ describe('App routing', () => {
       projectId: 'proj-1',
     }));
     render(<App />);
+    fireEvent.click(screen.getByText('Slide Generation'));
     expect(screen.getByText('StageResearch Content')).toBeInTheDocument();
     expect(screen.queryByText('Your Projects')).not.toBeInTheDocument();
   });
@@ -103,6 +140,7 @@ describe('App routing', () => {
       projectId: 'proj-1',
     }));
     render(<App />);
+    fireEvent.click(screen.getByText('Slide Generation'));
     expect(screen.getByText('Draft')).toBeInTheDocument();
   });
 
@@ -112,6 +150,7 @@ describe('App routing', () => {
       projectId: 'proj-1',
     }));
     render(<App />);
+    fireEvent.click(screen.getByText('Slide Generation'));
     expect(screen.getByText('My Awesome Project')).toBeInTheDocument();
   });
 
@@ -122,12 +161,14 @@ describe('App routing', () => {
 
   it('shows NewProjectModal when New Project button is clicked on ProjectHome', () => {
     render(<App />);
+    fireEvent.click(screen.getByText('Slide Generation'));
     fireEvent.click(screen.getByText('New Project'));
     expect(screen.getByText('New Project Modal')).toBeInTheDocument();
   });
 
   it('shows TemplatesPage when Templates button is clicked', () => {
     render(<App />);
+    fireEvent.click(screen.getByText('Slide Generation'));
     fireEvent.click(screen.getByText('Templates'));
     expect(screen.getByText('Templates Page')).toBeInTheDocument();
   });
@@ -135,6 +176,7 @@ describe('App routing', () => {
   it('dismisses error when Dismiss is clicked', () => {
     mockUseProject.mockReturnValue(makeSessionState({ error: 'Something went wrong' }));
     render(<App />);
+    fireEvent.click(screen.getByText('Slide Generation'));
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Dismiss'));
     expect(makeSessionState().setError).not.toHaveBeenCalled();
