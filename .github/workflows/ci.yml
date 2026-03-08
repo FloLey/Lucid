@@ -39,9 +39,23 @@ jobs:
           mkdir -p backend/data/images
           echo '{}' > config.json
 
-      - name: Run pytest
+      - name: Run pytest with coverage
         working-directory: backend
         run: pytest -v
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: |
+            backend/coverage.xml
+            backend/htmlcov/
+          retention-days: 14
+
+      - name: Coverage summary
+        working-directory: backend
+        run: |
+          python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
 
   frontend-checks:
     name: Frontend Checks
