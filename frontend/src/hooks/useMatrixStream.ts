@@ -173,6 +173,14 @@ export function useMatrixStream({
         });
         break;
 
+      case 'labels':
+        onUpdateRef.current((prev) => ({
+          ...prev,
+          row_labels: event.row_labels,
+          col_labels: event.col_labels,
+        }));
+        break;
+
       case 'heartbeat':
       case 'progress':
         // No UI update needed
