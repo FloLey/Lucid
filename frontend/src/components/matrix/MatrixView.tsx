@@ -326,6 +326,14 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                     <span className="font-medium">Col axis:</span> {selectedCell.col_descriptor}
                   </div>
                 )}
+                {isDescriptionMode && selectedCell.explanation && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Reasoning</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      {selectedCell.explanation}
+                    </p>
+                  </div>
+                )}
               </>
             ) : (
               <>
