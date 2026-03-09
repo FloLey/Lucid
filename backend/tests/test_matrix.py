@@ -884,6 +884,95 @@ class TestMatrixRoutes:
 
         run_async(_run())
 
+    def test_regenerate_diagonal_cell_allowed_in_description_mode(self, client, mock_create):
+        """row == col must NOT be rejected when input_mode == 'description'."""
+        create_resp = client.post(
+            "/api/matrix/",
+            json={"input_mode": "description", "description": "some vs some", "n": 2},
+        )
+        matrix_id = create_resp.json()["matrix"]["id"]
+
+        # Seed a complete cell at (1,1) so the service has something to regenerate
+        run_async(matrix_db.upsert_cell(
+            matrix_id, 1, 1,
+            concept="Test concept", explanation="Test explanation",
+            cell_status="complete",
+        ))
+        # Update status so is_generating check passes
+        run_async(matrix_db.update_project_status(matrix_id, "complete"))
+
+        with patch.object(
+            container.matrix_service,
+            "regenerate_cell",
+            new=AsyncMock(return_value=None),
+        ):
+            resp = client.post(
+                f"/api/matrix/{matrix_id}/cells/1/1/regenerate",
+                json={"image_only": True},
+            )
+        # Should not be 400 — description mode diagonal cells are valid intersection cells
+        assert resp.status_code == 200
+
+    def test_generate_images_sets_generating_images_status(self, client, mock_create):
+        """POST /generate-images should set status to 'generating_images' before the task runs."""
+        create_resp = client.post("/api/matrix/", json={"theme": "Test", "n": 2})
+        matrix_id = create_resp.json()["matrix"]["id"]
+        run_async(matrix_db.update_project_status(matrix_id, "complete"))
+
+        with patch.object(
+            container.matrix_service,
+            "generate_images_for_project",
+            new=AsyncMock(return_value=None),
+        ):
+            resp = client.post(f"/api/matrix/{matrix_id}/generate-images")
+
+        assert resp.status_code == 200
+        assert resp.json()["started"] is True
+        project = run_async(matrix_db.get_project(matrix_id))
+        assert project is not None
+        assert project.status == "generating_images"
+
+    def test_generate_images_for_project_emits_done_and_resets_status(self, monkeypatch):
+        """generate_images_for_project should emit 'done' and set status back to 'complete'."""
+        _clear()
+        emitted: list[dict] = []
+
+        async def _run():
+            svc = container.matrix_service
+
+            # Create a project in generating_images state
+            p = await matrix_db.create_project(
+                theme="Test", n=2, language="en", style_mode="default",
+                include_images=False, name=None, input_mode="theme",
+                description=None, n_rows=0, n_cols=0,
+            )
+            await matrix_db.update_project_status(p.id, "generating_images")
+
+            # Stub image generation to be a no-op and capture emitted events
+            async def _fake_generate_cell_image(project_id, row, col, concept, context,
+                                                settings, emit):
+                return None  # no image URL
+
+            original_emit = svc._emit
+
+            async def _capturing_emit(event):
+                emitted.append(event)
+                await original_emit(event)
+
+            monkeypatch.setattr(svc._gen, "generate_cell_image", _fake_generate_cell_image)
+            monkeypatch.setattr(svc, "_emit", _capturing_emit)
+
+            await svc.generate_images_for_project(p.id)
+
+            refreshed = await matrix_db.get_project(p.id)
+            assert refreshed is not None
+            assert refreshed.status == "complete"
+            done_events = [e for e in emitted if e.get("type") == "done"]
+            assert len(done_events) == 1
+            assert done_events[0]["project_id"] == p.id
+
+        run_async(_run())
+
     def test_get_settings(self, client):
         resp = client.get("/api/matrix-settings/")
         assert resp.status_code == 200

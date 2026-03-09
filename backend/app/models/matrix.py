@@ -72,7 +72,7 @@ class MatrixProject(BaseModel):
     include_images: bool = False
     input_mode: str = "theme"
     description: Optional[str] = None
-    status: Literal["pending", "generating", "complete", "failed"] = "pending"
+    status: Literal["pending", "generating", "generating_images", "complete", "failed"] = "pending"
     error_message: Optional[str] = None
     cells: List[MatrixCell] = Field(default_factory=list)
     created_at: datetime
@@ -96,7 +96,7 @@ class MatrixProjectCard(BaseModel):
     n: int
     n_rows: int = 0
     n_cols: int = 0
-    status: Literal["pending", "generating", "complete", "failed"]
+    status: Literal["pending", "generating", "generating_images", "complete", "failed"]
     include_images: bool
     created_at: datetime
     updated_at: datetime
