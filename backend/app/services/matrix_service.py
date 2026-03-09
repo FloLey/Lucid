@@ -278,7 +278,7 @@ class MatrixService:
                 n_rows = req.effective_n_rows
                 n_cols = req.effective_n_cols
                 # Single LLM call derives separate row/col labels and axis descriptors
-                row_concepts, col_concepts, row_axes, col_axes = (
+                row_concepts, col_concepts, row_axes, col_axes, _row_axis_title, _col_axis_title = (
                     await self._gen.generate_from_description(
                         project_id=project_id,
                         description=req.description or "",
@@ -290,11 +290,15 @@ class MatrixService:
                         emit=self._emit,
                     )
                 )
-                # Persist row/col labels on the project for display
+                # Persist row/col labels and axis titles on the project for display
                 _row_labels = [c["label"] for c in row_concepts]
                 _col_labels = [c["label"] for c in col_concepts]
                 await self._db.update_project_labels(
-                    project_id, _row_labels, _col_labels
+                    project_id,
+                    _row_labels,
+                    _col_labels,
+                    row_axis_title=_row_axis_title,
+                    col_axis_title=_col_axis_title,
                 )
                 # Broadcast labels immediately so live subscribers can render
                 # column/row headers without waiting for the stream to complete.
@@ -304,6 +308,8 @@ class MatrixService:
                         "project_id": project_id,
                         "row_labels": _row_labels,
                         "col_labels": _col_labels,
+                        "row_axis_title": _row_axis_title,
+                        "col_axis_title": _col_axis_title,
                     }
                 )
             else:

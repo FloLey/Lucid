@@ -179,6 +179,8 @@ export function useMatrixStream({
           ...prev,
           row_labels: event.row_labels,
           col_labels: event.col_labels,
+          ...(event.row_axis_title !== undefined ? { row_axis_title: event.row_axis_title } : {}),
+          ...(event.col_axis_title !== undefined ? { col_axis_title: event.col_axis_title } : {}),
         }));
         break;
 

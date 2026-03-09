@@ -64,6 +64,8 @@ class MatrixProjectDB(Base):
     n_cols: Mapped[int | None] = mapped_column(Integer, nullable=True)
     row_labels_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     col_labels_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    row_axis_title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    col_axis_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 

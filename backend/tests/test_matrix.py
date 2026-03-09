@@ -585,6 +585,33 @@ class TestMatrixDB:
         assert refreshed.row_labels == ["Row A", "Row B", "Row C"]
         assert refreshed.col_labels == ["Col 1", "Col 2", "Col 3"]
 
+    def test_update_project_labels_persists_axis_titles(self):
+        """update_project_labels also stores row_axis_title and col_axis_title."""
+        _clear()
+        project = run_async(
+            matrix_db.create_project(
+                theme="desc",
+                n=3,
+                language="English",
+                style_mode="neutral",
+                include_images=False,
+                input_mode="description",
+                description="people think is X but is actually Y",
+                n_rows=3,
+                n_cols=3,
+            )
+        )
+        run_async(matrix_db.update_project_labels(
+            project.id,
+            row_labels=["Left Wing", "Right Wing", "Center"],
+            col_labels=["Left Wing", "Right Wing", "Center"],
+            row_axis_title="Is actually",
+            col_axis_title="People think is",
+        ))
+        refreshed = run_async(matrix_db.get_project(project.id))
+        assert refreshed.row_axis_title == "Is actually"
+        assert refreshed.col_axis_title == "People think is"
+
 
 # ── 3. MatrixSettingsManager ──────────────────────────────────────────────
 
@@ -1537,7 +1564,7 @@ class TestGenerateFromDescription:
         }
         settings = MatrixSettings()
         events: list = []
-        row_concepts, col_concepts, row_axes, col_axes = run_async(
+        row_concepts, col_concepts, row_axes, col_axes, row_axis_label, col_axis_label = run_async(
             generator.generate_from_description(
                 project_id="test",
                 description="feels like a generation but is actually from one",
@@ -1557,6 +1584,8 @@ class TestGenerateFromDescription:
         assert row_axes[0] == "Is actually Gen-Z"
         assert row_axes[1] == "Is actually Millennial"
         assert col_axes[0] == "Feels like Gen-Z"
+        assert row_axis_label == "Is actually"
+        assert col_axis_label == "Feels like"
 
     def test_returns_independent_row_col_labels_non_square(self, generator):
         """When n_rows != n_cols, row and col labels must be independently parsed."""
@@ -1570,7 +1599,7 @@ class TestGenerateFromDescription:
         }
         settings = MatrixSettings()
         events: list = []
-        row_concepts, col_concepts, row_axes, col_axes = run_async(
+        row_concepts, col_concepts, row_axes, col_axes, row_axis_label, col_axis_label = run_async(
             generator.generate_from_description(
                 project_id="test",
                 description="intended for X but enjoyed by Y",
@@ -1588,6 +1617,8 @@ class TestGenerateFromDescription:
         assert col_concepts[2]["label"] == "Gamers"
         assert len(row_axes) == 2
         assert len(col_axes) == 3
+        assert row_axis_label == "Was intended for"
+        assert col_axis_label == "Is enjoyed by"
 
     def test_emits_axes_events_only_no_diagonal(self, generator):
         """generate_from_description must emit axes events but NOT diagonal events.
@@ -1708,7 +1739,7 @@ class TestGenerateFromDescription:
         }
         settings = MatrixSettings()
         events: list = []
-        row_concepts, col_concepts, _, _ = run_async(
+        row_concepts, col_concepts, _, _, _, _ = run_async(
             generator.generate_from_description(
                 project_id="test",
                 description="some description",
@@ -1767,7 +1798,7 @@ class TestDescriptionModePipeline:
                         "row": i, "col": i,
                         "row_descriptor": rd, "col_descriptor": col_axes[i],
                     })
-                return row_concepts, col_concepts, row_axes, col_axes
+                return row_concepts, col_concepts, row_axes, col_axes, "Row axis", "Col axis"
 
             # Stub generate_cell: record which positions were requested
             async def _fake_generate_cell(project_id, row, col, row_concept,
@@ -1841,7 +1872,7 @@ class TestDescriptionModePipeline:
                 col_concepts = [{"label": lbl, "definition": ""} for lbl in labels]
                 row_axes = [f"Row {lbl}" for lbl in labels]
                 col_axes = [f"Col {lbl}" for lbl in labels]
-                return row_concepts, col_concepts, row_axes, col_axes
+                return row_concepts, col_concepts, row_axes, col_axes, "Row axis", "Col axis"
 
             async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
                                           row_descriptor, col_descriptor, already_used_labels,
@@ -1977,7 +2008,7 @@ class TestDescriptionModePipeline:
                 col_concepts = [{"label": "Alpha", "definition": ""}, {"label": "Beta", "definition": ""}]
                 row_axes = ["Row Alpha", "Row Beta"]
                 col_axes = ["Col Alpha", "Col Beta"]
-                return row_concepts, col_concepts, row_axes, col_axes
+                return row_concepts, col_concepts, row_axes, col_axes, "Row axis", "Col axis"
 
             async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
                                           row_descriptor, col_descriptor, already_used_labels,
@@ -2078,7 +2109,7 @@ class TestPipelineSSEEventFixes:
                         "row": i, "col": i,
                         "row_descriptor": rd, "col_descriptor": col_axes[i],
                     })
-                return row_concepts, col_concepts, row_axes, col_axes
+                return row_concepts, col_concepts, row_axes, col_axes, "Is actually", "Feels like"
 
             async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
                                           row_descriptor, col_descriptor, already_used_labels,
@@ -2122,6 +2153,8 @@ class TestPipelineSSEEventFixes:
         ev = labels_events[0]
         assert ev["row_labels"] == ["Row0", "Row1"]
         assert ev["col_labels"] == ["Col0", "Col1"]
+        assert ev["row_axis_title"] == "Is actually"
+        assert ev["col_axis_title"] == "Feels like"
 
     def test_labels_event_contains_all_labels(self, monkeypatch):
         """The 'labels' event row_labels and col_labels must match exactly what
@@ -2143,7 +2176,7 @@ class TestPipelineSSEEventFixes:
                     {"label": "TikTok", "definition": ""},
                     {"label": "Instagram", "definition": ""},
                 ]
-                return row_concepts, col_concepts, ["ra0", "ra1", "ra2"], ["ca0", "ca1"]
+                return row_concepts, col_concepts, ["ra0", "ra1", "ra2"], ["ca0", "ca1"], "Was intended for", "Is enjoyed by"
 
             async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
                                           row_descriptor, col_descriptor, already_used_labels,
@@ -2187,6 +2220,8 @@ class TestPipelineSSEEventFixes:
         ev = labels_events[0]
         assert ev["row_labels"] == ["Gen-Z", "Millennial", "Gen-X"]
         assert ev["col_labels"] == ["TikTok", "Instagram"]
+        assert ev["row_axis_title"] == "Was intended for"
+        assert ev["col_axis_title"] == "Is enjoyed by"
 
     # ── Bug 1: cell events emitted after last validation retry ────────────
 

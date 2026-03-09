@@ -52,6 +52,8 @@ def _row_to_project(row: MatrixProjectDB, cells: List[MatrixCell]) -> MatrixProj
         n_cols=row.n_cols or 0,
         row_labels=row_labels,
         col_labels=col_labels,
+        row_axis_title=row.row_axis_title,
+        col_axis_title=row.col_axis_title,
         language=row.language,
         style_mode=row.style_mode,
         include_images=bool(row.include_images),
@@ -83,6 +85,8 @@ class MatrixDB:
             "ALTER TABLE matrix_projects ADD COLUMN n_cols INTEGER",
             "ALTER TABLE matrix_projects ADD COLUMN row_labels_json TEXT",
             "ALTER TABLE matrix_projects ADD COLUMN col_labels_json TEXT",
+            "ALTER TABLE matrix_projects ADD COLUMN row_axis_title TEXT",
+            "ALTER TABLE matrix_projects ADD COLUMN col_axis_title TEXT",
         ]
         for col_sql in new_columns:
             try:
@@ -229,19 +233,26 @@ class MatrixDB:
         project_id: str,
         row_labels: List[str],
         col_labels: List[str],
+        row_axis_title: Optional[str] = None,
+        col_axis_title: Optional[str] = None,
     ) -> None:
-        """Store row/col axis labels (description mode non-square)."""
+        """Store row/col axis labels and optional axis titles (description mode)."""
         now = datetime.now(timezone.utc)
+        values: dict = dict(
+            row_labels_json=json.dumps(row_labels),
+            col_labels_json=json.dumps(col_labels),
+            updated_at=now,
+        )
+        if row_axis_title is not None:
+            values["row_axis_title"] = row_axis_title
+        if col_axis_title is not None:
+            values["col_axis_title"] = col_axis_title
         async with async_session_factory() as session:
             async with session.begin():
                 await session.execute(
                     update(MatrixProjectDB)
                     .where(MatrixProjectDB.id == project_id)
-                    .values(
-                        row_labels_json=json.dumps(row_labels),
-                        col_labels_json=json.dumps(col_labels),
-                        updated_at=now,
-                    )
+                    .values(**values)
                 )
 
     async def update_project_status(
