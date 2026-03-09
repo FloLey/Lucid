@@ -65,6 +65,7 @@ describe('MatrixAxisTitles', () => {
       />,
     );
     expect(screen.getByText('Generation')).toBeInTheDocument();
+    expect(screen.queryByText('×')).not.toBeInTheDocument();
   });
 
   it('renders when only col_axis_title is set', () => {
@@ -75,6 +76,7 @@ describe('MatrixAxisTitles', () => {
       />,
     );
     expect(screen.getByText('Platform')).toBeInTheDocument();
+    expect(screen.queryByText('×')).not.toBeInTheDocument();
   });
 
   it('applies paddingLeft as inline style', () => {
