@@ -3,11 +3,15 @@ import type { MatrixProject, MatrixCell as MatrixCellType } from '../../types';
 import MatrixCell from './MatrixCell';
 import MatrixRevealView from './MatrixRevealView';
 import MatrixPosterView from './MatrixPosterView';
+import MatrixAxisTitles from './MatrixAxisTitles';
 import { useMatrixStream } from '../../hooks/useMatrixStream';
 import { useMatrix } from '../../contexts/MatrixContext';
 import * as api from '../../services/api';
 import { getErrorMessage } from '../../utils/error';
 import { getEffectiveDimensions } from '../../utils/matrix';
+
+/** Width of the row-label column in the edit grid (px) — must match gridTemplateColumns below. */
+const ROW_HEADER_W = 64;
 
 type ViewMode = 'edit' | 'reveal' | 'poster';
 
@@ -296,13 +300,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
         {/* Grid */}
         <div className="flex-1 min-w-0 overflow-auto">
           {/* Axis titles above the grid (description mode only) */}
-          {isDescriptionMode && (matrix.row_axis_title || matrix.col_axis_title) && (
-            <div className="flex items-center gap-2 text-xs mb-1 pl-16">
-              <span className="font-semibold text-lucid-600 dark:text-lucid-400">{matrix.row_axis_title}</span>
-              <span className="text-gray-400 dark:text-gray-500">×</span>
-              <span className="font-semibold text-lucid-600 dark:text-lucid-400">{matrix.col_axis_title}</span>
-            </div>
-          )}
+          <MatrixAxisTitles matrix={matrix} paddingLeft={ROW_HEADER_W} />
           <div
             className="grid gap-1 min-w-fit"
             style={{

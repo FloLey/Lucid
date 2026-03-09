@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import type { MatrixProject, MatrixCell } from '../../types';
 import { getEffectiveDimensions } from '../../utils/matrix';
+import MatrixAxisTitles from './MatrixAxisTitles';
 
 const HEADER_W = 110; // width of row-label column (px)
 const HEADER_H = 70;  // height of column-label row (px)
@@ -84,13 +85,7 @@ export default function MatrixPosterView({ matrix }: MatrixPosterViewProps) {
       </div>
 
       {/* Axis titles (description mode only) */}
-      {matrix.input_mode === 'description' && (matrix.row_axis_title || matrix.col_axis_title) && (
-        <div className="flex items-center gap-2 text-xs mb-1" style={{ paddingLeft: HEADER_W }}>
-          <span className="font-semibold text-lucid-600 dark:text-lucid-400">{matrix.row_axis_title}</span>
-          <span className="text-gray-400 dark:text-gray-500">×</span>
-          <span className="font-semibold text-lucid-600 dark:text-lucid-400">{matrix.col_axis_title}</span>
-        </div>
-      )}
+      <MatrixAxisTitles matrix={matrix} paddingLeft={HEADER_W} />
 
       {/* Canvas */}
       <div className="overflow-auto border border-gray-200 dark:border-gray-700 rounded-xl">
