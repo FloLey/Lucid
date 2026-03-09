@@ -186,7 +186,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              {isValidating ? 'Validating…' : matrix.status === 'complete' ? 'Generating images…' : 'Generating…'}
+              {isValidating ? 'Validating…' : completedCells === totalCells && totalCells > 0 ? 'Generating images…' : 'Generating…'}
             </div>
           )}
           {matrix.status === 'complete' && !isStreaming &&
@@ -225,8 +225,8 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
         </div>
       </div>
 
-      {/* Text generation progress bar */}
-      {(isStreaming && matrix.status !== 'complete') || matrix.status === 'generating' ? (
+      {/* Text generation progress bar — only during text gen phase */}
+      {matrix.status === 'generating' ? (
         <div className="shrink-0">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
             <span>{isValidating ? 'Validating matrix…' : 'Generating cells…'}</span>
@@ -241,8 +241,8 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
         </div>
       ) : null}
 
-      {/* Image generation progress bar */}
-      {isStreaming && matrix.status === 'complete' && (() => {
+      {/* Image generation progress bar — shown as soon as all text cells are done */}
+      {isStreaming && completedCells === totalCells && totalCells > 0 && (() => {
         const imageCount = matrix.cells.filter((c) => c.image_url).length;
         return (
           <div className="shrink-0">
@@ -295,26 +295,20 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
       <div className={`flex gap-4 min-h-0 flex-1 ${viewMode !== 'edit' ? 'hidden' : ''}`}>
         {/* Grid */}
         <div className="flex-1 min-w-0 overflow-auto">
+          {/* Axis titles above the grid (description mode only) */}
+          {isDescriptionMode && (matrix.row_axis_title || matrix.col_axis_title) && (
+            <div className="flex items-center gap-2 text-xs mb-1 pl-16">
+              <span className="font-semibold text-lucid-600 dark:text-lucid-400">{matrix.row_axis_title}</span>
+              <span className="text-gray-400 dark:text-gray-500">×</span>
+              <span className="font-semibold text-lucid-600 dark:text-lucid-400">{matrix.col_axis_title}</span>
+            </div>
+          )}
           <div
             className="grid gap-1 min-w-fit"
             style={{
               gridTemplateColumns: `64px repeat(${nCols}, minmax(80px, 1fr))`,
             }}
           >
-            {/* Axis title row (description mode only) */}
-            {isDescriptionMode && (matrix.row_axis_title || matrix.col_axis_title) && (
-              <>
-                <div className="text-xs text-gray-400 dark:text-gray-500 italic text-right pr-2 self-end pb-1 truncate">
-                  {matrix.row_axis_title ?? ''}
-                </div>
-                <div
-                  style={{ gridColumn: `2 / span ${nCols}` }}
-                  className="text-xs font-semibold text-lucid-600 dark:text-lucid-400 text-center pb-1"
-                >
-                  {matrix.col_axis_title ?? ''}
-                </div>
-              </>
-            )}
 
             {/* Top-left corner */}
             <div />

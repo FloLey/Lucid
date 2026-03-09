@@ -102,7 +102,8 @@ async def generate_images(
         raise HTTPException(status_code=404, detail="Matrix not found")
     if service.is_generating(project_id):
         raise HTTPException(status_code=400, detail="Generation already in progress")
-    # Run in background
+    # Mark as generating_images so subscribe() doesn't fast-exit for completed projects
+    await db.update_project_status(project_id, "generating_images")
     asyncio.create_task(service.generate_images_for_project(project_id))
     return {"started": True}
 
@@ -119,7 +120,7 @@ async def regenerate_cell(
     project = await db.get_project(project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Matrix not found")
-    if row == col:
+    if row == col and project.input_mode != "description":
         raise HTTPException(
             status_code=400, detail="Use /diagonal/{k}/regenerate for diagonal cells"
         )

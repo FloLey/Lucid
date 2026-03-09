@@ -126,6 +126,8 @@ class MatrixService:
                 coros.append(_gen_one(cell.row, cell.col, concept or "", context or ""))
 
         await bounded_gather(coros, limit=min(self._settings.max_concurrency, 4))
+        await self._db.update_project_status(project_id, "complete")
+        await self._emit({"type": "done", "project_id": project_id})
 
     async def regenerate_cell(
         self,
