@@ -242,20 +242,23 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
       ) : null}
 
       {/* Image generation progress bar */}
-      {isStreaming && matrix.status === 'complete' && (
-        <div className="shrink-0">
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-            <span>Generating images…</span>
-            <span>{matrix.cells.filter((c) => c.image_url).length} / {totalCells}</span>
+      {isStreaming && matrix.status === 'complete' && (() => {
+        const imageCount = matrix.cells.filter((c) => c.image_url).length;
+        return (
+          <div className="shrink-0">
+            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+              <span>Generating images…</span>
+              <span>{imageCount} / {totalCells}</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+              <div
+                className="bg-lucid-500 h-1.5 rounded-full transition-all duration-500"
+                style={{ width: `${(imageCount / totalCells) * 100}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-            <div
-              className="bg-lucid-500 h-1.5 rounded-full transition-all duration-500"
-              style={{ width: `${(matrix.cells.filter((c) => c.image_url).length / totalCells) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {streamError && (
         <div className="shrink-0 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg text-sm flex items-start gap-2">
