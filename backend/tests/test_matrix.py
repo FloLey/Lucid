@@ -813,6 +813,77 @@ class TestMatrixRoutes:
         )
         assert resp.status_code == 400
 
+    def test_regenerate_cell_image_only_generates_image_when_cell_has_no_image(self, monkeypatch):
+        """image_only=True must generate an image even when the cell has no existing image_url."""
+        _clear()
+        generated_images: list[tuple[int, int]] = []
+
+        async def _run():
+            svc = container.matrix_service
+
+            async def _fake_from_description(project_id, description, n_rows, n_cols,
+                                             language, style_mode, settings, emit):
+                row_concepts = [{"label": "Alpha", "definition": ""}, {"label": "Beta", "definition": ""}]
+                col_concepts = [{"label": "Alpha", "definition": ""}, {"label": "Beta", "definition": ""}]
+                row_axes = ["Row Alpha", "Row Beta"]
+                col_axes = ["Col Alpha", "Col Beta"]
+                return row_concepts, col_concepts, row_axes, col_axes, "Row axis", "Col axis"
+
+            async def _fake_generate_cell(project_id, row, col, row_concept, col_concept,
+                                          row_descriptor, col_descriptor, already_used_labels,
+                                          theme, style_mode, settings, emit, extra_instructions=""):
+                concept = f"C{row}{col}"
+                await emit({"type": "cell", "project_id": project_id,
+                            "row": row, "col": col, "concept": concept, "explanation": ""})
+                return {"concept": concept, "explanation": ""}
+
+            async def _fake_validate(*args, **kwargs):
+                return [], []
+
+            async def _fake_generate_cell_image(project_id, row, col, concept, context, settings, emit):
+                generated_images.append((row, col))
+                fake_url = f"/images/fake-{row}-{col}.png"
+                await emit({"type": "image", "project_id": project_id,
+                            "row": row, "col": col, "image_url": fake_url})
+                return fake_url
+
+            monkeypatch.setattr(svc._gen, "generate_from_description", _fake_from_description)
+            monkeypatch.setattr(svc._gen, "generate_cell", _fake_generate_cell)
+            monkeypatch.setattr(svc._gen, "validate_matrix", _fake_validate)
+            monkeypatch.setattr(svc._gen, "generate_cell_image", _fake_generate_cell_image)
+
+            req = CreateMatrixRequest(
+                input_mode="description",
+                description="some vs some",
+                n=2,
+                include_images=False,  # No images initially
+            )
+            project = await svc.create_and_start(req)
+            for _ in range(50):
+                await asyncio.sleep(0.05)
+                p = await matrix_db.get_project(project.id)
+                if p and p.status in ("complete", "failed"):
+                    break
+
+            # Confirm no images on cells
+            p = await matrix_db.get_project(project.id)
+            assert p is not None
+            assert all(c.image_url is None for c in p.cells)
+
+            # Now regenerate image for one off-diagonal cell (image_only=True)
+            await svc.regenerate_cell(
+                project_id=project.id,
+                row=0,
+                col=1,
+                image_only=True,
+            )
+            refreshed = await matrix_db.get_project(project.id)
+            target_cell = next(c for c in refreshed.cells if c.row == 0 and c.col == 1)
+            assert target_cell.image_url is not None
+            assert (0, 1) in generated_images
+
+        run_async(_run())
+
     def test_get_settings(self, client):
         resp = client.get("/api/matrix-settings/")
         assert resp.status_code == 200

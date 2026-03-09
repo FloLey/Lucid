@@ -425,13 +425,13 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                 >
                   {regenLoading ? 'Regenerating…' : 'Regenerate concept'}
                 </button>
-                {selectedCell.image_url && (
+                {selectedCell.cell_status === 'complete' && (
                   <button
                     onClick={handleRegenerateImage}
                     disabled={regenLoading}
                     className="w-full px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors"
                   >
-                    Regenerate image
+                    {regenLoading ? 'Generating…' : selectedCell.image_url ? 'Regenerate image' : 'Generate image'}
                   </button>
                 )}
               </div>
