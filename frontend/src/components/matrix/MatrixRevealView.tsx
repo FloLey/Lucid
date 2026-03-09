@@ -1,6 +1,10 @@
 import { useState, useCallback, Fragment } from 'react';
 import type { MatrixProject, MatrixCell } from '../../types';
 import { getEffectiveDimensions } from '../../utils/matrix';
+import MatrixAxisTitles from './MatrixAxisTitles';
+
+/** Width of the row-label column in the reveal grid (px) — must match gridTemplateColumns below. */
+const ROW_HEADER_W = 80;
 
 type CellRevealStage = 'hidden' | 'name' | 'definition' | 'explanation' | 'image';
 
@@ -112,13 +116,7 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
       </div>
 
       {/* Axis titles (description mode only) */}
-      {isDescriptionMode && (matrix.row_axis_title || matrix.col_axis_title) && (
-        <div className="flex items-center gap-2 text-xs mb-1 pl-20">
-          <span className="font-semibold text-lucid-600 dark:text-lucid-400">{matrix.row_axis_title}</span>
-          <span className="text-gray-400 dark:text-gray-500">×</span>
-          <span className="font-semibold text-lucid-600 dark:text-lucid-400">{matrix.col_axis_title}</span>
-        </div>
-      )}
+      <MatrixAxisTitles matrix={matrix} paddingLeft={ROW_HEADER_W} />
 
       {/* Grid */}
       <div className="overflow-auto">
