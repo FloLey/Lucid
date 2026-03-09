@@ -349,15 +349,17 @@ class MatrixGenerator:
         style_mode: str,
         settings: MatrixSettings,
         emit: EventEmitter,
-    ) -> Tuple[List[Dict[str, str]], List[Dict[str, str]], List[str], List[str]]:
+    ) -> Tuple[List[Dict[str, str]], List[Dict[str, str]], List[str], List[str], str, str]:
         """
         Single LLM call: derive axes and separate row/col labels from a description.
 
-        Returns (row_concepts, col_concepts, row_axes, col_axes) where:
+        Returns (row_concepts, col_concepts, row_axes, col_axes, row_axis_label, col_axis_label) where:
         - row_concepts: [{label, definition}, ...] length n_rows
         - col_concepts: [{label, definition}, ...] length n_cols
         - row_axes: [row_descriptor_string, ...] length n_rows
         - col_axes: [col_descriptor_string, ...] length n_cols
+        - row_axis_label: short phrase describing the row axis (e.g. "Is actually")
+        - col_axis_label: short phrase describing the col axis (e.g. "People think is")
         """
         # Sanitize user input to prevent breaking out of the XML delimiter in the prompt template.
         safe_description = description.replace("</user_description>", "&lt;/user_description&gt;")
@@ -416,7 +418,7 @@ class MatrixGenerator:
                 }
             )
 
-        return row_concepts, col_concepts, row_axes, col_axes
+        return row_concepts, col_concepts, row_axes, col_axes, row_axis_label, col_axis_label
 
     # ── Retry helper ──────────────────────────────────────────────────────
 

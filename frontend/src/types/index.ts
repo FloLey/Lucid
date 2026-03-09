@@ -192,6 +192,9 @@ export interface MatrixProject {
   /** Row/column axis labels for description mode. Empty array for theme mode. */
   row_labels: string[];
   col_labels: string[];
+  /** Short axis title phrases for description mode (e.g. "Is actually", "People think is"). */
+  row_axis_title?: string;
+  col_axis_title?: string;
   language: string;
   style_mode: string;
   include_images: boolean;
@@ -235,7 +238,7 @@ export type MatrixSSEEvent =
   | { type: 'cell'; project_id: string; row: number; col: number; concept: string; explanation: string }
   | { type: 'cell_failed'; project_id: string; row: number; col: number; error: string }
   | { type: 'validation'; project_id: string; failures: Array<{ row: number; col: number }> }
-  | { type: 'labels'; project_id: string; row_labels: string[]; col_labels: string[] }
+  | { type: 'labels'; project_id: string; row_labels: string[]; col_labels: string[]; row_axis_title?: string; col_axis_title?: string }
   | { type: 'image'; project_id: string; row: number; col: number; image_url: string }
   | { type: 'progress'; project_id: string; generated: number; total: number }
   | { type: 'done'; project_id: string }

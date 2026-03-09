@@ -65,6 +65,8 @@ class MatrixProject(BaseModel):
     n_cols: int = 0  # 0 means "use n"
     row_labels: List[str] = Field(default_factory=list)
     col_labels: List[str] = Field(default_factory=list)
+    row_axis_title: Optional[str] = None
+    col_axis_title: Optional[str] = None
     language: str = "English"
     style_mode: str = "neutral"
     include_images: bool = False

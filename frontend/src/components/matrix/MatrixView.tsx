@@ -186,7 +186,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              {isValidating ? 'Validating…' : 'Generating…'}
+              {isValidating ? 'Validating…' : matrix.status === 'complete' ? 'Generating images…' : 'Generating…'}
             </div>
           )}
           {matrix.status === 'complete' && !isStreaming &&
@@ -225,8 +225,8 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
         </div>
       </div>
 
-      {/* Progress bar */}
-      {(isStreaming || matrix.status === 'generating') && (
+      {/* Text generation progress bar */}
+      {(isStreaming && matrix.status !== 'complete') || matrix.status === 'generating' ? (
         <div className="shrink-0">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
             <span>{isValidating ? 'Validating matrix…' : 'Generating cells…'}</span>
@@ -239,7 +239,26 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
             />
           </div>
         </div>
-      )}
+      ) : null}
+
+      {/* Image generation progress bar */}
+      {isStreaming && matrix.status === 'complete' && (() => {
+        const imageCount = matrix.cells.filter((c) => c.image_url).length;
+        return (
+          <div className="shrink-0">
+            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+              <span>Generating images…</span>
+              <span>{imageCount} / {totalCells}</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+              <div
+                className="bg-lucid-500 h-1.5 rounded-full transition-all duration-500"
+                style={{ width: `${(imageCount / totalCells) * 100}%` }}
+              />
+            </div>
+          </div>
+        );
+      })()}
 
       {streamError && (
         <div className="shrink-0 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg text-sm flex items-start gap-2">
@@ -282,6 +301,21 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
               gridTemplateColumns: `64px repeat(${nCols}, minmax(80px, 1fr))`,
             }}
           >
+            {/* Axis title row (description mode only) */}
+            {isDescriptionMode && (matrix.row_axis_title || matrix.col_axis_title) && (
+              <>
+                <div className="text-xs text-gray-400 dark:text-gray-500 italic text-right pr-2 self-end pb-1 truncate">
+                  {matrix.row_axis_title ?? ''}
+                </div>
+                <div
+                  style={{ gridColumn: `2 / span ${nCols}` }}
+                  className="text-xs font-semibold text-lucid-600 dark:text-lucid-400 text-center pb-1"
+                >
+                  {matrix.col_axis_title ?? ''}
+                </div>
+              </>
+            )}
+
             {/* Top-left corner */}
             <div />
             {/* Column headers */}
@@ -394,13 +428,13 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                 >
                   {regenLoading ? 'Regenerating…' : 'Regenerate concept'}
                 </button>
-                {selectedCell.image_url && (
+                {selectedCell.cell_status === 'complete' && (
                   <button
                     onClick={handleRegenerateImage}
                     disabled={regenLoading}
                     className="w-full px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors"
                   >
-                    Regenerate image
+                    {regenLoading ? 'Generating…' : selectedCell.image_url ? 'Regenerate image' : 'Generate image'}
                   </button>
                 )}
               </div>
