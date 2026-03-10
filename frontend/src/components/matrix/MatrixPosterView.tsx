@@ -1,8 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import type { MatrixProject, MatrixCell } from '../../types';
 import { getEffectiveDimensions } from '../../utils/matrix';
-import MatrixAxisTitles from './MatrixAxisTitles';
-
 const HEADER_W = 110; // width of row-label column (px)
 const HEADER_H = 70;  // height of column-label row (px)
 const CELL_SIZE = 140; // each matrix cell (px)
@@ -25,8 +23,11 @@ export default function MatrixPosterView({ matrix }: MatrixPosterViewProps) {
 
     const { cells } = matrix;
     const { nRows, nCols } = getEffectiveDimensions(matrix);
-    const W = HEADER_W + nCols * CELL_SIZE;
-    const H = HEADER_H + nRows * CELL_SIZE;
+    const isDescriptionMode = matrix.input_mode === 'description';
+    const axisTitleW = isDescriptionMode && matrix.row_axis_title ? 20 : 0;
+    const axisTitleH = isDescriptionMode && matrix.col_axis_title ? 20 : 0;
+    const W = axisTitleW + HEADER_W + nCols * CELL_SIZE;
+    const H = axisTitleH + HEADER_H + nRows * CELL_SIZE;
     canvas.width = W;
     canvas.height = H;
 
@@ -48,7 +49,7 @@ export default function MatrixPosterView({ matrix }: MatrixPosterViewProps) {
     );
 
     Promise.all(loadPromises).then(() => {
-      drawPoster(canvas, matrix, imageMap);
+      drawPoster(canvas, matrix, imageMap, axisTitleW, axisTitleH);
       setIsRendering(false);
     });
   }, [matrix]);
@@ -83,9 +84,6 @@ export default function MatrixPosterView({ matrix }: MatrixPosterViewProps) {
           Download PNG
         </button>
       </div>
-
-      {/* Axis titles (description mode only) */}
-      <MatrixAxisTitles matrix={matrix} paddingLeft={HEADER_W} />
 
       {/* Canvas */}
       <div className="overflow-auto border border-gray-200 dark:border-gray-700 rounded-xl">
@@ -170,6 +168,8 @@ function drawPoster(
   canvas: HTMLCanvasElement,
   matrix: MatrixProject,
   imageMap: Map<string, HTMLImageElement>,
+  axisTitleW: number,
+  axisTitleH: number,
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -203,41 +203,41 @@ function drawPoster(
   // ── Column headers ──────────────────────────────────────────────────────────
   for (let col = 0; col < nCols; col++) {
     const label = getColLabel(col);
-    const x = HEADER_W + col * CELL_SIZE;
+    const x = axisTitleW + HEADER_W + col * CELL_SIZE;
 
     ctx.fillStyle = '#f1f5f9'; // slate-100
-    ctx.fillRect(x, 0, CELL_SIZE, HEADER_H);
+    ctx.fillRect(x, axisTitleH, CELL_SIZE, HEADER_H);
 
     ctx.font = 'bold 11px sans-serif';
     ctx.fillStyle = '#374151'; // gray-700
-    wrapText(ctx, label, x + CELL_SIZE / 2, HEADER_H / 2, CELL_SIZE - 12, LINE_HEIGHT, 3);
+    wrapText(ctx, label, x + CELL_SIZE / 2, axisTitleH + HEADER_H / 2, CELL_SIZE - 12, LINE_HEIGHT, 3);
   }
 
   // ── Row headers ─────────────────────────────────────────────────────────────
   for (let row = 0; row < nRows; row++) {
     const label = getRowLabel(row);
-    const y = HEADER_H + row * CELL_SIZE;
+    const y = axisTitleH + HEADER_H + row * CELL_SIZE;
 
     ctx.fillStyle = '#f1f5f9';
-    ctx.fillRect(0, y, HEADER_W, CELL_SIZE);
+    ctx.fillRect(axisTitleW, y, HEADER_W, CELL_SIZE);
 
     ctx.font = 'bold 11px sans-serif';
     ctx.fillStyle = '#374151';
-    wrapText(ctx, label, HEADER_W / 2, y + CELL_SIZE / 2, HEADER_W - 12, LINE_HEIGHT, 3);
+    wrapText(ctx, label, axisTitleW + HEADER_W / 2, y + CELL_SIZE / 2, HEADER_W - 12, LINE_HEIGHT, 3);
   }
 
   // ── Top-left corner ─────────────────────────────────────────────────────────
   ctx.fillStyle = '#e2e8f0'; // slate-200
-  ctx.fillRect(0, 0, HEADER_W, HEADER_H);
+  ctx.fillRect(axisTitleW, axisTitleH, HEADER_W, HEADER_H);
 
   // ── Cells ────────────────────────────────────────────────────────────────────
   for (let row = 0; row < nRows; row++) {
     for (let col = 0; col < nCols; col++) {
       const cell = getCell(cells, row, col);
-      const cx = HEADER_W + col * CELL_SIZE + CELL_SIZE / 2;
-      const cy = HEADER_H + row * CELL_SIZE + CELL_SIZE / 2;
-      const cellX = HEADER_W + col * CELL_SIZE;
-      const cellY = HEADER_H + row * CELL_SIZE;
+      const cx = axisTitleW + HEADER_W + col * CELL_SIZE + CELL_SIZE / 2;
+      const cy = axisTitleH + HEADER_H + row * CELL_SIZE + CELL_SIZE / 2;
+      const cellX = axisTitleW + HEADER_W + col * CELL_SIZE;
+      const cellY = axisTitleH + HEADER_H + row * CELL_SIZE;
       const isDiagonal = row === col;
 
       if (isDiagonal && input_mode === 'theme') {
@@ -309,7 +309,7 @@ function drawPoster(
 
   // Vertical lines
   for (let col = 0; col <= nCols; col++) {
-    const x = HEADER_W + col * CELL_SIZE;
+    const x = axisTitleW + HEADER_W + col * CELL_SIZE;
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, canvas.height);
@@ -317,7 +317,7 @@ function drawPoster(
   }
   // Horizontal lines
   for (let row = 0; row <= nRows; row++) {
-    const y = HEADER_H + row * CELL_SIZE;
+    const y = axisTitleH + HEADER_H + row * CELL_SIZE;
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(canvas.width, y);
@@ -327,11 +327,35 @@ function drawPoster(
   ctx.strokeStyle = '#9ca3af'; // gray-400
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(HEADER_W, 0);
-  ctx.lineTo(HEADER_W, canvas.height);
+  ctx.moveTo(axisTitleW + HEADER_W, 0);
+  ctx.lineTo(axisTitleW + HEADER_W, canvas.height);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(0, HEADER_H);
-  ctx.lineTo(canvas.width, HEADER_H);
+  ctx.moveTo(0, axisTitleH + HEADER_H);
+  ctx.lineTo(canvas.width, axisTitleH + HEADER_H);
   ctx.stroke();
+
+  // ── Axis titles ──────────────────────────────────────────────────────────────
+  // Col axis title — horizontal text centered above column headers
+  if (axisTitleH > 0 && matrix.col_axis_title) {
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = '#4f46e5'; // lucid-600
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const colAreaCenterX = axisTitleW + HEADER_W + (nCols * CELL_SIZE) / 2;
+    ctx.fillText(matrix.col_axis_title, colAreaCenterX, axisTitleH / 2);
+  }
+
+  // Row axis title — vertical rotated text centered left of row headers
+  if (axisTitleW > 0 && matrix.row_axis_title) {
+    ctx.save();
+    ctx.translate(axisTitleW / 2, axisTitleH + HEADER_H + (nRows * CELL_SIZE) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = '#4f46e5'; // lucid-600
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(matrix.row_axis_title, 0, 0);
+    ctx.restore();
+  }
 }

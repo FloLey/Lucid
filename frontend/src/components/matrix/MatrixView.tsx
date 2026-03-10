@@ -3,7 +3,6 @@ import type { MatrixProject, MatrixCell as MatrixCellType } from '../../types';
 import MatrixCell from './MatrixCell';
 import MatrixRevealView from './MatrixRevealView';
 import MatrixPosterView from './MatrixPosterView';
-import MatrixAxisTitles from './MatrixAxisTitles';
 import { useMatrixStream } from '../../hooks/useMatrixStream';
 import { useMatrix } from '../../contexts/MatrixContext';
 import * as api from '../../services/api';
@@ -298,9 +297,26 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
       {/* Grid + detail panel (edit view) */}
       <div className={`flex gap-4 min-h-0 flex-1 ${viewMode !== 'edit' ? 'hidden' : ''}`}>
         {/* Grid */}
-        <div className="flex-1 min-w-0 overflow-auto">
-          {/* Axis titles above the grid (description mode only) */}
-          <MatrixAxisTitles matrix={matrix} paddingLeft={ROW_HEADER_W} />
+        <div className="flex-1 min-w-0 flex gap-1">
+          {/* Row axis title — vertical rotated text, left of the grid (description mode only) */}
+          {isDescriptionMode && matrix.row_axis_title && (
+            <div
+              className="flex items-center justify-center shrink-0 text-xs font-semibold text-lucid-600 dark:text-lucid-400"
+              style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', width: 16 }}
+            >
+              {matrix.row_axis_title}
+            </div>
+          )}
+          <div className="flex-1 min-w-0 overflow-auto flex flex-col gap-1">
+            {/* Col axis title — horizontal text above the column headers (description mode only) */}
+            {isDescriptionMode && matrix.col_axis_title && (
+              <div
+                className="shrink-0 text-xs font-semibold text-lucid-600 dark:text-lucid-400 text-center"
+                style={{ paddingLeft: ROW_HEADER_W }}
+              >
+                {matrix.col_axis_title}
+              </div>
+            )}
           <div
             className="grid gap-1 min-w-fit"
             style={{
@@ -349,6 +365,7 @@ export default function MatrixView({ matrix: initialMatrix }: MatrixViewProps) {
                 })}
               </>
             ))}
+          </div>
           </div>
         </div>
 

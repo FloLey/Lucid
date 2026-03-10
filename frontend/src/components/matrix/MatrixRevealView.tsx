@@ -1,7 +1,6 @@
 import { useState, useCallback, Fragment } from 'react';
 import type { MatrixProject, MatrixCell } from '../../types';
 import { getEffectiveDimensions } from '../../utils/matrix';
-import MatrixAxisTitles from './MatrixAxisTitles';
 
 /** Width of the row-label column in the reveal grid (px) — must match gridTemplateColumns below. */
 const ROW_HEADER_W = 80;
@@ -115,11 +114,28 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
         </div>
       </div>
 
-      {/* Axis titles (description mode only) */}
-      <MatrixAxisTitles matrix={matrix} paddingLeft={ROW_HEADER_W} />
-
-      {/* Grid */}
-      <div className="overflow-auto">
+      {/* Grid with axis titles */}
+      <div className="flex gap-1">
+        {/* Row axis title — vertical rotated text, left of the grid (description mode only) */}
+        {isDescriptionMode && matrix.row_axis_title && (
+          <div
+            className="flex items-center justify-center shrink-0 text-xs font-semibold text-lucid-600 dark:text-lucid-400"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', width: 16 }}
+          >
+            {matrix.row_axis_title}
+          </div>
+        )}
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          {/* Col axis title — horizontal text above column headers (description mode only) */}
+          {isDescriptionMode && matrix.col_axis_title && (
+            <div
+              className="shrink-0 text-xs font-semibold text-lucid-600 dark:text-lucid-400 text-center"
+              style={{ paddingLeft: ROW_HEADER_W }}
+            >
+              {matrix.col_axis_title}
+            </div>
+          )}
+          <div className="overflow-auto">
         <div
           className="grid gap-1 min-w-fit"
           style={{
@@ -178,6 +194,8 @@ export default function MatrixRevealView({ matrix }: MatrixRevealViewProps) {
               })}
             </Fragment>
           ))}
+        </div>
+          </div>
         </div>
       </div>
     </div>
