@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { getInfo } from '../services/api';
 import type { CommitInfo } from '../types';
 import { formatDatetime } from '../utils/date';
+import DocsModal from './DocsModal';
+import BookIcon from './ui/BookIcon';
 
 interface HeaderProps {
   projectName: string | null;
@@ -27,6 +29,7 @@ export default function Header({
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [commitInfo, setCommitInfo] = useState<CommitInfo | null>(null);
+  const [showDocs, setShowDocs] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -66,6 +69,7 @@ export default function Header({
   };
 
   return (
+    <>
     <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
@@ -158,6 +162,14 @@ export default function Header({
               {commitInfo.commit_short} · {formatDatetime(commitInfo.commit_date)}
             </span>
           )}
+          {/* Docs button */}
+          <button
+            onClick={() => setShowDocs(true)}
+            title="Documentation"
+            className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <BookIcon />
+          </button>
           {/* Dark mode toggle */}
           <button
             onClick={onToggleDark}
@@ -179,5 +191,7 @@ export default function Header({
         </div>
       </div>
     </header>
+    {showDocs && <DocsModal onClose={() => setShowDocs(false)} />}
+    </>
   );
 }
