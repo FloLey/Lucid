@@ -6,7 +6,7 @@ This guide walks you through creating a complete social media carousel from a ro
 
 ## Prerequisites
 
-- Lucid is running (see [Installation](../README.md#installation--requirements))
+- Lucid is running (see the README for installation instructions)
 - You have a Google API key configured (required for AI features)
 - The app is open at `http://localhost:5173`
 
@@ -74,7 +74,7 @@ Template configuration (prompts, style defaults, image settings) is edited throu
 
 1. Create a project from an existing template.
 2. Open **Settings** (gear icon) and adjust Prompts, Style, Image, and Instructions tabs to your liking.
-3. Create a new template and note that future projects can use the settings you'd refined — you can port settings by adjusting the template via the API or by iterating in a project first.
+3. Create a new template and note that future projects can use the settings you'd refined — you can port settings by adjusting the template via the API, or by first refining them within a project.
 
 ---
 
@@ -293,7 +293,7 @@ Click **New Matrix** and choose a generation mode:
 
 | Mode | Description |
 | :--- | :--- |
-| **Theme** | Enter a theme string (e.g. *"nostalgia"*). The AI picks n diagonal concepts and invents a unique pair of axes for each concept, then populates the entire grid. |
+| **Theme** | Enter a theme string (e.g. *"nostalgia"*). The AI picks n concepts and generates a distinct pair of axes per concept (each concept gets its own two axes), then populates the entire grid. |
 | **Description** | Describe a cross-axis relationship (e.g. *"feels like a generation but is actually from one"*). A single LLM call derives both axis labels and n shared labels, producing a rectangular grid. |
 
 Choose the grid size (n) and click **Generate**. Cells stream in as they complete — you don't need to wait for the full grid before reviewing results.
