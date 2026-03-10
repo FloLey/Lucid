@@ -1411,6 +1411,14 @@ class TestMatrixPromptFormatting:
             },
             "feels like a certain generation",
         ),
+        (
+            "matrix_image_builder",
+            {
+                "concept": "Fermentation",
+                "context": "Cooking Techniques matrix",
+            },
+            "Fermentation",
+        ),
     ])
     def test_prompt_formats_without_error(self, loader, name, kwargs, sentinel):
         """Each prompt must format cleanly and include a known sentinel value."""
