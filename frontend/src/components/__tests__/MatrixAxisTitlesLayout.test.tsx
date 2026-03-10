@@ -45,8 +45,8 @@ describe('Matrix axis titles layout (reveal view)', () => {
     const el = screen.getByText('Generation');
     expect(el).toBeInTheDocument();
     // The element or one of its ancestors should have writingMode style
-    const styled = el.closest('[style*="vertical-rl"]') ?? el;
-    expect(styled).toBeTruthy();
+    const styled = el.closest('[style*="vertical-rl"]');
+    expect(styled).not.toBeNull();
   });
 
   it('renders col_axis_title as horizontal text in description mode', () => {
