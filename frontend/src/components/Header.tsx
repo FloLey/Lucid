@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { getInfo } from '../services/api';
 import type { CommitInfo } from '../types';
 import { formatDatetime } from '../utils/date';
+import DocsModal from './DocsModal';
 
 interface HeaderProps {
   projectName: string | null;
@@ -27,6 +28,7 @@ export default function Header({
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [commitInfo, setCommitInfo] = useState<CommitInfo | null>(null);
+  const [showDocs, setShowDocs] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -66,6 +68,7 @@ export default function Header({
   };
 
   return (
+    <>
     <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
@@ -158,6 +161,17 @@ export default function Header({
               {commitInfo.commit_short} · {formatDatetime(commitInfo.commit_date)}
             </span>
           )}
+          {/* Docs button */}
+          <button
+            onClick={() => setShowDocs(true)}
+            title="Documentation"
+            className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          </button>
           {/* Dark mode toggle */}
           <button
             onClick={onToggleDark}
@@ -179,5 +193,7 @@ export default function Header({
         </div>
       </div>
     </header>
+    {showDocs && <DocsModal onClose={() => setShowDocs(false)} />}
+    </>
   );
 }
