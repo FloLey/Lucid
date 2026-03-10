@@ -3,7 +3,7 @@ Create a visual image generation prompt for a matrix cell.
 <concept>{concept}</concept>
 <context>Use only as background framing — do not let it overshadow the concept: {context}</context>
 
-Generate a detailed image generation prompt (aim for 60–80 words) that:
+Generate a detailed image generation prompt that:
 - Centres entirely on visually representing the concept — the context is secondary framing only
 - Contains no text, words, or typography in the image
 - Never names real people, brands, logos, trademarked characters, or named intellectual property — instead describe them purely by their visual appearance (e.g. instead of a character name, write "a small yellow rectangular sponge with round eyes, buck teeth, brown short pants, and white shirt")
