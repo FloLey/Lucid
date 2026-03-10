@@ -26,7 +26,7 @@ class IntersectionObserverStub {
   observe = observeMock;
   unobserve = vi.fn();
   disconnect = disconnectMock;
-  constructor(_cb: unknown, _opts?: unknown) {}
+  constructor() {}
 }
 
 // Stub Element.prototype.scrollBy / scrollIntoView (not in jsdom)
