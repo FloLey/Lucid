@@ -1,13 +1,15 @@
 Create a visual image generation prompt for a matrix cell.
 
-Concept: "{concept}"
-Context: "{context}"
+<concept>{concept}</concept>
+<context>Use only as background framing — do not let it overshadow the concept: {context}</context>
 
-Generate a concise image generation prompt (1–2 sentences) that:
-- Visually represents the concept without any text or words
+Generate a detailed image generation prompt that:
+- Centres entirely on visually representing the concept — the context is secondary framing only
+- Contains no text, words, or typography in the image
+- Never names real people, brands, logos, trademarked characters, or named intellectual property — instead describe them purely by their visual appearance (e.g. instead of a character name, write "a small yellow rectangular sponge with round eyes, buck teeth, brown short pants, and white shirt")
 - Is abstract, atmospheric, and evocative
 - Works well as a card background image (square or portrait format)
-- Uses color, texture, and composition to suggest the concept
+- Uses color, texture, light, and composition to embody the concept
 - Is visually distinct and striking
 
 Output only the image generation prompt text — no JSON, no labels, no explanations. Just the prompt.
