@@ -96,7 +96,7 @@ class MatrixDB:
                 if "duplicate column" in str(exc).lower():
                     logger.debug("Migration: column already exists, skipping (%s)", exc)
                 else:
-                    logger.warning("Unexpected error during DB migration: %s — %s", col_sql, exc)
+                    raise
 
     # ── Projects ──────────────────────────────────────────────────────────
 

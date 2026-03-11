@@ -35,6 +35,8 @@ class ExportService(BaseStageService):
         """Sanitize text for use in filename."""
         text = re.sub(r"[^\w\s-]", "", text)
         text = re.sub(r"\s+", "_", text)
+        text = text.replace("..", "").lstrip(".")
+        text = text.replace("/", "").replace("\\", "")
         return text[:max_length].strip("_")
 
     def _generate_filename(self, index: int, title: Optional[str], ext: str = "png") -> str:

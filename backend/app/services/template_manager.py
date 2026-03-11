@@ -18,28 +18,6 @@ from app.models.config import GlobalDefaultsConfig, StyleConfig
 logger = logging.getLogger(__name__)
 
 
-_prompts_cache: Optional[Dict[str, Dict[str, str]]] = None
-
-
-def _load_template_prompts() -> Dict[str, Dict[str, str]]:
-    """Return per-template prompt dicts, cached at module level.
-
-    Returns a mapping of ``{template_name: {prompt_name: content}}``.
-    The result is cached so repeated calls (e.g. every ``create_template``
-    API call) avoid redundant disk I/O.
-    """
-    global _prompts_cache
-    if _prompts_cache is None:
-        from app.services.prompt_loader import PromptLoader, TEMPLATE_PROMPT_FILES
-
-        loader = PromptLoader()
-        _prompts_cache = {
-            name: loader.load_for_template(name)
-            for name in TEMPLATE_PROMPT_FILES
-        }
-        # Include a generic fallback (no overrides) for custom templates
-        _prompts_cache[""] = loader.load_all()
-    return _prompts_cache
 
 
 def _row_to_data(row: TemplateDB) -> TemplateData:
@@ -63,6 +41,30 @@ class TemplateManager:
         session_factory: Optional[async_sessionmaker[AsyncSession]] = None,
     ) -> None:
         self._session_factory = session_factory or _default_session_factory
+        self._prompts_cache: Optional[Dict[str, Dict[str, str]]] = None
+
+    def _load_template_prompts(self) -> Dict[str, Dict[str, str]]:
+        """Return per-template prompt dicts, cached on this instance.
+
+        Returns a mapping of ``{template_name: {prompt_name: content}}``.
+        The result is cached so repeated calls (e.g. every ``create_template``
+        API call) avoid redundant disk I/O.
+        """
+        if self._prompts_cache is None:
+            from app.services.prompt_loader import PromptLoader, TEMPLATE_PROMPT_FILES
+
+            loader = PromptLoader()
+            self._prompts_cache = {
+                name: loader.load_for_template(name)
+                for name in TEMPLATE_PROMPT_FILES
+            }
+            # Include a generic fallback (no overrides) for custom templates
+            self._prompts_cache[""] = loader.load_all()
+        return self._prompts_cache
+
+    def clear_cache(self) -> None:
+        """Clear the prompt cache, forcing a reload on next access."""
+        self._prompts_cache = None
 
     # ------------------------------------------------------------------
     # Seeding
@@ -76,7 +78,7 @@ class TemplateManager:
                 logger.debug("Templates already seeded — skipping")
                 return
 
-        all_prompts = _load_template_prompts()
+        all_prompts = self._load_template_prompts()
 
         templates = [
             (
@@ -159,7 +161,7 @@ class TemplateManager:
     ) -> TemplateData:
         """Create a new template."""
         if config is None:
-            prompts = _load_template_prompts().get("") or {}
+            prompts = self._load_template_prompts().get("") or {}
             config = ProjectConfig(prompts=prompts)
 
         row = TemplateDB(

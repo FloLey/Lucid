@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from typing import AsyncGenerator, Optional, TYPE_CHECKING
 
+from app.models.config import WordsPerSlide
 from app.models.slide import Slide, SlideText
 from app.models.project import ProjectState
 from app.services.base_stage_service import BaseStageService
@@ -73,7 +74,7 @@ class StageDraftService(BaseStageService):
         include_titles: bool = True,
         additional_instructions: Optional[str] = None,
         language: str = "English",
-        words_per_slide: Optional[str] = None,
+        words_per_slide: Optional[WordsPerSlide] = None,
     ) -> Optional[ProjectState]:
         """Generate slide texts from a draft."""
         async with self._project_ctx(project_id) as project:

@@ -1,7 +1,9 @@
 """Configuration models for Lucid application."""
 
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
+
+WordsPerSlide = Literal["short", "medium", "long", "keep_as_is", "ai"]
 
 from app.config import IMAGE_WIDTH, IMAGE_HEIGHT, IMAGE_ASPECT_RATIO
 
@@ -33,7 +35,7 @@ class GlobalDefaultsConfig(BaseModel):
     include_titles: bool = Field(
         default=True, description="Include titles in slides by default"
     )
-    words_per_slide: Optional[str] = Field(
+    words_per_slide: Optional[WordsPerSlide] = Field(
         default=None,
         description="Default words-per-slide setting (short/medium/long/keep_as_is/ai)",
     )

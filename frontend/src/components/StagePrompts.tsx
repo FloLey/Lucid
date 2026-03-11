@@ -92,7 +92,7 @@ export default function Stage3() {
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {slides.map((slide, index) => (
               <div
-                key={index}
+                key={slide.index}
                 className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm"
               >
                 <span className="font-medium text-lucid-600">
@@ -172,7 +172,7 @@ export default function Stage3() {
             <div className="space-y-4">
               {slides.map((slide, index) => (
                 <div
-                  key={index}
+                  key={slide.index}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4"
                 >
                   <div className="flex items-start justify-between mb-2">

@@ -84,6 +84,7 @@ Tests use FastAPI's `TestClient` (via `conftest.py` fixture).
 cd frontend
 npm run test           # Run vitest test suite (once)
 npm run test:watch     # Run in watch mode
+npm run test:coverage  # Run with coverage report (requires @vitest/coverage-v8)
 ```
 
 ### Frontend Lint & Build
@@ -142,6 +143,11 @@ npm run build          # tsc type-check + vite production build
 
 **Prompt templates:** Stored as `.prompt` files in `backend/prompts/`. Subdirectories `prompts/carousel/` and `prompts/painting/` contain template-specific overrides; missing overrides fall back to the root prompt file. Edit `.prompt` files to change LLM behaviour without code changes.
 
+**Prompt Override Strategy:** Root `.prompt` files are shared defaults used by all templates. `prompts/carousel/` overrides apply when a project uses the Carousel template; `prompts/painting/` overrides apply for the Painting template. When adding a new prompt:
+- If the prompt should behave the same for all templates, add it to the root `prompts/` directory.
+- If a template needs different behaviour, create a subdirectory file (e.g., `prompts/carousel/my_prompt.prompt`); the shared root file acts as the fallback for templates without an override.
+- `PromptLoader.load_for_template(name)` handles the fallback chain automatically.
+
 ### Frontend (React + TypeScript + Vite)
 
 **Entry point:** `frontend/src/main.tsx` → `App.tsx`
@@ -198,6 +204,7 @@ npm run build          # tsc type-check + vite production build
 | `CORS_ALLOWED_ORIGINS` | No | `http://localhost:3000,http://localhost:5173` | Comma-separated allowed origins |
 | `RATE_LIMIT_MAX_CALLS` | No | `120` | Max `/api/*` requests per IP per rate-limit window |
 | `RATE_LIMIT_WINDOW_SECONDS` | No | `60` | Sliding-window size for the rate limiter (seconds) |
+| `LLM_DEBUG_LOG` | No | (none) | Set to `1` to enable JSONL debug logging of all LLM calls to `backend/logs/llm_debug.jsonl` |
 
 ## Testing Patterns
 

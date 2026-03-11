@@ -2,17 +2,7 @@ import { useState } from 'react';
 import { useMatrix } from '../../contexts/MatrixContext';
 import NewMatrixModal from './NewMatrixModal';
 import type { CreateMatrixParams } from '../../services/api';
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  return date.toLocaleDateString();
-}
+import { formatRelativeDate } from '../../utils/date';
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   pending: { label: 'Pending', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' },
@@ -177,7 +167,7 @@ export default function MatrixHome({ onOpenSettings }: MatrixHomeProps) {
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.cls}`}>
                     {badge.label}
                   </span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(matrix.updated_at)}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{formatRelativeDate(matrix.updated_at)}</span>
                 </div>
 
               </div>

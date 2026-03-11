@@ -2588,9 +2588,7 @@ class TestValidationSwapAndDuplicateRetry:
             await container.matrix_db.upsert_cell(pid, 0, 1, concept="Alpha", explanation="exp-a")
             await container.matrix_db.upsert_cell(pid, 1, 0, concept="Beta",  explanation="exp-b")
 
-            _queues_ref = {}
-            from app.services import matrix_service as ms_mod
-            ms_mod._queues[pid] = []
+            svc._queues[pid] = []
 
             await svc._apply_swap(pid, 0, 1, 1, 0)
 
@@ -2616,8 +2614,7 @@ class TestValidationSwapAndDuplicateRetry:
             await container.matrix_db.upsert_cell(pid, 0, 1, concept="X", explanation="ex")
             await container.matrix_db.upsert_cell(pid, 1, 0, concept="Y", explanation="ey")
 
-            from app.services import matrix_service as ms_mod
-            ms_mod._queues[pid] = []
+            svc._queues[pid] = []
             original_emit = svc._emit
             async def _capture(event):
                 emitted.append(event)
