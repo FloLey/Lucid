@@ -33,10 +33,10 @@ class ExportService(BaseStageService):
 
     def _sanitize_filename(self, text: str, max_length: int = 30) -> str:
         """Sanitize text for use in filename."""
+        # [^\w\s-] strips all non-word, non-whitespace, non-hyphen characters,
+        # which already removes '.', '/', '\', and any other path-unsafe chars.
         text = re.sub(r"[^\w\s-]", "", text)
         text = re.sub(r"\s+", "_", text)
-        text = text.replace("..", "").lstrip(".")
-        text = text.replace("/", "").replace("\\", "")
         return text[:max_length].strip("_")
 
     def _generate_filename(self, index: int, title: Optional[str], ext: str = "png") -> str:

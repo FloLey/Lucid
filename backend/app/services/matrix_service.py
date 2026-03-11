@@ -69,7 +69,6 @@ class MatrixService:
                 name=f"matrix-{project.id[:8]}",
             )
             self._tasks[project.id] = task
-        task.add_done_callback(lambda _t: self._tasks.pop(project.id, None))
         # Re-fetch so the returned project reflects status="generating", not "pending".
         # The frontend only auto-starts the SSE stream when status=="generating".
         updated = await self._db.get_project(project.id)
@@ -611,7 +610,12 @@ class MatrixService:
                 {"type": "error", "project_id": project_id, "message": str(exc)}
             )
         finally:
-            # Small delay so clients can receive the final event before cleanup
+            # Remove the task entry and clean up subscriber queues.
+            # Both happen under the lock so readers see a consistent state.
+            # The delay allows clients to receive the final SSE event before the
+            # queue is torn down.
+            async with self._lock:
+                self._tasks.pop(project_id, None)
             await asyncio.sleep(2)
             async with self._lock:
                 self._queues.pop(project_id, None)
