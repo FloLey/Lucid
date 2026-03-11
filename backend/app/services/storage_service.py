@@ -25,6 +25,10 @@ IMAGE_DIR: Path = Path(os.getenv("LUCID_IMAGE_DIR", "/app/data/images"))
 # URL prefix served by the static-files mount in main.py
 _IMAGE_URL_PREFIX = "/images/"
 
+# Maximum allowed base64 payload size (~37 MB decoded).
+# Prevents memory exhaustion from oversized inputs.
+_MAX_BASE64_SIZE = 50 * 1024 * 1024
+
 
 def _is_file_path(value: str) -> bool:
     """Return True if *value* looks like an /images/ URL path rather than base64."""
@@ -73,6 +77,10 @@ class StorageService:
 
     def _save_image_to_disk(self, base64_data: str) -> str:
         """Synchronous implementation — call ``save_image_to_disk`` from async code."""
+        if len(base64_data) > _MAX_BASE64_SIZE:
+            raise ValueError(
+                f"base64 payload exceeds maximum allowed size of {_MAX_BASE64_SIZE} bytes"
+            )
         IMAGE_DIR.mkdir(parents=True, exist_ok=True)
         file_name = f"{uuid.uuid4()}.png"
         file_path = IMAGE_DIR / file_name
@@ -98,6 +106,10 @@ class StorageService:
             if not safe_path.is_relative_to(IMAGE_DIR.resolve()):
                 raise ValueError(f"Invalid image path: {file_name!r}")
             return safe_path.read_bytes()
+        if len(path_or_b64) > _MAX_BASE64_SIZE:
+            raise ValueError(
+                f"base64 payload exceeds maximum allowed size of {_MAX_BASE64_SIZE} bytes"
+            )
         return base64.b64decode(path_or_b64)
 
     def decode_image_from_path_or_b64(self, data: str) -> Image.Image:

@@ -57,10 +57,6 @@ class StageImagesService(BaseStageService):
             self._build_full_prompt(project, i) for i in range(len(project.slides))
         ]
 
-        # Delete existing background images before overwriting
-        for slide in project.slides:
-            await self.storage_service.delete_image(slide.background_image_url)
-
         results = await self._batch(
             [self.image_service.generate_image(p) for p in full_prompts],
             limit=concurrency_limit,
@@ -73,9 +69,12 @@ class StageImagesService(BaseStageService):
                     slide.index,
                     result,
                 )
-                # Preserve existing image on failure rather than losing it
+                # Preserve existing image on failure
                 continue
+            old_url = slide.background_image_url
             slide.background_image_url = await self.storage_service.save_image_to_disk(result)
+            # Only delete the old image after the new one is successfully saved
+            await self.storage_service.delete_image(old_url)
 
         # Update thumbnail to the first slide's background image
         if project.slides and project.slides[0].background_image_url:
@@ -99,10 +98,11 @@ class StageImagesService(BaseStageService):
                 slide.image_prompt = _DEFAULT_IMAGE_PROMPT.format(n=slide_index + 1)
 
             full_prompt = self._build_full_prompt(project, slide_index)
-            # Delete existing background image before overwriting
-            await self.storage_service.delete_image(slide.background_image_url)
+            old_url = slide.background_image_url
             b64 = await self.image_service.generate_image(full_prompt)
             slide.background_image_url = await self.storage_service.save_image_to_disk(b64)
+            # Only delete the old image after the new one is successfully saved
+            await self.storage_service.delete_image(old_url)
 
             # Keep the project thumbnail in sync: if this slide was the thumbnail source,
             # update it so the project list doesn't show a broken image.

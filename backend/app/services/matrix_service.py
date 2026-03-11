@@ -21,11 +21,6 @@ from app.services.matrix_generator import MatrixGenerator
 
 logger = logging.getLogger(__name__)
 
-# Module-level state ── one entry per actively-generating project
-_tasks: Dict[str, "asyncio.Task[None]"] = {}
-_queues: Dict[str, List[asyncio.Queue]] = {}  # fan-out: multiple SSE clients
-
-
 class MatrixService:
     """Orchestrates matrix generation and SSE event routing."""
 
@@ -38,6 +33,11 @@ class MatrixService:
         self._db = matrix_db
         self._gen = matrix_generator
         self._settings = settings or MatrixSettings()
+        # Per-instance state: one entry per actively-generating project.
+        # Protected by _lock to prevent races on concurrent requests for the same project.
+        self._tasks: Dict[str, "asyncio.Task[None]"] = {}
+        self._queues: Dict[str, List[asyncio.Queue]] = {}  # fan-out: multiple SSE clients
+        self._lock = asyncio.Lock()
 
     def load_settings(self, settings: MatrixSettings) -> None:
         self._settings = settings
@@ -62,24 +62,25 @@ class MatrixService:
             n_cols=req.effective_n_cols if req.input_mode == "description" else 0,
         )
         await self._db.update_project_status(project.id, "generating")
-        _queues[project.id] = []
-
-        task = asyncio.create_task(
-            self._run_pipeline(project.id, req),
-            name=f"matrix-{project.id[:8]}",
-        )
-        _tasks[project.id] = task
-        task.add_done_callback(lambda _t: _tasks.pop(project.id, None))
+        async with self._lock:
+            self._queues[project.id] = []
+            task = asyncio.create_task(
+                self._run_pipeline(project.id, req),
+                name=f"matrix-{project.id[:8]}",
+            )
+            self._tasks[project.id] = task
+        task.add_done_callback(lambda _t: self._tasks.pop(project.id, None))
         # Re-fetch so the returned project reflects status="generating", not "pending".
         # The frontend only auto-starts the SSE stream when status=="generating".
         updated = await self._db.get_project(project.id)
         return updated or project
 
     def is_generating(self, project_id: str) -> bool:
-        return project_id in _tasks
+        return project_id in self._tasks
 
     async def cancel_generation(self, project_id: str) -> None:
-        task = _tasks.pop(project_id, None)
+        async with self._lock:
+            task = self._tasks.pop(project_id, None)
         if task and not task.done():
             task.cancel()
             try:
@@ -95,7 +96,8 @@ class MatrixService:
         project = await self._db.get_project(project_id)
         if project is None:
             raise ValueError("Project not found")
-        _queues.setdefault(project_id, [])
+        async with self._lock:
+            self._queues.setdefault(project_id, [])
 
         async def _gen_one(row: int, col: int, concept: str, context: str) -> None:
             try:
@@ -177,7 +179,8 @@ class MatrixService:
             concept = cell.concept if cell else ""
             explanation = cell.explanation if cell else ""
             context = f"{row_concept['label']} meets {col_concept['label']}"
-            _queues.setdefault(project_id, [])
+            async with self._lock:
+                self._queues.setdefault(project_id, [])
             image_url = await self._gen.generate_cell_image(
                 project_id, row, col,
                 concept or "", context,
@@ -193,7 +196,8 @@ class MatrixService:
             if c.concept and not (c.row == row and c.col == col)
         ]
 
-        _queues.setdefault(project_id, [])
+        async with self._lock:
+            self._queues.setdefault(project_id, [])
         await self._db.upsert_cell(project_id, row, col, cell_status="generating")
         result = await self._gen.generate_cell(
             project_id=project_id,
@@ -246,7 +250,8 @@ class MatrixService:
 
         # Create a personal queue and register it
         sub_q: asyncio.Queue = asyncio.Queue(maxsize=1024)
-        _queues.setdefault(project_id, []).append(sub_q)
+        async with self._lock:
+            self._queues.setdefault(project_id, []).append(sub_q)
         try:
             while True:
                 try:
@@ -258,7 +263,8 @@ class MatrixService:
                     yield {"type": "heartbeat", "project_id": project_id}
         finally:
             try:
-                _queues.get(project_id, []).remove(sub_q)
+                async with self._lock:
+                    self._queues.get(project_id, []).remove(sub_q)
             except ValueError:
                 pass
 
@@ -607,7 +613,8 @@ class MatrixService:
         finally:
             # Small delay so clients can receive the final event before cleanup
             await asyncio.sleep(2)
-            _queues.pop(project_id, None)
+            async with self._lock:
+                self._queues.pop(project_id, None)
 
     # ── Re-validation (user-comment-driven) ──────────────────────────────
 
@@ -618,10 +625,11 @@ class MatrixService:
         project = await self._db.get_project(project_id)
         if project is None:
             raise ValueError("Project not found")
-        _queues.setdefault(project_id, [])
         await self._db.update_project_status(project_id, "generating")
-        task = asyncio.create_task(self._run_revalidation(project_id, user_comment))
-        _tasks[project_id] = task
+        async with self._lock:
+            self._queues.setdefault(project_id, [])
+            task = asyncio.create_task(self._run_revalidation(project_id, user_comment))
+            self._tasks[project_id] = task
 
     async def _run_revalidation(self, project_id: str, user_comment: str) -> None:
         """Validation-only background task: validate → swap → retry, then mark complete."""
@@ -726,9 +734,11 @@ class MatrixService:
             await self._db.update_project_status(project_id, "failed", str(exc))
             await self._emit({"type": "error", "project_id": project_id, "message": str(exc)})
         finally:
-            _tasks.pop(project_id, None)
+            async with self._lock:
+                self._tasks.pop(project_id, None)
             await asyncio.sleep(2)
-            _queues.pop(project_id, None)
+            async with self._lock:
+                self._queues.pop(project_id, None)
 
     # ── Swap helper ───────────────────────────────────────────────────────
 
@@ -777,7 +787,7 @@ class MatrixService:
     async def _emit(self, event: Dict[str, Any]) -> None:
         """Push event to all subscriber queues for the project."""
         project_id = event.get("project_id", "")
-        for q in list(_queues.get(project_id, [])):
+        for q in list(self._queues.get(project_id, [])):
             try:
                 q.put_nowait(event)
             except asyncio.QueueFull:

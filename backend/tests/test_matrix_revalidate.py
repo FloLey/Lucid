@@ -376,11 +376,10 @@ class TestRunRevalidation:
         ))
         service, _ = self._make_service()
         # Simulate a task already running by inserting a sentinel into _tasks
-        from app.services import matrix_service as ms_module
-        ms_module._tasks[project.id] = object()  # any truthy value; is_generating checks membership
+        service._tasks[project.id] = object()  # any truthy value; is_generating checks membership
 
         try:
             with pytest.raises(ValueError, match="Already generating"):
                 run_async(service.revalidate_matrix(project.id, ""))
         finally:
-            ms_module._tasks.pop(project.id, None)
+            service._tasks.pop(project.id, None)

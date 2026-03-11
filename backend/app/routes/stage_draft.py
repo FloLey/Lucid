@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.models.config import WordsPerSlide
 from app.models.project import ProjectResponse
 from app.dependencies import get_stage_draft_service
 from app.services.stage_draft_service import StageDraftService
@@ -25,7 +26,7 @@ class GenerateSlideTextsRequest(BaseModel):
     include_titles: bool = Field(default=True)
     additional_instructions: Optional[str] = None
     language: str = Field(default="English")
-    words_per_slide: Optional[str] = Field(
+    words_per_slide: Optional[WordsPerSlide] = Field(
         default=None,
         description="Word count hint: 'short', 'medium', 'long', 'keep_as_is', or None (AI decides)",
     )

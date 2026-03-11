@@ -1,12 +1,14 @@
 # Lucid Backend - Python 3.13
 FROM python:3.13-slim
 
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
 # Install system dependencies for Pillow text rendering
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libfreetype6-dev \
     libfribidi-dev \
     libharfbuzz-dev \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -35,4 +37,7 @@ USER 1000
 # Expose port
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
