@@ -40,7 +40,7 @@ export default function ModeSelector({ onSelect, isDark, onToggleDark }: ModeSel
               Slide Generation
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Turn rough drafts into polished Instagram carousels, slide by slide.
+              Turn rough drafts into polished social media carousels, stage by stage.
             </p>
           </button>
 
