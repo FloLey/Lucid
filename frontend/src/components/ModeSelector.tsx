@@ -21,7 +21,7 @@ export default function ModeSelector({ onSelect, isDark, onToggleDark }: ModeSel
             What would you like to create?
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mt-2">
-            Choose a mode to get started.
+            Design polished slide carousels or explore ideas as visual concept matrices.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl">
@@ -40,7 +40,7 @@ export default function ModeSelector({ onSelect, isDark, onToggleDark }: ModeSel
               Slide Generation
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Research, draft, style, and export polished social media slides — six stages, pixel-perfect typography.
+              Turn rough drafts into polished social media carousels, stage by stage.
             </p>
           </button>
 
