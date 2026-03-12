@@ -21,7 +21,7 @@ export default function ModeSelector({ onSelect, isDark, onToggleDark }: ModeSel
             What would you like to create?
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mt-2">
-            Design polished slide carousels or explore ideas as visual concept matrices.
+            Choose a mode to get started.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl">
