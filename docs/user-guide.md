@@ -72,11 +72,17 @@ When creating a new project, select a template from the **Template** dropdown in
 
 #### Customising a template's configuration
 
-Template configuration (prompts, style defaults, image settings) is edited through the **Settings** modal inside a project. Recommended workflow:
+Template configuration is edited directly inside the **Templates panel**. Click any template in the list to open its editor, then use the tabs to adjust settings:
 
-1. Create a project from an existing template.
-2. Open **Settings** (gear icon) and adjust Prompts, Style, Image, and Instructions tabs.
-3. Future projects can be created from templates that reflect your refined defaults.
+| Tab | What you can configure |
+| :--- | :--- |
+| **General** | Template name, default slide count, default language, title inclusion |
+| **Style** | Base typography defaults (font family, colours, stroke) |
+| **Image** | Output resolution and image model |
+| **Instructions** | Pre-seeded stage-specific instructions |
+| **Prompts** | LLM prompt templates for each pipeline stage |
+
+Click **Save Template** in the footer when done. Changes apply to this template only — existing projects created from it are unaffected.
 
 ---
 
