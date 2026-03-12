@@ -91,7 +91,7 @@ export default function Header({
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">Lucid</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Transform drafts into carousels</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Slides and concept matrices, AI-powered</p>
               </div>
             </div>
           )}
