@@ -1,54 +1,171 @@
 # Lucid 🌠
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/FloLey/Lucid)
 
-**Transform rough drafts into polished, high-converting social media carousels.**
-Lucid is a containerized web application that orchestrates a sophisticated pipeline to convert your messy, unstructured ideas into beautiful, ready-to-publish 4:5 carousel slides. Built with a FastAPI backend and a React/TypeScript frontend, it leverages Google Gemini for creative heavy lifting and a deterministic rendering engine for pixel-perfect typography.
+**AI-powered creative content studio — turn ideas into polished slides and concept matrices.**
+
+Lucid is a containerized web application with two first-class creation modes: a **6-stage carousel pipeline** that converts rough drafts into pixel-perfect social media slides, and a **Concept Matrix Generator** that maps any theme or cross-axis relationship into a streamed n×n visual grid. Built with a FastAPI backend and a React/TypeScript frontend, it uses Google Gemini for creative heavy lifting and a deterministic rendering engine for reliable typography.
+
 ---
-## The Philosophy: The Progressive Pipeline Architecture
-Why does Lucid exist? Because **Generative AI struggles with rendering text inside images.** Relying on a single zero-shot prompt to generate a complete, spelled-correctly, well-laid-out slide is a recipe for hallucinations and warped artifacts.
-Lucid solves this by implementing a **Progressive Pipeline Architecture**. We treat AI as a chain of specialized workers rather than a magic black box:
-1. **Separation of Concerns:** The AI is strictly relegated to structural writing and generating *text-free* background imagery. A deterministic engine (Pillow/PIL) handles all typography.
-2. **Grounding & Context:** Each stage's output grounds the next. Search-grounded research feeds a structured draft $\rightarrow$ Draft is split into slide text $\rightarrow$ Text informs global visual styles $\rightarrow$ Styles dictate slide-specific image prompts $\rightarrow$ Prompts generate clean backgrounds $\rightarrow$ Text is accurately layered on top.
-3. **Human-in-the-Loop Intercession:** By breaking the process into 6 discrete stages, users can audit, edit, and safely course-correct at any step without having to start over.
+
+## Slide Generation
+
+### The Pipeline Architecture
+
+Why a pipeline instead of a single prompt? Because **Generative AI struggles with rendering text inside images.** Asking one model to generate a complete, correctly-spelled, well-laid-out slide in a single shot reliably produces hallucinations and warped artifacts.
+
+Lucid solves this with a **Progressive Pipeline Architecture** — AI as a chain of specialized workers, not a magic black box:
+
+1. **Separation of Concerns:** The AI handles structural writing and generates *text-free* background imagery. A deterministic engine (Pillow/PIL) handles all typography.
+2. **Grounding & Context:** Each stage's output grounds the next. Search-grounded research feeds a structured draft → Draft is split into slide text → Text informs global visual styles → Styles dictate slide-specific image prompts → Prompts generate clean backgrounds → Text is accurately layered on top.
+3. **Human-in-the-Loop:** Six discrete stages let you audit, edit, and course-correct at any step without starting over.
+
+### The 6-Stage Workflow
+
+Lucid uses a strict, bi-directional 6-stage workflow. You can regenerate individual slides, edit any output, or step backward without losing downstream configuration.
+
+#### 🔍 Stage 1: Research
+Chat with an AI research assistant grounded in real-time Google Search to brainstorm ideas, gather facts, and explore angles. When ready, click **Create Draft** to synthesise the conversation into a structured draft — or skip if you already have content.
+
+#### 📝 Stage 2: Draft
+Paste or refine your draft text. The AI acts as a content strategist, splitting it into a logically flowing sequence of slides with distinct Titles and Bodies.
+
+*Customise language, slide count, and toggle title generation.*
+
+#### 🎨 Stage 3: Style Proposals
+The AI analyses your slide text and generates distinct style proposals (e.g. *Minimalist geometric, warm watercolour washes, dark moody photography*). Picking one here guarantees that all images generated later share a consistent visual vocabulary.
+
+#### 🧠 Stage 4: Image Prompts
+Instead of generating images directly, the AI first writes highly specific, text-free image prompts for *each individual slide*, prepending the global style chosen in Stage 3.
+
+*Edit or regenerate individual prompts before spending API calls on images.*
+
+#### 🖼️ Stage 5: Image Generation
+Lucid sends all image prompts in parallel to Gemini and renders clean, consistent 4:5 background images (1080×1350 px).
+
+#### 🔤 Stage 6: Typography & Layout
+The deterministic rendering engine takes over. Drag, drop, and resize text boxes on the canvas. Adjust fonts, weights, colours, drop shadows, and strokes. The system binary-searches for the mathematically perfect font size to fit your text. Hit **Export ZIP** to download your ready-to-post carousel.
+
 ---
-## The Workflow
-Lucid is designed around a strict, bi-directional 6-stage workflow. At any point, you can regenerate an individual slide, edit the output, or step backward without losing your downstream configurations.
-### 🔍 Stage 1: Research
-Chat with an AI research assistant grounded in real-time Google Search to brainstorm ideas, gather facts, and explore angles for your carousel. When you're ready, hit **Create Draft** to synthesise the conversation into a structured draft — or skip this stage if you already have content.
-*Add research instructions to guide how the conversation is summarised into a draft.*
-### 📝 Stage 2: Draft
-Paste or refine your draft text. The AI acts as a content strategist, splitting it into a cohesive, logically flowing sequence of slides with distinct Titles and Bodies.
-*Customize language, slide count, and toggle title generation.*
-### 🎨 Stage 3: Style Proposals
-The AI analyzes your slide text and generates distinct "Style Proposals" (e.g., *Minimalist geometric, warm watercolor washes, dark moody photography*). This guarantees that every image generated later will share a consistent visual vocabulary.
-### 🧠 Stage 4: Image Prompts
-Instead of generating images directly, the AI first writes highly specific, text-free image prompts for *each individual slide*, prepending the global style you chose in Stage 3.
-*Don't like a specific slide's concept? Edit the prompt manually or ask the AI to regenerate it.*
-### 🖼️ Stage 5: Image Generation
-Lucid triggers parallel execution of image generation requests, creating clean, consistent background images mapped to your 4:5 layout.
-### 🔤 Stage 6: Typography & Layout
-The deterministic rendering engine takes over. Drag, drop, and resize text boxes directly on the canvas. Adjust fonts, weights, colors, drop shadows, and strokes. The system automatically calculates perfect scaling to fit your text into the layout. Finally, hit **Export ZIP** to download your ready-to-post carousel.
+
+## Matrix Generation
+
+### Overview
+
+The Concept Matrix Generator creates an n×n grid of AI-generated cells. Each cell represents the intersection of two descriptive axes and carries its own title, body text, and optional background image. Cells stream to the UI as they complete — you see the grid fill in live.
+
+Matrices are fully independent of the carousel pipeline. They have their own home screen, project list, settings, and views.
+
+### Input Modes
+
+When creating a matrix you choose one of two modes:
+
+| Mode | What you provide | What the AI does |
+| :--- | :--- | :--- |
+| **Theme** | A theme string (e.g. *"The philosophy of time and consciousness"*) | Picks n distinct diagonal concepts from the theme; invents a unique pair of descriptive axes for each concept; then populates all n×n cells at the intersection of those axes. Grid is square (n×n). |
+| **Description** | A cross-axis relationship (e.g. *"feels like a certain generation but is actually from a different one"*) | A single LLM call derives both axis labels and n shared labels for rows and columns, producing a rectangular grid (rows×cols). |
+
+### Grid Size
+
+- **Theme mode:** choose n ∈ {2, 3, 4, 5, 6} → produces an n×n grid (4–36 cells).
+- **Description mode:** choose rows and columns independently from {2, 3, 4, 5, 6}.
+
+### Style Mode
+
+Each matrix is generated with one of four style modes that shape the tone of every cell:
+
+| Style | Character |
+| :--- | :--- |
+| **Neutral** | Balanced, informative |
+| **Fun** | Playful, informal |
+| **Absurd** | Unexpected, surreal juxtapositions |
+| **Academic** | Analytical, precise |
+
+### Generation & Streaming
+
+Clicking **Generate Matrix** starts an async generation job on the backend. Cells are generated in parallel (bounded by `max_concurrency`) and streamed to the UI via SSE. You can watch the grid populate cell by cell without waiting for the full job to finish.
+
+A generation job has four statuses: **Pending → Generating → Complete / Failed**.
+
+### Image Generation
+
+Images are optional and can be added at any time:
+
+- **At creation time:** check **Generate images for each cell** in the New Matrix modal.
+- **After generation:** click **Generate Images** from the matrix view to bulk-generate backgrounds for all cells.
+- **Per cell:** click **Regen** on any individual cell to regenerate its image without touching others.
+
+Images are produced by Gemini from an AI-written prompt that combines the cell's content with the matrix's global style.
+
+### Revalidation
+
+If some cells fail during generation (or produce low-quality content), click **Revalidate** from the matrix view. This runs a validation pass that identifies failed or weak cells and regenerates only those. You can optionally supply a **user comment** (e.g. *"cells should be more specific"*) which is injected into the validator prompt as extra instructions.
+
+Progress streams via the same SSE endpoint as initial generation.
+
+### Views
+
+Once a matrix is generated, three views are available:
+
+| View | Description |
+| :--- | :--- |
+| **Grid** | Default interactive view. Shows all cells in the n×n grid with axis labels. Click any cell to expand it. |
+| **Poster** | Full-page visual layout designed for screenshots or sharing — renders all cells in a clean grid with large axis headers. |
+| **Reveal** | Presentation mode: cycles through cells one at a time for storytelling or slide-by-slide review. |
+
+### Settings
+
+Click **Settings** in the Matrix workspace to configure:
+
+| Setting | Description |
+| :--- | :--- |
+| **Text Model** | Gemini model ID used for cell text generation |
+| **Image Model** | Gemini model ID used for cell image generation |
+| **Diagonal Temperature** | LLM temperature for seed concept generation (higher = more surprising) |
+| **Axes Temperature** | Temperature for descriptor/axis generation |
+| **Cell Temperature** | Temperature for off-diagonal cell content |
+| **Validation Temperature** | Temperature for the revalidation pass |
+| **Max Concurrency** | Number of parallel LLM calls during generation (1–20) |
+| **Max Retries** | Automatic retry attempts for failed cells (0–5) |
+
+Settings are persisted in `matrix_settings.json` and can be reset to factory defaults.
+
 ---
+
 ## Feature Highlights
-Lucid packs several advanced technical implementations to make the pipeline robust and seamless:
-*   **Binary Search Text Fitting:** The `RenderingService` uses an $O(\log n)$ binary search algorithm (`_find_fitting_size`) to calculate the mathematically perfect font size for a given bounding box, replacing brittle linear decrements and ensuring text never overflows.
-*   **Fuzzy Font Matching:** The `FontManager` builds an indexed registry of your TTF/OTF files on startup. If the UI requests "Inter 600" but only "Inter 700" is available, it gracefully degrades to the nearest available mathematical weight.
-*   **Debounced Sync & Render Loop:** The frontend `useDebouncedRender` hook eliminates React state race conditions. It ensures rapid keystrokes trigger a single, synchronous database save followed by a PIL background render, using monotonic request IDs to silently drop stale in-flight responses.
-*   **Hot-Swappable, Validated Prompts:** LLM system instructions live in version-controlled `.prompt` files (e.g., `slide_generation.prompt`), editable directly via the UI. The backend runs AST-style validation to ensure required `{variables}` aren't accidentally deleted by the user.
-*   **Concurrency & Rate Limiting:** Outbound AI calls use `bounded_gather()` — a thin wrapper around `asyncio.Semaphore` — to strictly limit concurrent LLM text and image requests, preventing `429 Too Many Requests` API limits.
-*   **Concept Matrix Generator:** A standalone side-feature that produces n×n visual concept grids. Accepts a **theme** (AI picks diagonal concepts and per-concept axes) or a **description** of a cross-axis relationship (a single LLM call derives both axis labels). Results stream via SSE as each cell is generated in parallel.
+
+- **Binary Search Text Fitting:** The `RenderingService` uses an O(log n) binary search algorithm to find the mathematically perfect font size for a given bounding box — text never overflows or runs short.
+- **Fuzzy Font Matching:** The `FontManager` indexes all TTF/OTF files on startup. If the UI requests "Inter 600" but only "Inter 700" is available, it gracefully uses the nearest weight.
+- **Debounced Sync & Render Loop:** `useDebouncedRender` eliminates React state race conditions. Rapid keystrokes trigger a single synchronous database save followed by a deterministic PIL render, using monotonic request IDs to drop stale in-flight responses.
+- **SSE Streaming:** Both slide text regeneration and matrix cell generation use Server-Sent Events. The `useStreamingText` and `useMatrixStream` hooks share a common `parseSSELine` utility.
+- **Hot-Swappable, Validated Prompts:** LLM instructions live in version-controlled `.prompt` files editable via the UI. The backend runs AST-style validation to ensure required `{variables}` aren't accidentally deleted.
+- **Concurrency Control:** `bounded_gather()` — a thin `asyncio.Semaphore` wrapper — limits concurrent LLM calls for both the carousel pipeline and matrix generator, preventing 429 errors.
+- **Per-Template Prompt Overrides:** Root `.prompt` files are shared defaults. Files in `prompts/carousel/` or `prompts/painting/` override only the templates that need different behaviour.
+
 ---
-## Configuration & Customization
-Lucid behavior is highly customizable via the **Templates** editor (Templates button on the home screen) or the `config.json` file.
-### App Config Schema (`config.json`)
-*   **`global_defaults`**: Set default languages (e.g., "English"), slide counts, and toggle title inclusion.
-*   **`image`**: Controls backend rendering resolutions (defaults to `1080x1350`, aspect ratio `4:5`).
-*   **`style`**: Base typography configurations (`default_font_family`, colors, stroke properties).
-*   **`stage_instructions`**: Pre-seed standard instructions into specific pipeline stages (e.g., "Always use an energetic tone" for Stage 1).
-### Templates
-You can save any project configuration as a reusable **Template**. Future projects launched from a template will inherit the slide counts, configuration defaults, and even the exact prompt logic of the template base.
+
+## Configuration & Customisation
+
+### Carousel — `config.json`
+
+| Key | Description |
+| :--- | :--- |
+| `global_defaults` | Default language, slide count, title inclusion |
+| `image` | Output resolution (default: 1080×1350, aspect ratio 4:5) |
+| `style` | Base typography: font family, colours, stroke properties |
+| `stage_instructions` | Pre-seeded instructions for specific pipeline stages |
+
+### Carousel — Templates
+
+Any project configuration can be saved as a reusable **Template**. Future projects launched from a template inherit its slide count, configuration defaults, and prompt logic. Templates are managed via the **Templates** button on the carousel home screen.
+
+### Matrix — Settings
+
+Matrix generation parameters (models, temperatures, concurrency, retries) are configured through the **Settings** button in the Matrix workspace and persisted in `matrix_settings.json`.
+
 ---
+
 ## Quick Start — GitHub Codespaces
+
 The fastest way to run Lucid with zero local setup:
 
 1. **Set your API key** as a Codespaces secret — go to [github.com/settings/codespaces](https://github.com/settings/codespaces), add a secret named `GOOGLE_API_KEY` with your key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey), and grant it access to this repository.
@@ -58,48 +175,55 @@ The fastest way to run Lucid with zero local setup:
 > The `GOOGLE_API_KEY` secret is injected into the Docker Compose environment automatically — no `.env` file needed.
 
 ---
+
 ## Installation & Requirements
+
 Lucid is built for containerized, Docker-first development.
+
 **Prerequisites:**
 - Docker & Docker Compose
 - A Google Generative AI API Key (https://aistudio.google.com/apikey)
+
 ### 1. Environment Setup
-Clone the repository and set up your `.env` file:
+
 ```bash
 git clone https://github.com/FloLey/Lucid.git
 cd Lucid
 cp .env.example .env
 ```
-Add your `GOOGLE_API_KEY` to the `.env` file. *(Note: Without an API key, the app gracefully falls back to generating placeholder gradient images).*
+
+Add your `GOOGLE_API_KEY` to the `.env` file. *(Without an API key the app falls back to gradient placeholder images and text generation is unavailable.)*
+
 ### 2. Initialize Configuration
-Ensure the base config file exists before Docker boots:
+
 ```bash
 echo '{}' > config.json
 ```
+
 ### 3. Build and Run
+
 ```bash
 docker-compose up --build
 ```
-*Docker will automatically download the required open-source fonts during the build process.*
-Access the application at **`http://localhost:5173`**.
-Access the Swagger API documentation at **`http://localhost:8000/docs`**.
+
+*Docker downloads required open-source fonts during the build.*
+
+- App: **`http://localhost:5173`**
+- API docs: **`http://localhost:8000/docs`**
+
 ---
+
 ## Deploy on VPS (private access via Tailscale)
 
-This section describes how to run Lucid on a VPS so that the frontend and API
-are reachable **only from devices on your Tailscale network** — not from the
-public internet.
+Run Lucid on a VPS with the frontend and API reachable **only from devices on your Tailscale network**.
 
-The key idea: instead of binding ports to `0.0.0.0` (all interfaces), we bind
-them exclusively to the Tailscale IP (`100.x.y.z`).  Docker's port-publishing
-mechanism goes through iptables, which bypasses UFW — binding to the Tailscale
-interface sidesteps this entirely.
+Instead of binding ports to `0.0.0.0`, we bind exclusively to the Tailscale IP (`100.x.y.z`). Docker's iptables rules only forward traffic that arrives on that interface — no public exposure, no UFW rules needed for app ports.
 
 ### Prerequisites
 
-- Docker & Docker Compose installed on the VPS
-- [Tailscale](https://tailscale.com/download) installed and connected on the VPS (`tailscale up`)
-- Tailscale also installed on any client device you want to access the app from
+- Docker & Docker Compose on the VPS
+- [Tailscale](https://tailscale.com/download) installed and connected (`tailscale up`)
+- Tailscale on any client device you want to access from
 
 ### 1. Clone and configure
 
@@ -107,12 +231,7 @@ interface sidesteps this entirely.
 git clone https://github.com/FloLey/Lucid.git
 cd Lucid
 cp .env.example .env
-# Edit .env and set your GOOGLE_API_KEY
-```
-
-Ensure the base config file exists:
-
-```bash
+# Edit .env and set GOOGLE_API_KEY
 echo '{}' > config.json
 ```
 
@@ -122,96 +241,72 @@ echo '{}' > config.json
 ./scripts/prod_up.sh
 ```
 
-The script will:
-1. Detect your Tailscale IPv4 address via `tailscale ip -4`.
-2. Bind the frontend (port 5173) and backend (port 8000) **only** to that IP.
-3. Build and start the containers in detached mode.
-4. Print the private URLs.
-
-Example output:
+The script detects your Tailscale IPv4 address, binds the frontend (port 5173) and backend (port 8000) to it, builds, and starts in detached mode.
 
 ```
 Tailscale IP detected: 100.64.0.12
 Starting Lucid (production mode) on 100.64.0.12 ...
-...
 Lucid is running (Tailscale-private access only):
   Frontend : http://100.64.0.12:5173
   API docs : http://100.64.0.12:8000/docs
-
-These URLs are reachable only from devices on your Tailscale network.
 ```
 
-### 3. Verify access
-
-From any device on your Tailscale network, open:
-
-- `http://<TAILSCALE_IP>:5173` — Lucid UI
-- `http://<TAILSCALE_IP>:8000/docs` — Swagger API docs
-
-The same URLs will return "connection refused" from the public internet.
-
-### 4. Stop
+### 3. Stop
 
 ```bash
 ./scripts/prod_down.sh
 ```
 
-This stops the containers. The `lucid-data` volume (database + generated images)
-is **preserved**. To also delete the data volume, run
-`docker compose down -v` manually.
+The `lucid-data` volume (database + generated images) is preserved. To also remove the data volume: `docker compose down -v`.
 
-### Firewall notes
-
-Binding ports to the Tailscale IP is sufficient to prevent public access —
-Docker's iptables rules will only forward traffic that arrives on the Tailscale
-interface.  You do **not** need UFW rules for the app ports.
-
-If you want defence-in-depth, a minimal UFW policy:
+### Firewall notes (optional defence-in-depth)
 
 ```bash
 sudo ufw default deny incoming
-sudo ufw allow ssh          # or: ufw allow in on tailscale0
+sudo ufw allow ssh
 sudo ufw allow in on tailscale0
 sudo ufw enable
 ```
 
-### Manual usage (without the script)
-
-If you prefer to run the compose command directly, export `LUCID_BIND_IP` first:
+### Manual usage
 
 ```bash
 export LUCID_BIND_IP="$(tailscale ip -4 | head -n1)"
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-The `docker-compose.prod.yml` overlay has **no fallback** for `LUCID_BIND_IP`.
-If the variable is unset, Docker Compose will error out rather than silently
-bind on `0.0.0.0`.
-
-### Future auto-deploy
-
-When automating deployments (e.g. via GitHub Actions or a deploy hook), always
-invoke `./scripts/prod_up.sh` rather than a plain `docker compose up`.  This
-guarantees that the Tailscale IP is detected at deploy time and the ports are
-never accidentally exposed publicly.
-
 ---
-## API & CLI Reference
-The FastAPI backend exposes a clean REST API. Here are the core architectural routes:
+
+## API Reference
+
+All routes are under the `/api` prefix. The full interactive docs are at `http://localhost:8000/docs`.
+
+### Carousel Pipeline
+
 | Route | Method | Description |
 | :--- | :--- | :--- |
-| `/api/projects/` | `POST` | Create a new project state (optionally from a Template). |
-| `/api/stage-research/chat` | `POST` | Send a user message and receive a search-grounded AI reply. |
-| `/api/stage-research/extract-draft` | `POST` | Summarise the research conversation into a draft text. |
-| `/api/stage-draft/generate` | `POST` | Convert draft string $\rightarrow$ JSON slide array using Gemini Flash. |
-| `/api/stage-style/generate` | `POST` | Propose visual theme prompts. |
-| `/api/stage-prompts/generate` | `POST` | Generate individual image prompts in parallel. |
-| `/api/stage-images/generate` | `POST` | Render image prompts $\rightarrow$ Base64/Disk PNGs using Gemini 2.5 Image. |
-| `/api/stage-typography/apply-all` | `POST` | Run PIL typography engine to composite text over backgrounds. |
-| `/api/projects/{id}/reorder` | `POST` | Reorder slides within a project. |
-| `/api/stage-draft/regenerate-stream` | `POST` | Regenerate a single slide's text via SSE streaming. |
-| `/api/export/zip` | `POST` | Archive project metadata and final composited images. |
-| `/api/prompts/validate` | `POST` | Dry-run validation of `.prompt` template edits. |
-| `/api/matrix/` | `POST` | Start a new Concept Matrix generation job (theme or description mode). |
-| `/api/matrix/{id}/generate-images` | `POST` | Bulk-generate background images for an existing matrix. |
-*Local Dev Note: If running without Docker, utilize the provided `install-deps.sh` script to install Node/Python requirements and trigger the `download_fonts.py` hook.*
+| `/api/projects/` | `POST` | Create a new project (optionally from a template) |
+| `/api/projects/{id}/reorder` | `POST` | Reorder slides within a project |
+| `/api/stage-research/chat` | `POST` | Send a message to the search-grounded research assistant |
+| `/api/stage-research/extract-draft` | `POST` | Synthesise the research conversation into a draft |
+| `/api/stage-draft/generate` | `POST` | Convert draft text → slide array |
+| `/api/stage-draft/regenerate-stream` | `POST` | Regenerate a single slide's text via SSE |
+| `/api/stage-style/generate` | `POST` | Generate visual style proposals |
+| `/api/stage-prompts/generate` | `POST` | Generate per-slide image prompts |
+| `/api/stage-images/generate` | `POST` | Generate background images from prompts |
+| `/api/stage-typography/apply-all` | `POST` | Composite text over backgrounds via PIL |
+| `/api/export/zip` | `POST` | Download project as a ZIP archive |
+| `/api/prompts/validate` | `POST` | Validate `.prompt` template edits without saving |
+
+### Matrix Generator
+
+| Route | Method | Description |
+| :--- | :--- | :--- |
+| `/api/matrix/` | `POST` | Start a new matrix generation job (theme or description mode) |
+| `/api/matrix/` | `GET` | List all matrices |
+| `/api/matrix/{id}` | `GET` | Get a matrix with all cells |
+| `/api/matrix/{id}/events` | `GET` | SSE stream of generation progress |
+| `/api/matrix/{id}/generate-images` | `POST` | Bulk-generate background images for an existing matrix |
+| `/api/matrix/{id}/revalidate` | `POST` | Run a validation pass; accepts `{"user_comment": "..."}` for extra instructions |
+
+*Local dev note: if running without Docker, use `install-deps.sh` to install Node/Python requirements and run `download_fonts.py` to fetch fonts.*
